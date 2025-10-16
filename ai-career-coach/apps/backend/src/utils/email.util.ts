@@ -24,7 +24,7 @@ const createTransporter = () => {
  */
 export const sendVerificationEmail = async (email: string, token: string) => {
   const transporter = createTransporter();
-  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+  const verificationUrl = `${process.env.FRONTEND_URL}/auth/verify-email?token=${token}`;
 
   const mailOptions = {
     from: process.env.EMAIL_FROM,
@@ -71,7 +71,7 @@ export const sendVerificationEmail = async (email: string, token: string) => {
  */
 export const sendPasswordResetEmail = async (email: string, token: string) => {
   const transporter = createTransporter();
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+  const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${token}`;
 
   const mailOptions = {
     from: process.env.EMAIL_FROM,

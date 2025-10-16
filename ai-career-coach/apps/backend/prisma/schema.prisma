@@ -1,4 +1,5 @@
-// Prisma schema for AI Career Coach backend
+// apps/backend/prisma/schema.prisma
+// AI Career Coach - Database Schema
 
 generator client {
   provider = "prisma-client-js"
@@ -9,152 +10,250 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Users table: Core user authentication and profile
+
+
 model User {
-  id            String        @id @default(uuid()) @db.Uuid
-  email         String        @unique @db.VarChar(255)
-  username      String        @unique @db.VarChar(50)
-  passwordHash  String        @map("password_hash") @db.VarChar(255)
-  firstName     String?       @map("first_name") @db.VarChar(100)
-  lastName      String?       @map("last_name") @db.VarChar(100)
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamp()
-  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamp()
-  isActive      Boolean       @default(true) @map("is_active")
-  emailVerified Boolean       @default(false) @map("email_verified")
+  id                   String    @id @default(uuid()) @db.Uuid
+  email                String    @unique @db.VarChar(255)
+  passwordHash         String    @map("password_hash") @db.VarChar(255)
+  firstName            String?   @map("first_name") @db.VarChar(100)
+  lastName             String?   @map("last_name") @db.VarChar(100)
+  isEmailVerified      Boolean   @default(false) @map("is_email_verified")
+  emailVerifyToken     String?   @unique @map("email_verify_token") @db.VarChar(500)
+  resetPasswordToken   String?   @unique @map("reset_password_token") @db.VarChar(500)
+  resetPasswordExpires DateTime? @map("reset_password_expires") @db.Timestamp()
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamp()
 
   // Relations
-  profile       UserProfile?
-  orders        Order[]
-  sessions      Session[]
-  auditLogs     AuditLog[]    @relation("ChangedBy")
+  profile              UserProfile?
+  cvs                  CV[]
+  savedJobs            SavedJob[]
+  applications         Application[]
+  interviewSessions    InterviewSession[]
+  learningPaths        LearningPath[]
+  userCourses          UserCourse[]
 
   @@index([email], name: "idx_users_email")
-  @@index([username], name: "idx_users_username")
   @@map("users")
 }
 
-// User profiles: Extended user information (1-to-1 relationship)
-model UserProfile {
-  id            String    @id @default(uuid()) @db.Uuid
-  userId        String    @unique @map("user_id") @db.Uuid
-  bio           String?   @db.Text
-  avatarUrl     String?   @map("avatar_url") @db.VarChar(500)
-  dateOfBirth   DateTime? @map("date_of_birth") @db.Date
-  phoneNumber   String?   @map("phone_number") @db.VarChar(20)
-  addressLine1  String?   @map("address_line1") @db.VarChar(255)
-  addressLine2  String?   @map("address_line2") @db.VarChar(255)
-  city          String?   @db.VarChar(100)
-  stateProvince String?   @map("state_province") @db.VarChar(100)
-  postalCode    String?   @map("postal_code") @db.VarChar(20)
-  country       String?   @db.VarChar(2) // ISO country code
 
-  // Relations
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+model UserProfile {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  phoneNumber  String?  @map("phone_number") @db.VarChar(20)
+  location     String?  @db.VarChar(255)
+  linkedinUrl  String?  @map("linkedin_url") @db.VarChar(500)
+  githubUrl    String?  @map("github_url") @db.VarChar(500)
+  portfolioUrl String?  @map("portfolio_url") @db.VarChar(500)
+  bio          String?  @db.Text
+  avatarUrl    String?  @map("avatar_url") @db.VarChar(500)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamp()
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
 }
 
-// Categories: Product categorization
-model Category {
-  id          String      @id @default(uuid()) @db.Uuid
-  name        String      @db.VarChar(100)
-  slug        String      @unique @db.VarChar(100)
-  description String?     @db.Text
-  parentId    String?     @map("parent_id") @db.Uuid
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamp()
 
-  // Relations
-  parent      Category?   @relation("SubCategories", fields: [parentId], references: [id], onDelete: SetNull)
-  children    Category[]  @relation("SubCategories")
-  products    Product[]
 
-  @@map("categories")
+model CV {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  filename     String   @db.VarChar(255)
+  fileUrl      String   @map("file_url") @db.VarChar(500)
+  parsedData   Json?    @map("parsed_data") @db.JsonB // Parsed CV content
+  analysisData Json?    @map("analysis_data") @db.JsonB // ATS score, recommendations
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamp()
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_cvs_user")
+  @@map("cvs")
 }
 
-// Products: Core product information
-model Product {
-  id            String      @id @default(uuid()) @db.Uuid
-  sku           String      @unique @db.VarChar(100)
-  name          String      @db.VarChar(255)
-  description   String?     @db.Text
-  price         Decimal     @db.Decimal(10, 2)
-  stockQuantity Int         @default(0) @map("stock_quantity")
-  categoryId    String?     @map("category_id") @db.Uuid
-  isActive      Boolean     @default(true) @map("is_active")
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamp()
-  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamp()
 
-  // Relations
-  category      Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  orderItems    OrderItem[]
 
-  @@index([name], name: "idx_products_name")
-  @@index([categoryId], name: "idx_products_category")
-  @@map("products")
+model Skill {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String         @unique @db.VarChar(100)
+  category      String         @db.VarChar(50) // technical, soft, language, etc.
+  description   String?        @db.Text
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamp()
+
+  learningPaths LearningPath[]
+  courses       Course[]
+
+  @@index([category], name: "idx_skills_category")
+  @@map("skills")
 }
 
-// Orders: Transaction records
-model Order {
-  id              String      @id @default(uuid()) @db.Uuid
-  userId          String      @map("user_id") @db.Uuid
-  orderNumber     String      @unique @map("order_number") @db.VarChar(50)
-  status          String      @default("pending") @db.VarChar(50) // pending, processing, completed, cancelled
-  totalAmount     Decimal     @map("total_amount") @db.Decimal(10, 2)
-  shippingAddress String?     @map("shipping_address") @db.Text
-  billingAddress  String?     @map("billing_address") @db.Text
-  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamp()
-  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamp()
 
-  // Relations
-  user            User        @relation(fields: [userId], references: [id], onDelete: Restrict)
-  orderItems      OrderItem[]
 
-  @@map("orders")
+
+model Job {
+  id               String     @id @default(uuid()) @db.Uuid
+  externalId       String     @unique @map("external_id") @db.VarChar(255) // From scraper
+  title            String     @db.VarChar(255)
+  company          String     @db.VarChar(255)
+  location         String?    @db.VarChar(255)
+  description      String     @db.Text
+  requirements     String?    @db.Text
+  salaryMin        Decimal?   @map("salary_min") @db.Decimal(10, 2)
+  salaryMax        Decimal?   @map("salary_max") @db.Decimal(10, 2)
+  salaryCurrency   String?    @map("salary_currency") @db.VarChar(3)
+  jobType          String?    @map("job_type") @db.VarChar(50) // full-time, part-time, contract
+  experienceLevel  String?    @map("experience_level") @db.VarChar(50)
+  skills           Json?      @db.JsonB // Array of required skills
+  sourceUrl        String     @map("source_url") @db.VarChar(500)
+  sourcePlatform   String     @map("source_platform") @db.VarChar(50) // Indeed, LinkedIn, etc.
+  postedAt         DateTime?  @map("posted_at") @db.Timestamp()
+  scrapedAt        DateTime   @default(now()) @map("scraped_at") @db.Timestamp()
+  isActive         Boolean    @default(true) @map("is_active")
+
+  savedJobs        SavedJob[]
+  applications     Application[]
+
+  @@index([company], name: "idx_jobs_company")
+  @@index([location], name: "idx_jobs_location")
+  @@index([postedAt], name: "idx_jobs_posted")
+  @@map("jobs")
 }
 
-// Order items: Products within each order (many-to-many)
-model OrderItem {
-  id              String   @id @default(uuid()) @db.Uuid
-  orderId         String   @map("order_id") @db.Uuid
-  productId       String   @map("product_id") @db.Uuid
-  quantity        Int
-  priceAtPurchase Decimal  @map("price_at_purchase") @db.Decimal(10, 2)
+model SavedJob {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  jobId      String   @map("job_id") @db.Uuid
+  matchScore Decimal? @map("match_score") @db.Decimal(5, 2) // 0-100
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp()
 
-  // Relations
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job        Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  @@map("order_items")
+  @@unique([userId, jobId])
+  @@map("saved_jobs")
 }
 
-// Sessions: User authentication tokens
-model Session {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  token     String   @unique @db.VarChar(255)
-  expiresAt DateTime @map("expires_at") @db.Timestamp()
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp()
 
-  // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([token], name: "idx_sessions_token")
-  @@index([expiresAt], name: "idx_sessions_expires")
-  @@map("sessions")
-}
-
-// Audit log: Track important data changes
-model AuditLog {
+model Application {
   id          String   @id @default(uuid()) @db.Uuid
-  tableName   String   @map("table_name") @db.VarChar(50)
-  recordId    String   @map("record_id") @db.Uuid
-  action      String   @db.VarChar(20) // INSERT, UPDATE, DELETE
-  changedBy   String?  @map("changed_by") @db.Uuid
-  changedData Json?    @map("changed_data") @db.JsonB
+  userId      String   @map("user_id") @db.Uuid
+  jobId       String?  @map("job_id") @db.Uuid
+  company     String   @db.VarChar(255)
+  jobTitle    String   @map("job_title") @db.VarChar(255)
+  status      String   @default("applied") @db.VarChar(50) // applied, interview, offer, rejected
+  appliedDate DateTime @default(now()) @map("applied_date") @db.Timestamp()
+  notes       String?  @db.Text
+  followUpDate DateTime? @map("follow_up_date") @db.Date
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp()
 
-  // Relations
-  user        User?    @relation("ChangedBy", fields: [changedBy], references: [id], onDelete: SetNull)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job         Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
 
-  @@map("audit_logs")
+  @@index([userId, status], name: "idx_applications_user_status")
+  @@map("applications")
+}
+
+
+
+model InterviewSession {
+  id           String            @id @default(uuid()) @db.Uuid
+  userId       String            @map("user_id") @db.Uuid
+  jobRole      String?           @map("job_role") @db.VarChar(100)
+  difficulty   String            @default("medium") @db.VarChar(20)
+  totalQuestions Int             @default(0) @map("total_questions")
+  averageScore Decimal?          @map("average_score") @db.Decimal(5, 2)
+  startedAt    DateTime?         @map("started_at") @db.Timestamp()
+  completedAt  DateTime?         @map("completed_at") @db.Timestamp()
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamp()
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers      InterviewAnswer[]
+
+  @@map("interview_sessions")
+}
+
+model InterviewAnswer {
+  id               String           @id @default(uuid()) @db.Uuid
+  sessionId        String           @map("session_id") @db.Uuid
+  questionText     String           @map("question_text") @db.Text
+  questionCategory String?          @map("question_category") @db.VarChar(50)
+  answerText       String?          @map("answer_text") @db.Text
+  answerDuration   Int?             @map("answer_duration") // seconds
+  transcriptUrl    String?          @map("transcript_url") @db.VarChar(500)
+  videoUrl         String?          @map("video_url") @db.VarChar(500)
+  fillerWordCount  Int?             @map("filler_word_count")
+  contentScore     Int?             @map("content_score")
+  structureScore   Int?             @map("structure_score")
+  confidenceScore  Int?             @map("confidence_score")
+  overallScore     Int?             @map("overall_score")
+  feedback         String?          @db.Text
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamp()
+
+  session          InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("interview_answers")
+}
+
+
+model LearningPath {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  skillId            String    @map("skill_id") @db.Uuid
+  priority           Int       @default(1)
+  estimatedHours     Int?      @map("estimated_hours")
+  status             String    @default("not_started") @db.VarChar(50)
+  progressPercentage Int       @default(0) @map("progress_percentage")
+  startedAt          DateTime? @map("started_at") @db.Timestamp()
+  completedAt        DateTime? @map("completed_at") @db.Timestamp()
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp()
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill              Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@map("learning_paths")
+}
+
+model Course {
+  id          String       @id @default(uuid()) @db.Uuid
+  skillId     String?      @map("skill_id") @db.Uuid
+  title       String       @db.VarChar(255)
+  platform    String       @db.VarChar(100) // Udemy, Coursera, etc.
+  url         String       @db.VarChar(500)
+  price       Decimal?     @db.Decimal(10, 2)
+  duration    Int?         @map("duration_hours")
+  rating      Decimal?     @db.Decimal(3, 2)
+  numStudents Int?         @map("num_students")
+  difficulty  String?      @db.VarChar(50)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamp()
+
+  skill       Skill?       @relation(fields: [skillId], references: [id], onDelete: SetNull)
+  userCourses UserCourse[]
+
+  @@map("courses")
+}
+
+model UserCourse {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  courseId   String    @map("course_id") @db.Uuid
+  status     String    @default("not_started") @db.VarChar(50) // not_started, in_progress, completed
+  progress   Int       @default(0) // 0-100
+  startedAt  DateTime? @map("started_at") @db.Timestamp()
+  completedAt DateTime? @map("completed_at") @db.Timestamp()
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamp()
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("user_courses")
 }

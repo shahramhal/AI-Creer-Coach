@@ -55,18 +55,25 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
     // Generate email verification token
-    const verifyToken = generateEmailVerifyToken({
-      userId: 'temp', // Will be replaced after user creation
-      email: data.email,
-    });
+   
 
     // Create user
     const user = await prisma.user.create({
       data: {
         email: data.email,
         passwordHash: hashedPassword,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        firstName: data.firstName ?? null,
+        lastName: data.lastName ?? null,
+        
+      },
+    });
+     const verifyToken = generateEmailVerifyToken({
+      userId: user.id, 
+      email: data.email,
+    });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
         emailVerifyToken: verifyToken,
       },
     });

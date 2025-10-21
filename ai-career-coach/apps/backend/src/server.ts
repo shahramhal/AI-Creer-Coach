@@ -5,7 +5,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes.js';
-// Add this debug line
+import profileRoutes from "./routes/profile.routes.js";
+
 console.log('authRoutes imported:', authRoutes);
 console.log('typeof authRoutes:', typeof authRoutes);
 
@@ -27,10 +28,9 @@ app.use(
   })
 );
 
-import testRoutes from './routes/test.routes';
+;
 
-// After health check
-app.use('/api/test', testRoutes);
+
 // Parse JSON request bodies
 app.use(express.json());
 
@@ -52,17 +52,14 @@ if (process.env.NODE_ENV === 'development') {
  * Routes
  */
 
-// Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
-  res.json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-  });
-});
+
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+// Profile routes
+app.use('/api/profile', profileRoutes);
+//Upload routes
+app.use('/uploads', express.static('public/uploads'));
 
 // 404 handler
 app.use((req: Request, res: Response) => {

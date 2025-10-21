@@ -46,7 +46,7 @@ export default function Avatar({
   const initials = getInitials();
 
   return (
-    <div className={`${sizeClasses[size]} rounded-full overflow-hidden ${className}`}>
+    <div className={`${sizeClasses[size]} rounded-full overflow-hidden mx-auto ${className}`}>
       {fullAvatarUrl ? (
         <img
           src={fullAvatarUrl}

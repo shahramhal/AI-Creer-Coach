@@ -32,12 +32,12 @@ export class ProfileService{
             }
         });
             }
-        // upload the avatar 
-    async updateAvatar(userId:string, avatarUrl:string){
+        // upload the avatar
+    async updateAvatar(userId:string, avatarUrl:string | null){
         return await prisma.userProfile.update({
             where:{userId},
             data:{ avatarUrl,
-                updatedAt: new Date()  
+                updatedAt: new Date()
              },
         });
 

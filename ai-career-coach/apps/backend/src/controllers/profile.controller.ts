@@ -76,7 +76,7 @@ export const updateProfile = async (req: Request, res: Response) => {
 export const uploadAvatar = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
-    
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -86,7 +86,7 @@ export const uploadAvatar = async (req: Request, res: Response) => {
 
     // Build avatar URL
     const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-    
+
     const profile = await profileService.updateAvatar(userId, avatarUrl);
 
     return res.status(200).json({
@@ -99,6 +99,50 @@ export const uploadAvatar = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to upload avatar'
+    });
+  }
+};
+
+/**
+ * DELETE /api/profile/avatar
+ * Delete profile avatar
+ */
+export const deleteAvatar = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+
+    // Get current profile to find avatar file
+    const profile = await profileService.getProfile(userId);
+
+    if (profile.avatarUrl) {
+      // Delete file from storage
+      const fs = await import('fs/promises');
+      const path = await import('path');
+
+      const filename = profile.avatarUrl.split('/').pop();
+      const filePath = path.join(process.cwd(), 'public', 'uploads', 'avatars', filename!);
+
+      try {
+        await fs.unlink(filePath);
+      } catch (fileError) {
+        console.error('Failed to delete avatar file:', fileError);
+        // Continue even if file deletion fails
+      }
+    }
+
+    // Remove avatar URL from database
+    const updatedProfile = await profileService.updateAvatar(userId, null);
+
+    return res.status(200).json({
+      success: true,
+      data: { avatarUrl: null },
+      message: 'Avatar deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete avatar error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete avatar'
     });
   }
 };

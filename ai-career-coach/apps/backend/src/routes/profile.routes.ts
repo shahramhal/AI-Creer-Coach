@@ -7,7 +7,8 @@ import { upload } from '../middlewares/upload.middleware.js';
 import {
   getProfile,
   updateProfile,
-  uploadAvatar
+  uploadAvatar,
+  deleteAvatar
 } from '../controllers/profile.controller.js';
 
 const router = Router();
@@ -23,6 +24,9 @@ router.put('/', updateProfile);
 
 // POST /api/profile/avatar - Upload avatar
 router.post('/avatar', upload.single('avatar'), uploadAvatar);
+
+// DELETE /api/profile/avatar - Delete avatar
+router.delete('/avatar', deleteAvatar);
 
 // Multer error handler - catches file upload errors
 router.use((err: any, req: Request, res: Response, next: NextFunction) => {

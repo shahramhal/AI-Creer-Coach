@@ -5,6 +5,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/authContext';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -49,6 +50,12 @@ export default function DashboardPage() {
               <span className="text-sm text-gray-700">
                 {user?.firstName} {user?.lastName}
               </span>
+              <Link 
+                href="/profile"
+                className="px-4 py-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                My Profile
+              </Link>
               <button
                 onClick={handleLogout}
                 className="px-4 py-2 text-sm text-red-600 hover:text-red-700 font-medium"

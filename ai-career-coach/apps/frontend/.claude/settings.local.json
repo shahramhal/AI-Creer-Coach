@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/shaxr/Documents/GitHub/AI-Career-Coach/AI-Creer-Coach/ai-career-coach/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

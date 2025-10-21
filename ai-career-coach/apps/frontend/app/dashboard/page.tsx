@@ -2,20 +2,50 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/authContext';
+import Avatar from '../../components/common/Avatar';
 import Link from 'next/link';
+import { API_BASE_URL } from '../../lib/config';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Fetch user profile to get avatar
+  useEffect(() => {
+    if (user) {
+      fetchAvatar();
+    }
+  }, [user]);
+
+  const fetchAvatar = async () => {
+    if (!user) return;
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_BASE_URL}/api/profile/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvatarUrl(data.data.avatarUrl);
+      }
+    } catch (error) {
+      console.error('Failed to load avatar:', error);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -71,12 +101,15 @@ export default function DashboardPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-lg shadow p-8">
           <div className="text-center space-y-4">
-            <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto">
-              <svg className="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div className="mx-auto">
+              <Avatar
+                avatarUrl={avatarUrl}
+                firstName={user?.firstName}
+                lastName={user?.lastName}
+                size="xl"
+              />
             </div>
-            
+
             <h2 className="text-3xl font-bold text-gray-900">
               Welcome to Your Dashboard!
             </h2>

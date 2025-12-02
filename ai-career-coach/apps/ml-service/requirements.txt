@@ -1,5 +1,31 @@
+# Core web framework
 fastapi
 uvicorn
+python-multipart>=0.0.12
+
+# PDF/DOCX parsing
+PyPDF2>=3.0.0
+pdfplumber>=0.11.0
+python-docx>=1.1.0
+
+# NLP and ML
+spacy>=3.8.0
+transformers>=4.45.0
+torch>=2.5.0
+sentence-transformers>=3.0.0
+
+# Text processing
+python-dateutil==2.8.2
+phonenumbers==8.13.26
+email-validator==2.1.0
+
+# Database
+pymongo==4.6.0
+psycopg2-binary>=2.9.10
+redis==5.0.1
+
+# Utilities
+python-dotenv==1.0.0
 pydantic
 numpy
 pandas

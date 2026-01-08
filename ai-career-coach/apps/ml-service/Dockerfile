@@ -1,19 +1,23 @@
-# apps/ml-service/Dockerfile
-
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Copy dependency file and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy the rest of the code
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m spacy download en_core_web_sm
+
+# Copy application code
 COPY . .
 
-# Expose the service port
-EXPOSE 5000
+EXPOSE 8000
 
-# Run the FastAPI app
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
+# Run application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

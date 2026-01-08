@@ -19,7 +19,7 @@ services:
   ml-service:
     build: ./apps/ml-service
     ports:
-      - "5000:5000"
+      - "8000:8000"
     depends_on: [postgres, mongodb]
     networks:
       - career_coach_network
@@ -48,21 +48,15 @@ services:
     image: mongo:7
     container_name: career_coach_mongodb
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-career_coach}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-your_secure_password}
-      MONGO_INITDB_DATABASE: ${MONGO_DB:-career_coach_db}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-admin123}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-career_coach}
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
-      - ./scripts/init-db/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
     networks:
       - career_coach_network
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
     image: redis:7-alpine

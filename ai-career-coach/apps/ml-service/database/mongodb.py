@@ -60,7 +60,7 @@ class MongoDBConnection:
             Document ID
         """
         # Ensure connection exists
-        if not self.collection:
+        if self.collection is None:
             self.connect()
         
         # Add user_id to data
@@ -95,8 +95,9 @@ class MongoDBConnection:
     
     def close(self):
         """Close MongoDB connection"""
-        if self.client:
+        if self.client is not None:
             self.client.close()
+            self.connected = False
             print("✓ MongoDB connection closed")
 
 

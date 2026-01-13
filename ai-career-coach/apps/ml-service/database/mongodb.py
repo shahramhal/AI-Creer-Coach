@@ -5,8 +5,14 @@ Handles CV storage and retrieval
 
 from pymongo import MongoClient  # Fixed typo: was 'pymogo'
 from typing import Optional
-import os 
+import os
 from dotenv import load_dotenv
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parent.parent))
+from utils.serializers import serialize_objectid
 
 load_dotenv()
 
@@ -51,46 +57,51 @@ class MongoDBConnection:
     def save_parsed_cv(self, user_id: str, parsed_data: dict) -> str:
         """
         Save parsed CV data to MongoDB
-        
+
         Args:
             user_id: User identifier
             parsed_data: Parsed CV dictionary
-            
+
         Returns:
             Document ID
         """
         # Ensure connection exists
         if self.collection is None:
             self.connect()
-        
-        # Add user_id to data
-        parsed_data['user_id'] = user_id
-        
+
+        # Create a copy to avoid mutating original data
+        data_to_save = parsed_data.copy()
+        data_to_save['user_id'] = user_id
+
         # Insert document
-        result = self.collection.insert_one(parsed_data)
-        
+        result = self.collection.insert_one(data_to_save)
+
         return str(result.inserted_id)
     
     def get_cv_by_user(self, user_id: str) -> Optional[dict]:
         """
         Retrieve latest parsed CV data by user ID
-        
+
         Args:
             user_id: User identifier
-            
+
         Returns:
-            Parsed CV data or None
+            Parsed CV data or None (with ObjectIds serialized to strings)
         """
         # Ensure connection exists
         if not self.collection:
             self.connect()
-        
+
         # Find most recent CV for user
         cv = self.collection.find_one(
             {'user_id': user_id},
             sort=[('parsed_at', -1)]
         )
-        
+
+        # Serialize ObjectIds before returning
+        if cv:
+            cv = serialize_objectid(cv)
+
         return cv
     
     def close(self):

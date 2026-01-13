@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes.js';
 import profileRoutes from "./routes/profile.routes.js";
+import mlRoutes from "./routes/ml.routes.js";
 
 console.log('authRoutes imported:', authRoutes);
 console.log('typeof authRoutes:', typeof authRoutes);
@@ -58,6 +59,8 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api/auth', authRoutes);
 // Profile routes
 app.use('/api/profile', profileRoutes);
+// ML service routes
+app.use('/api/ml', mlRoutes);
 //Upload routes
 app.use('/uploads', express.static('public/uploads'));
 

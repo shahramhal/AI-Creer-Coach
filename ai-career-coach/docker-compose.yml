@@ -12,6 +12,8 @@ services:
     build: ./apps/backend
     ports:
       - "4000:4000"
+    environment:
+      - ML_SERVICE_URL=http://ml-service:8000
     depends_on: [postgres, mongodb, redis]
     networks:
       - career_coach_network

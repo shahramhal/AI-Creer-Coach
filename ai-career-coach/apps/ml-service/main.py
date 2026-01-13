@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from database.mongodb import get_mongodb_connection
+from utils.serializers import serialize_objectid
 import uvicorn
 
 # Import CV parser
@@ -69,13 +70,17 @@ async def parse_cv(file: UploadFile = File(...)):
         # Parse CV
         parsed_data = cv_parser.parse(content, file.filename)
 
+        # Save to MongoDB
         mongo = get_mongodb_connection()
         doc_id = mongo.save_parsed_cv("temp_user", parsed_data)
 
-        
+        # Serialize ObjectIds to strings before returning
+        serialized_data = serialize_objectid(parsed_data)
+        serialized_data['document_id'] = doc_id
+
         return ParseResponse(
             success=True,
-            data=parsed_data
+            data=serialized_data
         )
         
     except Exception as e:

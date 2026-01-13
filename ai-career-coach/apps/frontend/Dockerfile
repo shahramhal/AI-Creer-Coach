@@ -1,16 +1,15 @@
-# Stage 1: Build the app
-FROM node:18 AS build
+FROM node:18-alpine
 
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm install
-COPY . .
-RUN npm run build
 
-# Stage 2: Serve the app
-FROM node:18
-WORKDIR /app
-RUN npm install -g serve
-COPY --from=build /app/build ./build
+COPY . .
+
 EXPOSE 3000
-CMD ["serve", "-s", "build", "-l", "3000"]
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["npm", "run", "dev"]

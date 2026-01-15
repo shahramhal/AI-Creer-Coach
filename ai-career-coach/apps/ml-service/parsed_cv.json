@@ -1,0 +1,73 @@
+{
+  "contact_info": {
+    "email": "shahramhalimzoda@gmail.com",
+    "phone": "+44 7778 640294",
+    "name": "Shahram Halimzoda",
+    "location": "Greyhound Road, London"
+  },
+  "skills": [
+    "API",
+    "Agile",
+    "CSS",
+    "Django",
+    "Docker",
+    "Git",
+    "HTML",
+    "Java",
+    "Kotlin",
+    "MySQL",
+    "PHP",
+    "Python",
+    "REST",
+    "React",
+    "React Native",
+    "Restful Api",
+    "SQL",
+    "Sqlite",
+    "Tailwind"
+  ],
+  "experience": [
+    {
+      "title": "Backend Developer",
+      "company": "SoftIT",
+      "location": "Tashkent , Uzbekistan",
+      "dates": "Nov 2024 - May 2025",
+      "responsibilities": [
+        "Designed and maintained backend systems powering 5+ production-grade apps, improving backend efficiency by ~20%",
+        "Leveraged Python (Django) and React Native to support over 1,000 concurrent users",
+        "Developed RESTful APIs enabling smooth frontend-backend communication in application with 1000+ active users",
+        "Implemented 100+ unit tests and executed debugging for stability and quality assurance",
+        "Leveraged Git to coordinate codebase changes across 4+ developers, reducing merge conflicts by 30%"
+      ]
+    },
+    {
+      "title": "Waiter",
+      "company": "Aspera Restaurant",
+      "location": "Essex, United Kingdom",
+      "dates": "May 2024 - Nov 2024",
+      "responsibilities": [
+        "Problem-Solving: Quickly addressed customer concerns and managed special requests in a fast-paced environment, keeping service running 10/10",
+        "Time Management & Multitasking: Balanced tasks during peak hours, staying organized and maintaining on-"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "BSc",
+      "field": "Computer Science",
+      "institution": "University of Westminster",
+      "location": "United Kingdom",
+      "dates": "Sep 2024 \u2013 May 2026 (Expected)"
+    },
+    {
+      "degree": "International Year One",
+      "field": "Computer Science",
+      "institution": "Kaplan International College",
+      "location": "United Kingdom",
+      "dates": "Sep 2023 \u2013 May 2024"
+    }
+  ],
+  "summary": null,
+  "filename": "Shahram_Halimzoda_Software_Engineer.pdf",
+  "parsed_at": "2026-01-15T03:30:46.551968"
+}

@@ -20,11 +20,11 @@ def test_parser():
     parser = CVParser()
     
     # Read test PDF
-    with open("Shahram_Halimzoda_Software_Engineer.docx", "rb") as f:
+    with open("Shahram_Halimzoda_Software_Engineer.pdf", "rb") as f:
         content = f.read()
     
     # Parse the CV
-    result = parser.parse(content, "Shahram_Halimzoda_Software_Engineer.docx")
+    result = parser.parse(content, "Shahram_Halimzoda_Software_Engineer.pdf")
     
     # === BASIC INFO ===
     print_separator("PARSING RESULTS")

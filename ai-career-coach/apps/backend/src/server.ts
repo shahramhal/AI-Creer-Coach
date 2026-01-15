@@ -7,9 +7,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes.js';
 import profileRoutes from "./routes/profile.routes.js";
 import mlRoutes from "./routes/ml.routes.js";
-
-console.log('authRoutes imported:', authRoutes);
-console.log('typeof authRoutes:', typeof authRoutes);
+import { connectMongoDB } from './config/database.js';
 
 // Load environment variables
 dotenv.config();
@@ -28,9 +26,6 @@ app.use(
     credentials: true, // Allow cookies
   })
 );
-
-;
-
 
 // Parse JSON request bodies
 app.use(express.json());
@@ -53,15 +48,16 @@ if (process.env.NODE_ENV === 'development') {
  * Routes
  */
 
-
-
 // Auth routes
 app.use('/api/auth', authRoutes);
+
 // Profile routes
 app.use('/api/profile', profileRoutes);
+
 // ML service routes
 app.use('/api/ml', mlRoutes);
-//Upload routes
+
+// Upload routes (static files)
 app.use('/uploads', express.static('public/uploads'));
 
 // 404 handler
@@ -86,21 +82,37 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 /**
- * Start server
+ * Initialize database connections and start server
  */
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
-});
+async function startServer() {
+  try {
+    // Connect to MongoDB (Prisma connects automatically)
+    await connectMongoDB();
+    
+    // Start HTTP server
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
+      console.log(`🤖 ML Service URL: ${process.env.ML_SERVICE_URL}`);
+    });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
-});
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
+    });
+
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();
 
 export default app;

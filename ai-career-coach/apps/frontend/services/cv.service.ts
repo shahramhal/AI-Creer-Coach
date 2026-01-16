@@ -1,6 +1,7 @@
+// apps/frontend/services/cv.service.ts
 
 
-import { API_BASE_URL } from '../lib/config';
+import api from '../lib/api'; // Your existing api.ts with interceptors
 import type {
   CV,
   CVUploadResponse,
@@ -12,28 +13,19 @@ import type {
 } from '../types/cv.types';
 
 /**
- * CV Service
- * Handles all CV-related API calls
+ * CV Service Class
+ * Handles all CV-related API calls using axios
  */
 class CVService {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = `${API_BASE_URL}/api/ml`;
-  }
-
-  /**
-   * Get authorization header with JWT token
-   */
-  private getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem('accessToken');
-    return {
-      'Authorization': `Bearer ${token}`,
-    };
-  }
-
   /**
    * Upload and parse a CV file
+   * 
+   * How it works:
+   * 1. Create FormData with file
+   * 2. Send to backend via axios
+   * 3. Axios interceptor automatically adds token
+   * 4. If token expired, interceptor refreshes and retries
+   * 
    * @param file - CV file (PDF or DOCX)
    * @returns Parsed CV data
    */
@@ -41,148 +33,120 @@ class CVService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${this.baseUrl}/parse-cv`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: formData,
+    // axios automatically adds Authorization header via interceptor
+    const response = await api.post('/api/ml/parse-cv', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data', // Important for file upload
+      },
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to upload CV');
-    }
-
-    return response.json();
+    return response.data;
   }
 
   /**
    * Get all CVs for the current user
+   * 
    * @returns List of user's CVs
    */
   async getUserCVs(): Promise<CVListResponse> {
-    const response = await fetch(`${this.baseUrl}/cvs`, {
-      method: 'GET',
-      headers: {
-        ...this.getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch CVs');
-    }
-
-    return response.json();
+    // axios interceptor handles:
+    // - Adding Authorization header
+    // - Refreshing token on 401
+    // - Retrying request with new token
+    const response = await api.get('/api/ml/cvs');
+    return response.data;
   }
 
   /**
    * Get a single CV by ID
+   * 
    * @param cvId - CV identifier
    * @returns CV detail
    */
   async getCVById(cvId: string): Promise<CVDetailResponse> {
-    const response = await fetch(`${this.baseUrl}/cvs/${cvId}`, {
-      method: 'GET',
-      headers: {
-        ...this.getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch CV');
-    }
-
-    return response.json();
+    const response = await api.get(`/api/ml/cvs/${cvId}`);
+    return response.data;
   }
 
   /**
    * Update CV parsed data
+   * 
    * @param cvId - CV identifier
    * @param payload - Updated data
    * @returns Updated CV
    */
   async updateCV(cvId: string, payload: CVUpdatePayload): Promise<CVUpdateResponse> {
-    const response = await fetch(`${this.baseUrl}/cvs/${cvId}`, {
-      method: 'PATCH',
-      headers: {
-        ...this.getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to update CV');
-    }
-
-    return response.json();
+    const response = await api.patch(`/api/ml/cvs/${cvId}`, payload);
+    return response.data;
   }
 
   /**
    * Set a CV as primary (default)
+   * 
+   * How it works:
+   * - Backend sets all user's CVs to isPrimary=false
+   * - Then sets this CV to isPrimary=true
+   * - Ensures only one primary CV at a time
+   * 
    * @param cvId - CV identifier
    * @returns Updated CV
    */
   async setPrimaryCV(cvId: string): Promise<SetPrimaryCVResponse> {
-    const response = await fetch(`${this.baseUrl}/cvs/${cvId}/set-primary`, {
-      method: 'PATCH',
-      headers: {
-        ...this.getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to set primary CV');
-    }
-
-    return response.json();
+    
+    const response = await api.patch(`/api/ml/cvs/${cvId}/primary`);
+    return response.data;
   }
 
   /**
    * Delete a CV
+   * 
    * @param cvId - CV identifier
    */
   async deleteCV(cvId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/cvs/${cvId}`, {
-      method: 'DELETE',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to delete CV');
-    }
+    await api.delete(`/api/ml/cvs/${cvId}`);
+    // axios returns response.data, but we don't need it for delete
   }
 
   /**
    * Download CV file
+   * 
+   * Important: Use responseType: 'blob' for file downloads
+   * This tells axios to return binary data instead of JSON
+   * 
+   * How it works:
+   * 1. Request file from backend (axios adds token automatically)
+   * 2. If token expired, axios refreshes and retries
+   * 3. Get blob response
+   * 4. Create temporary URL
+   * 5. Trigger browser download
+   * 6. Clean up temporary URL
+   * 
    * @param cvId - CV identifier
    * @param filename - Original filename
    */
   async downloadCV(cvId: string, filename: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/cvs/${cvId}/download`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
+    // responseType: 'blob' is CRITICAL for file downloads
+    // Without it, axios will try to parse as JSON and fail
+    const response = await api.get(`/api/ml/cvs/${cvId}/download`, {
+      responseType: 'blob', // Tell axios this is binary data
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to download CV');
-    }
-
-    // Create blob and trigger download
-    const blob = await response.blob();
+    // Create blob from response
+    const blob = response.data;
+    
+    // Create temporary URL for the blob
     const url = window.URL.createObjectURL(blob);
+    
+    // Create invisible link element
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename;
+    link.download = filename; // Set filename for download
+    
+    // Trigger download
     document.body.appendChild(link);
     link.click();
+    
+    // Clean up
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   }

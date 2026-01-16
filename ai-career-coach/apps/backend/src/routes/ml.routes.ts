@@ -4,6 +4,8 @@ import type { Request, Response, RequestHandler } from 'express';
 import multer from 'multer';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { prisma } from '../config/database.js';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 const upload = multer();
@@ -38,7 +40,7 @@ router.post(
       const userId = req.user!.id;
       const filename = req.file.originalname;
 
-      console.log(`📄 Processing CV: ${filename} for user: ${userId}`);
+      console.log(` Processing CV: ${filename} for user: ${userId}`);
 
       // Step 1: Create FormData for ML service
       const formData = new FormData();
@@ -48,7 +50,7 @@ router.post(
       formData.append('file', fileBlob, filename);
 
       // Step 2: Forward to ML service for parsing
-      console.log(`🚀 Forwarding to ML service: ${ML_SERVICE_URL}/api/ml/parse-cv`);
+      console.log(` Forwarding to ML service: ${ML_SERVICE_URL}/api/ml/parse-cv`);
       
       const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/parse-cv`, {
         method: 'POST',
@@ -59,7 +61,7 @@ router.post(
 
       // Handle ML service errors
       if (!mlResponse.ok) {
-        console.error('❌ ML service error:', mlData);
+        console.error(' ML service error:', mlData);
         res.status(mlResponse.status).json({
           success: false,
           message: mlData.message || 'ML service error',
@@ -71,7 +73,28 @@ router.post(
       // Extract parsed data from ML response
       const parsedData = mlData.data;
 
-      console.log('✅ CV parsed successfully');
+      console.log(' CV parsed successfully');
+
+       //SAVE FILE TO DISK
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'cvs', userId);
+      
+      console.log(` Saving to: ${uploadDir}`);
+      
+      // Create directory
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      // Save file
+      const filePath = path.join(uploadDir, filename);
+      fs.writeFileSync(filePath, req.file.buffer);
+      
+      console.log(` File saved: ${filePath}`);
+
+      // Verify
+      if (!fs.existsSync(filePath)) {
+        throw new Error('File save failed');
+      }
 
       // Step 3: Save to PostgreSQL
       // Store parsed data in CV table (parsedData field as JSONB)
@@ -85,7 +108,7 @@ router.post(
         },
       });
 
-      console.log(`💾 Saved to database with ID: ${cvRecord.id}`);
+      console.log(` Saved to database with ID: ${cvRecord.id}`);
 
       // Step 4: Return response
       res.status(200).json({
@@ -100,7 +123,7 @@ router.post(
       });
 
     } catch (error) {
-      console.error('❌ Error parsing CV:', error);
+      console.error(' Error parsing CV:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to parse CV',
@@ -313,7 +336,72 @@ router.patch(
       });
     }
 });
+router.get('/cvs/:cvId/download', authenticate as RequestHandler,
+   async (req: Request, res: Response): Promise<void> => {
+    try {
+  const { cvId } = req.params;
+  const userId = req.user!.id;
+  
+  console.log(` Download: CV ${cvId}`);
+  // Validate cvId parameter exists
+  if (!cvId) {
+    res.status(400).json({
+      success: false,
+      message: 'CV ID is required',
+    });
+    return;
+  }
+  
+  // Get CV and verify ownership
+  const cv = await prisma.cV.findUnique({ where: { id: cvId } });
+  if (!cv || cv.userId !== userId) {
+    res.status(404).json({ success: false });
+    return;
+  }
+  
+  // Stream file
+  const filePath = path.join(process.cwd(), 'public', cv.fileUrl);
+  console.log(`File path: ${filePath}`);
+  if (!fs.existsSync(filePath)) {
+        console.log(` File not found!`);
+        res.status(404).json({
+          success: false,
+          message: 'File not found on server',
+        });
+        return;
+      }
 
+      console.log(` Streaming file...`);
+      // Stream file
+      const fileStream = fs.createReadStream(filePath);
+      
+      fileStream.on('error', (error) => {
+        console.error('Stream error:', error);
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: 'Error streaming file',
+          });
+        }
+      });
+
+      fileStream.pipe(res);
+
+      fileStream.on('end', () => {
+        console.log(` Download complete`);
+      });
+    }catch (error) {
+      console.error(' Download error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to download CV',
+        });
+      }
+    }
+
+    
+});
 /**
  * Health check for ML service
  */

@@ -1,8 +1,18 @@
-// apps/web/src/context/AuthContext.tsx
 
 'use client';
 
+/**
+ * Authentication Context - Updated with Security Features
+ * 
+ * New features added:
+ * 1. Periodic auth checks (every 5 minutes)
+ * 2. Window focus listener (catches back button)
+ * 3. Secure logout with router.replace()
+ * 4. Better error handling
+ */
+
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { authAPI } from '../lib/api';
 
 // User type definition
@@ -23,6 +33,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  checkAuth: () => Promise<boolean>; // NEW
 }
 
 // Registration data type
@@ -36,6 +47,7 @@ interface RegisterData {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
@@ -45,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsMounted(true);
   }, []);
 
-  // Load user on mount (only after component is mounted)
+  // Load user on mount
   useEffect(() => {
     if (isMounted) {
       loadUser();
@@ -55,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load user from localStorage or API
   const loadUser = async () => {
     try {
-      // Check if we're in the browser
       if (typeof window === 'undefined') {
         setIsLoading(false);
         return;
@@ -65,16 +76,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const savedUser = localStorage.getItem('user');
 
       if (token && savedUser) {
-        // Load from localStorage first (instant)
         setUser(JSON.parse(savedUser));
 
-        // Then verify with API
         try {
           const { data } = await authAPI.getCurrentUser();
           setUser(data.data.user);
           localStorage.setItem('user', JSON.stringify(data.data.user));
         } catch (error) {
-          // Token invalid - clear storage
+          console.log('🔒 Token validation failed');
           localStorage.removeItem('accessToken');
           localStorage.removeItem('user');
           setUser(null);
@@ -87,34 +96,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * NEW: Check authentication status
+   */
+  const checkAuth = async (): Promise<boolean> => {
+    const token = localStorage.getItem('accessToken');
+    
+    if (!token) {
+      setUser(null);
+      return false;
+    }
+
+    try {
+      const { data } = await authAPI.getCurrentUser();
+      setUser(data.data.user);
+      return true;
+    } catch (error) {
+      console.log('🔒 Auth check failed');
+      localStorage.clear();
+      setUser(null);
+      return false;
+    }
+  };
+
   // Login function
   const login = async (email: string, password: string) => {
     const { data } = await authAPI.login(email, password);
     
-    // Save token and user
     localStorage.setItem('accessToken', data.data.accessToken);
     localStorage.setItem('user', JSON.stringify(data.data.user));
     setUser(data.data.user);
+    
+    console.log('✅ User logged in');
   };
 
   // Register function
   const register = async (registerData: RegisterData) => {
     await authAPI.register(registerData);
-    // Don't auto-login - user needs to verify email
   };
 
-  // Logout function
+  /**
+   * UPDATED: Secure logout
+   * Uses router.replace() to prevent back button
+   */
   const logout = async () => {
+    console.log('🚪 Logging out');
+    
     try {
       await authAPI.logout();
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      // Clear local state regardless of API success
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-      setUser(null);
     }
+    
+    // Clear storage
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
+    sessionStorage.clear();
+    
+    // Clear state
+    setUser(null);
+    
+    // CRITICAL: Use replace() not push()
+    router.replace('/login');
+    
+    console.log('✅ Logout complete');
   };
 
   // Refresh user data
@@ -128,6 +173,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * NEW: Periodic check (every 5 minutes)
+   * Catches token expiry during idle sessions
+   */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const token = localStorage.getItem('accessToken');
+      
+      if (!token) {
+        console.log('🔒 Periodic check: No token - Logging out');
+        logout();
+      } else {
+        console.log('🔄 Periodic check: Token exists');
+      }
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  /**
+   * NEW: Window focus listener
+   * Blocks back button after logout
+   */
+  useEffect(() => {
+    const handleFocus = () => {
+      const token = localStorage.getItem('accessToken');
+      
+      if (!token) {
+        console.log('🔒 Focus: No token - Redirecting');
+        router.replace('/login');
+      } else {
+        console.log('👀 Focus: Token exists');
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
   const value = {
     user,
     isLoading,
@@ -136,12 +220,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     refreshUser,
+    checkAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Custom hook to use auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   

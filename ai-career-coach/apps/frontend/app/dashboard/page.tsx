@@ -86,6 +86,11 @@ export default function DashboardPage() {
               >
                 My Profile
               </Link>
+              <Link
+                href="/cvs"
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-700 font-medium">
+                CVs
+              </Link>
               <button
                 onClick={handleLogout}
                 className="px-4 py-2 text-sm text-red-600 hover:text-red-700 font-medium"
@@ -154,15 +159,35 @@ export default function DashboardPage() {
             <div className="mt-12">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Next Steps</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-                <div className="bg-gray-50 rounded-lg p-6 text-center">
-                  <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <h4 className="font-medium text-gray-900 mb-2">Upload CV</h4>
-                  <p className="text-sm text-gray-600">Get AI-powered analysis and recommendations</p>
+                <Link 
+                href="/cvs"
+                className="block p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200"
+              >
+                <div className="flex items-center space-x-3">
+                  <svg 
+                    className="h-8 w-8 text-indigo-600" 
+                    fill="currentColor" 
+                    viewBox="0 0 20 20"
+                  >
+                    <path 
+                      fillRule="evenodd" 
+                      d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" 
+                      clipRule="evenodd" 
+                    />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900">My CVs</h3>
                 </div>
+                <p className="mt-3 text-gray-600">
+                  Upload, manage, and optimize your CVs with AI-powered analysis
+                </p>
+                <div className="mt-4 text-indigo-600 font-medium text-sm flex items-center">
+                  Manage CVs
+                  <svg className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </Link>
+
 
                 <div className="bg-gray-50 rounded-lg p-6 text-center">
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">

@@ -1,15 +1,13 @@
 """
-Refined Production CV Parser - Fixes for common issues
-- Deduplication of entries
-- Better skill filtering
-- Proper bullet point handling
-- Special character cleaning
+ CV Parser 
+Handles multiple CV formats, generic skills extraction, and flexible parsing
 """
 
 import io
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set
 from datetime import datetime
+from collections import Counter
 
 # PDF parsing
 import PyPDF2
@@ -22,77 +20,70 @@ from docx import Document
 import spacy
 
 # Text utilities
-from email_validator import validate_email
+from email_validator import validate_email, EmailNotValidError
 import phonenumbers
 
 
 class CVParser:
     """
-    Production CV parser with enhanced filtering and deduplication
+    Multi-format CV parser with intelligent extraction
+    Works with both tech and non-tech CVs
     """
     
-    # Section headers
-    SECTION_HEADERS = {
-        'experience': [
-            'work experience', 'professional experience', 'employment history',
-            'employment', 'career history', 'work history', 'other work experience',
-            'relevant experience', 'professional background'
-        ],
-        'education': [
-            'education', 'academic background', 'academic qualifications',
-            'qualifications', 'educational background'
-        ],
-        'skills': [
-            'skills', 'technical skills', 'core competencies', 'competencies',
-            'skills and interests', 'technologies', 'tools and technologies'
-        ],
-        'projects': [
-            'projects', 'personal projects', 'notable projects', 'key projects'
-        ]
+    # Common section headers (case-insensitive matching)
+    SECTION_PATTERNS = {
+        'experience': r'(?:work|professional|employment|career)\s*(?:experience|history|background)',
+        'education': r'education(?:al)?(?:\s+(?:background|qualifications?))?',
+        'skills': r'(?:skills|competencies|core\s+competencies|technical\s+skills)',
+        'summary': r'(?:professional\s+)?(?:summary|profile|objective|career\s+focus)',
     }
     
-    # Core technical skills only
-    SKILL_KEYWORDS = [
-        # Programming Languages
-        'python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'kotlin',
-        'swift', 'rust', 'ruby', 'php', 'scala',
+    # Common soft skills and domain terms (complement NER extraction)
+    COMMON_SKILLS = {
+        # Technical
+        'python', 'java', 'javascript', 'typescript', 'sql', 'react', 'node.js',
+        'aws', 'docker', 'kubernetes', 'git', 'mongodb', 'postgresql',
         
-        # Web Technologies
-        'html', 'css', 'react', 'angular', 'vue', 'node.js', 'express',
-        'django', 'flask', 'spring', 'asp.net', 'laravel', 'tailwind',
-        'bootstrap', 'jquery', 'next.js', 'react native',
+        # Business/Management
+        'project management', 'team leadership', 'strategic planning',
+        'business development', 'client relations', 'budget management',
+        'performance management', 'operations management',
         
-        # Databases
-        'sql', 'mysql', 'postgresql', 'mongodb', 'redis', 'sqlite',
-        'oracle', 'cassandra', 'dynamodb', 'firebase',
+        # Communication
+        'communication', 'presentation', 'negotiation', 'collaboration',
+        'interpersonal skills', 'customer service', 'public speaking',
         
-        # DevOps & Cloud
-        'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'jenkins',
-        'gitlab', 'github actions', 'terraform', 'ansible',
+        # Analytical
+        'data analysis', 'problem solving', 'research', 'critical thinking',
+        'analytical', 'troubleshooting',
         
-        # Tools & Methodologies
-        'git', 'agile', 'scrum', 'jira', 'linux', 'unix', 'ci/cd',
-        
-        # Data Science & ML
-        'machine learning', 'deep learning', 'tensorflow', 'pytorch',
-        'pandas', 'numpy', 'scikit-learn', 'data analysis', 'statistics',
-        
-        # Other
-        'restful api', 'rest api', 'graphql', 'microservices', 'unit testing',
-        'api', 'rest', 'json', 'xml'
-    ]
+        # Tools
+        'microsoft office', 'excel', 'powerpoint', 'word', 'outlook',
+        'salesforce', 'jira', 'confluence',
+    }
     
     def __init__(self):
-        """Initialize parser with NLP models"""
+        """Initialize parser with NLP model"""
         try:
             self.nlp = spacy.load("en_core_web_sm")
         except OSError:
+            print("Downloading spaCy model...")
             import os
             os.system("python -m spacy download en_core_web_sm")
             self.nlp = spacy.load("en_core_web_sm")
     
     def parse(self, file_content: bytes, filename: str) -> Dict:
-        """Main parsing function"""
+        """
+        Main parsing function
+        
+        Args:
+            file_content: Raw file bytes
+            filename: Name of file (used to determine type)
+            
+        Returns:
+            Dictionary with parsed CV data
+        """
+        # Extract text based on file type
         if filename.endswith('.pdf'):
             text = self._extract_text_from_pdf(file_content)
         elif filename.endswith('.docx'):
@@ -104,498 +95,699 @@ class CVParser:
         parsed_data = self._parse_text(text)
         
         # Add metadata
-        parsed_data['raw_text'] = text
-        parsed_data['filename'] = filename
-        parsed_data['parsed_at'] = datetime.utcnow().isoformat()
+        parsed_data.update({
+            'raw_text': text,
+            'filename': filename,
+            'parsed_at': datetime.utcnow().isoformat()
+        })
         
         return parsed_data
     
+
+    # TEXT EXTRACTION
+
+    
     def _extract_text_from_pdf(self, content: bytes) -> str:
-        """Extract text from PDF with better character handling"""
+        """Extract text from PDF, try multiple methods"""
         text = ""
         
+        # Primary: pdfplumber (best for formatted text)
         try:
-            # Use pdfplumber for better text extraction
             with pdfplumber.open(io.BytesIO(content)) as pdf:
                 for page in pdf.pages:
                     page_text = page.extract_text()
                     if page_text:
                         text += page_text + "\n"
-        except Exception:
-            # Fallback to PyPDF2
+        except Exception as e:
+            print(f"pdfplumber failed: {e}")
+            
+            # Fallback: PyPDF2
             try:
                 pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
                 for page in pdf_reader.pages:
                     text += page.extract_text() + "\n"
-            except Exception:
-                raise ValueError("Failed to extract text from PDF")
+            except Exception as e2:
+                raise ValueError(f"Failed to extract PDF text: {e2}")
         
         return self._clean_text(text)
     
     def _extract_text_from_docx(self, content: bytes) -> str:
-        """Extract text from DOCX file"""
+        """Extract text from DOCX including tables"""
         doc = Document(io.BytesIO(content))
-        text_parts = []
+        parts = []
         
+        # Extract paragraphs
         for para in doc.paragraphs:
             if para.text.strip():
-                text_parts.append(para.text)
+                parts.append(para.text)
         
+        # Extract tables
         for table in doc.tables:
             for row in table.rows:
-                for cell in row.cells:
-                    if cell.text.strip():
-                        text_parts.append(cell.text)
+                row_text = ' | '.join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                if row_text:
+                    parts.append(row_text)
         
-        return self._clean_text('\n'.join(text_parts))
+        return self._clean_text('\n'.join(parts))
     
     def _clean_text(self, text: str) -> str:
         """
-        Clean text with special character removal
-        
-        Removes:
-        - Unicode bullet points (\\uf0b7)
-        - Special spaces (\\uf020)
-        - Other PDF artifacts
+        Clean and normalize text
+        - Remove PDF artifacts
+        - Normalize whitespace
+        - Standardize bullet points
         """
-        # Remove common PDF bullet characters
-        text = re.sub(r'[\uf0b7\u2022\u2023\u25e6\u2043\u2219]', '•', text)
+        # Normalize bullets to standard •
+        text = re.sub(r'[\uf0b7\u2022\u2023\u25e6\u2043\u2219\uf020]', '•', text)
         
-        # Remove special space characters
-        text = re.sub(r'\uf020', ' ', text)
-        
-        # Remove other problematic Unicode characters (keep common ones)
+        # Remove problematic Unicode (private use area)
         text = re.sub(r'[\uf000-\uf8ff]', '', text)
         
         # Normalize whitespace
-        lines = text.split('\n')
-        cleaned_lines = []
-        
-        for line in lines:
-            # Replace multiple spaces with single space
-            line = re.sub(r' +', ' ', line)
-            line = line.strip()
+        lines = []
+        for line in text.split('\n'):
+            line = re.sub(r'\s+', ' ', line).strip()
             if line:
-                cleaned_lines.append(line)
+                lines.append(line)
         
-        return '\n'.join(cleaned_lines)
+        return '\n'.join(lines)
+    
+
+    # MAIN PARSING ORCHESTRATOR
+
     
     def _parse_text(self, text: str) -> Dict:
-        """Main parsing orchestrator"""
+        """Parse CV text into structured data"""
+        
+        # Run spaCy NLP
         doc = self.nlp(text)
         
-        # Parse all sections
+        # Extract all sections
+        contact_info = self._extract_contact_info(text, doc)
+        summary = self._extract_summary(text)
+        skills = self._extract_skills(text, doc)
         experience = self._extract_experience(text)
         education = self._extract_education(text)
-        skills = self._extract_skills(doc, text)
-        
-        # Deduplicate entries
-        experience = self._deduplicate_experience(experience)
-        skills = self._clean_and_deduplicate_skills(skills)
         
         return {
-            'contact_info': self._extract_contact_info(text),
+            'contact_info': contact_info,
+            'summary': summary,
             'skills': skills,
             'experience': experience,
             'education': education,
-            'summary': self._extract_summary(text)
         }
     
-    def _deduplicate_experience(self, experiences: List[Dict]) -> List[Dict]:
-        """
-        Remove duplicate job entries
-        Two jobs are duplicates if they have same title, company, and dates
-        """
-        seen = set()
-        unique_experiences = []
-        
-        for exp in experiences:
-            # Create unique key from title, company, and dates
-            key = (
-                exp.get('title', '').lower(),
-                exp.get('company', '').lower(),
-                exp.get('dates', '').lower()
-            )
-            
-            if key not in seen:
-                seen.add(key)
-                unique_experiences.append(exp)
-        
-        return unique_experiences
+
+    # CONTACT INFO EXTRACTION
+
     
-    def _clean_and_deduplicate_skills(self, skills: List[str]) -> List[str]:
+    def _extract_contact_info(self, text: str, doc) -> Dict:
         """
-        Clean and filter skills list
-        
-        Removes:
-        - Section headers
-        - Locations
-        - Dates
-        - Institution names
-        - Duplicates
+        Extract contact information using multiple methods
+        - Email: regex patterns
+        - Phone: phonenumbers library
+        - LinkedIn: URL patterns
+        - Name: spaCy NER
         """
-        cleaned_skills = set()
+        contact = {
+            'email': None,
+            'phone': None,
+            'linkedin': None,
+            'name': None
+        }
         
-        # Patterns to exclude
-        exclude_patterns = [
-            r'^\d{4}$',  # Years
-            r'\d{4}\s*[–\-]\s*\d{4}',  # Date ranges
-            r'[A-Z][a-z]+,\s+[A-Z]',  # Locations like "London, UK"
-            r'University|College|School',  # Institutions
-            r'INTERESTS|SKILLS|TOOLS|LANGUAGES',  # Section headers
-            r'^Developed:',  # Prefixes
-            r'Programming,',  # Course names
-        ]
+        # Extract email
+        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        email_matches = re.findall(email_pattern, text)
         
-        # Length limits
-        MIN_LENGTH = 2
-        MAX_LENGTH = 25
-        
-        for skill in skills:
-            # Remove special characters
-            skill = re.sub(r'[\uf020]', '', skill).strip()
-            
-            # Skip empty or too short/long
-            if not skill or len(skill) < MIN_LENGTH or len(skill) > MAX_LENGTH:
+        for email in email_matches:
+            try:
+                # Validate email
+                validate_email(email)
+                contact['email'] = email
+                break
+            except EmailNotValidError:
                 continue
-            
-            # Skip if matches exclude patterns
-            if any(re.search(pattern, skill, re.IGNORECASE) for pattern in exclude_patterns):
-                continue
-            
-            # Skip if all uppercase and longer than 5 chars (likely header)
-            if len(skill) > 5 and skill.isupper():
-                continue
-            
-            # Normalize casing for common terms
-            skill_lower = skill.lower()
-            
-            # Keep acronyms uppercase
-            if skill_lower in ['sql', 'html', 'css', 'php', 'api', 'rest', 'json', 'xml']:
-                skill = skill_lower.upper()
-            # Special casing for specific terms
-            elif skill_lower == 'mysql':
-                skill = 'MySQL'
-            elif skill_lower == 'postgresql':
-                skill = 'PostgreSQL'
-            elif skill_lower == 'mongodb':
-                skill = 'MongoDB'
-            elif skill_lower == 'javascript':
-                skill = 'JavaScript'
-            elif skill_lower == 'typescript':
-                skill = 'TypeScript'
-            # Title case for others
-            elif ' ' not in skill:  # Single word
-                skill = skill.capitalize()
-            
-            cleaned_skills.add(skill)
         
-        return sorted(list(cleaned_skills))
-    
-    def _find_section(self, text: str, section_type: str) -> List[Tuple[str, str]]:
-        """Find all sections of a given type"""
-        sections = []
-        headers = self.SECTION_HEADERS.get(section_type, [])
-        
-        for header in headers:
-            # Pattern: Header followed by content until next major section
-            pattern = rf'({re.escape(header)})\s*(.*?)(?=\n(?:[A-Z][A-Z\s]+)\n|$)'
-            matches = re.finditer(pattern, text, re.IGNORECASE | re.DOTALL)
-            
-            for match in matches:
-                section_name = match.group(1)
-                section_content = match.group(2).strip()
-                
-                if section_content:
-                    sections.append((section_name, section_content))
-        
-        return sections
-    
-    def _extract_contact_info(self, text: str) -> Dict:
-        """Extract contact information"""
-        contact = {}
-        
-        # Email
-        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
-        emails = re.findall(email_pattern, text)
-        if emails:
-            contact['email'] = emails[0]
-        
-        # Phone
+        # Extract phone (look in first 500 chars)
         try:
-            for region in ['GB', 'US', 'None']:
-                for match in phonenumbers.PhoneNumberMatcher(text, region):
-                    contact['phone'] = phonenumbers.format_number(
-                        match.number,
-                        phonenumbers.PhoneNumberFormat.INTERNATIONAL
-                    )
-                    break
-                if 'phone' in contact:
-                    break
+            for match in phonenumbers.PhoneNumberMatcher(text[:500], None):
+                contact['phone'] = phonenumbers.format_number(
+                    match.number, 
+                    phonenumbers.PhoneNumberFormat.INTERNATIONAL
+                )
+                break
         except Exception:
-            phone_pattern = r'[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{3,4}[-\s\.]?[0-9]{3,4}'
-            phones = re.findall(phone_pattern, text)
-            if phones:
-                contact['phone'] = phones[0]
+            # Fallback: simple pattern
+            phone_pattern = r'[\+]?[(]?\d{1,4}[)]?[-\s\.]?\d{1,4}[-\s\.]?\d{1,9}'
+            phone_match = re.search(phone_pattern, text[:500])
+            if phone_match:
+                contact['phone'] = phone_match.group()
         
-        # Name (first suitable line)
-        lines = text.split('\n')
-        for line in lines[:10]:
-            line = line.strip()
-            if not line:
-                continue
-            
-            words = line.split()
-            if 2 <= len(words) <= 4 and len(line) < 60:
-                if not re.search(r'[@|•]', line):
-                    contact['name'] = line
-                    break
+        # Extract LinkedIn
+        linkedin_pattern = r'linkedin\.com/in/[\w-]+'
+        linkedin_match = re.search(linkedin_pattern, text.lower())
+        if linkedin_match:
+            contact['linkedin'] = linkedin_match.group()
         
-        # Location (pattern: City, Country)
-        location_pattern = r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*,\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)'
-        locations = re.findall(location_pattern, text[:500])
-        if locations:
-            contact['location'] = f"{locations[0][0]}, {locations[0][1]}"
+        # Extract name (look for PERSON entities in first 300 chars)
+        first_section = text[:300]
+        doc_first = self.nlp(first_section)
+        
+        for ent in doc_first.ents:
+            if ent.label_ == 'PERSON' and len(ent.text.split()) >= 2:
+                contact['name'] = ent.text
+                break
         
         return contact
     
-    def _extract_skills(self, doc, text: str) -> List[str]:
+
+    # SUMMARY EXTRACTION
+
+    
+    def _extract_summary(self, text: str) -> Optional[str]:
+        """Extract professional summary section"""
+        
+        # Look for summary section
+        pattern = self.SECTION_PATTERNS['summary']
+        match = re.search(
+            rf'({pattern})\s*:?\s*(.{{50,800}}?)(?=\n\s*(?:{"|".join(self.SECTION_PATTERNS.values())})|$)',
+            text,
+            re.IGNORECASE | re.DOTALL
+        )
+        
+        if match:
+            summary = match.group(2).strip()
+            # Clean up
+            summary = re.sub(r'\s+', ' ', summary)
+            return summary[:500]  # Max 500 chars
+        
+        return None
+    
+
+    # SKILLS EXTRACTION
+
+    
+    def _extract_skills(self, text: str, doc) -> List[str]:
         """
-        Extract skills using keyword matching only
-        (Most reliable for technical skills)
+        Extract skills using multiple methods:
+        1. Skills section extraction
+        2. NER (Organizations, Products)
+        3. Common skill keywords
+        4. Frequency analysis
         """
         skills = set()
+        
+        # Method 1: Extract from skills section
+        # FIX: _find_section returns a LIST, not a string
+        skills_sections = self._find_section(text, 'skills')
+        if skills_sections:
+            # Iterate over each section found
+            for section_text in skills_sections:
+                section_skills = self._extract_skills_from_section(section_text)
+                skills.update(section_skills)
+        
+        # Method 2: Use NER to find technologies and tools
+        for ent in doc.ents:
+            if ent.label_ in ['ORG', 'PRODUCT', 'GPE']:
+                # Filter out obvious non-skills
+                if len(ent.text) > 2 and not ent.text.isupper():
+                    skills.add(ent.text)
+        
+        # Method 3: Match common skill keywords
         text_lower = text.lower()
+        for skill in self.COMMON_SKILLS:
+            if skill in text_lower:
+                skills.add(skill.title())
         
-        # Only use keyword matching for reliability
-        for skill in self.SKILL_KEYWORDS:
-            if skill.lower() in text_lower:
-                # Preserve casing for acronyms
-                if skill.upper() in ['SQL', 'HTML', 'CSS', 'PHP', 'API', 'REST', 'JSON', 'XML']:
-                    skills.add(skill.upper())
-                else:
-                    skills.add(skill.title())
+        # Method 4: Extract capitalized noun phrases (likely skills)
+        skills.update(self._extract_noun_phrases(doc))
         
-        return list(skills)
+        # Clean and deduplicate
+        skills = self._clean_skills(skills)
+        
+        return sorted(list(skills))[:20]  # Top 20 skills
+    
+    def _extract_skills_from_section(self, section_text: str) -> Set[str]:
+        """Extract skills from dedicated skills section"""
+        skills = set()
+        
+        # Remove section header
+        section_text = re.sub(
+            r'^.*?(?:skills|competencies).*?:?\s*',
+            '',
+            section_text,
+            flags=re.IGNORECASE
+        ).strip()
+        
+        # Split by common delimiters
+        # Skills might be: comma-separated, bullet-pointed, or line-by-line
+        items = re.split(r'[•\n,;|]', section_text)
+        
+        for item in items:
+            item = item.strip()
+            
+            # Clean up
+            item = re.sub(r'^\W+|\W+$', '', item)
+            
+            # Valid skill criteria:
+            # - Length between 2-40 chars
+            # - Not all numbers
+            # - Not a full sentence
+            if 2 <= len(item) <= 40 and not item.isdigit() and '.' not in item[-2:]:
+                skills.add(item)
+        
+        return skills
+    
+    def _extract_noun_phrases(self, doc) -> Set[str]:
+        """Extract noun phrases that might be skills"""
+        skills = set()
+        
+        for chunk in doc.noun_chunks:
+            # Only keep short phrases (likely skill names)
+            if 1 <= len(chunk.text.split()) <= 3:
+                # Must start with capital or be all lowercase
+                if chunk.text[0].isupper() or chunk.text.islower():
+                    skills.add(chunk.text)
+        
+        return skills
+    
+    def _clean_skills(self, skills: Set[str]) -> Set[str]:
+        """Clean and deduplicate skills"""
+        cleaned = set()
+        
+        for skill in skills:
+            # Remove extra whitespace
+            skill = re.sub(r'\s+', ' ', skill).strip()
+            
+            # Skip if too short/long or contains numbers
+            if len(skill) < 2 or len(skill) > 30:
+                continue
+            
+            # Skip common non-skills
+            if skill.lower() in {'city', 'state', 'company', 'name', 'phone', 'email'}:
+                continue
+            
+            cleaned.add(skill)
+        
+        return cleaned
+    
+
+    # EXPERIENCE EXTRACTION
+
     
     def _extract_experience(self, text: str) -> List[Dict]:
-        """Extract all work experience"""
-        all_experience = []
-        exp_sections = self._find_section(text, 'experience')
+        """
+        Extract work experience with flexible format support
+        Handles multiple date/company formats
+        """
+        experience_sections = self._find_section(text, 'experience')
         
-        for section_name, section_content in exp_sections:
-            jobs = self._parse_experience_section(section_content)
-            all_experience.extend(jobs)
+        if not experience_sections:
+            return []
         
-        return all_experience
+        all_jobs = []
+        
+        for section_text in experience_sections:
+            jobs = self._parse_experience_section(section_text)
+            all_jobs.extend(jobs)
+        
+        # Deduplicate
+        return self._deduplicate_experience(all_jobs)
     
     def _parse_experience_section(self, section_text: str) -> List[Dict]:
         """Parse jobs from experience section"""
         jobs = []
-        entries = re.split(r'\n\s*\n', section_text)
+        
+        # Split into potential job entries
+        # Jobs are typically separated by blank lines or date patterns
+        entries = self._split_into_entries(section_text)
         
         for entry in entries:
-            if not entry.strip():
-                continue
-            
-            job_data = self._parse_job_entry(entry)
-            if job_data:
-                jobs.append(job_data)
+            job = self._parse_job_entry(entry)
+            if job:
+                jobs.append(job)
         
         return jobs
     
+    def _split_into_entries(self, text: str) -> List[str]:
+        """
+        Split section into individual job entries
+        Uses date patterns as separators
+        """
+        lines = text.split('\n')
+        entries = []
+        current_entry = []
+        
+        # Date pattern indicators (start of new job)
+        date_indicators = [
+            r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}',
+            r'\b\d{4}\s*[-–]\s*(?:\d{4}|Present|Current)',
+            r'\b\d{1,2}/\d{4}',
+        ]
+        
+        for line in lines:
+            # Check if line contains date (new entry)
+            is_date_line = any(re.search(pattern, line, re.IGNORECASE) for pattern in date_indicators)
+            
+            if is_date_line and current_entry:
+                # Save previous entry
+                entries.append('\n'.join(current_entry))
+                current_entry = [line]
+            else:
+                current_entry.append(line)
+        
+        # Add last entry
+        if current_entry:
+            entries.append('\n'.join(current_entry))
+        
+        return entries
+    
     def _parse_job_entry(self, entry: str) -> Optional[Dict]:
         """
-        Parse single job entry with improved bullet point handling
+        Parse a single job entry with flexible format
+        
+        Supports formats:
+        - Title at Company | Location | Dates
+        - Title\nCompany | Location | Dates
+        - Dates\nCompany Title
+        - And many more variations
         """
         lines = [l.strip() for l in entry.split('\n') if l.strip()]
         
         if len(lines) < 2:
             return None
         
-        # Line 1: Job title
-        title_line = lines[0]
+        # Initialize job data
+        job = {
+            'title': 'Unknown',
+            'company': 'Unknown',
+            'location': 'Unknown',
+            'dates': 'Unknown',
+            'responsibilities': []
+        }
         
-        # Check for "at" pattern
-        if ' at ' in title_line.lower():
-            parts = re.split(r'\s+at\s+', title_line, maxsplit=1, flags=re.IGNORECASE)
-            title = parts[0].strip()
-            company = parts[1].strip() if len(parts) > 1 else 'Unknown'
-        else:
-            title = re.sub(r'\s*\([^)]*\)', '', title_line).strip()
-            company = 'Unknown'
-        
-        # Line 2: Company/location/dates
-        info_line = lines[1] if len(lines) > 1 else ''
-        
-        # Extract dates
+        # Find dates (can be anywhere in first 3 lines)
         date_patterns = [
-            r'([A-Za-z]+\s+\d{4})\s*[–\-]\s*([A-Za-z]+\s+\d{4}|Present|Current)',
-            r'(\d{4})\s*[–\-]\s*(\d{4}|Present|Current)',
-            r'(\d{1,2}/\d{4})\s*[–\-]\s*(\d{1,2}/\d{4}|Present)',
+            r'([A-Za-z]+\s+\d{4})\s*[-–to]+\s*([A-Za-z]+\s+\d{4}|Present|Current)',
+            r'(\d{4})\s*[-–]+\s*(\d{4}|Present|Current)',
+            r'(\d{1,2}/\d{4})\s*[-–]+\s*(\d{1,2}/\d{4}|Present)',
         ]
         
-        dates = 'Unknown'
-        for pattern in date_patterns:
-            date_match = re.search(pattern, info_line, re.IGNORECASE)
-            if date_match:
-                dates = f"{date_match.group(1)} - {date_match.group(2)}"
-                info_line = info_line[:date_match.start()].strip()
+        date_line_idx = None
+        for i, line in enumerate(lines[:3]):
+            for pattern in date_patterns:
+                match = re.search(pattern, line, re.IGNORECASE)
+                if match:
+                    job['dates'] = f"{match.group(1)} - {match.group(2)}"
+                    date_line_idx = i
+                    # Remove dates from line
+                    lines[i] = line[:match.start()].strip() + ' ' + line[match.end():].strip()
+                    lines[i] = lines[i].strip()
+                    break
+            if date_line_idx is not None:
                 break
         
-        # Parse company and location
-        location = 'Unknown'
-        if company == 'Unknown':
-            if '|' in info_line:
-                parts = [p.strip() for p in info_line.split('|')]
-                company = parts[0] if len(parts) > 0 else 'Unknown'
-                location = parts[1] if len(parts) > 1 else 'Unknown'
-            else:
-                parts = [p.strip() for p in info_line.split(',')]
-                company = parts[0] if len(parts) > 0 else 'Unknown'
-                location = parts[1] if len(parts) > 1 else 'Unknown'
+        # Parse title and company from remaining text
+        # Common patterns:
+        # 1. "Title at Company"
+        # 2. "Company Name City, State Title"
+        # 3. "Title\nCompany Name"
         
-        # Extract responsibilities with better bullet handling
-        responsibilities = []
-        current_resp = ""
+        for i, line in enumerate(lines[:3]):
+            if not line:
+                continue
+            
+            # Pattern 1: "Title at Company"
+            if ' at ' in line.lower():
+                parts = re.split(r'\s+at\s+', line, maxsplit=1, flags=re.IGNORECASE)
+                job['title'] = parts[0].strip()
+                if len(parts) > 1:
+                    job['company'] = parts[1].strip()
+                break
+            
+            # Pattern 2: Line with City, State (likely contains company)
+            elif re.search(r',\s*\w+\s+[A-Z]{2}', line):  # "City, State"
+                # Extract company before location
+                parts = re.split(r'\s+City\s*,', line, maxsplit=1, flags=re.IGNORECASE)
+                if parts:
+                    job['company'] = parts[0].strip()
+                # Title might be at end
+                title_match = re.search(r',\s*[A-Z]{2}\s+(.+)$', line)
+                if title_match:
+                    job['title'] = title_match.group(1).strip()
+                break
+            
+            # Pattern 3: First line = title, second line = company
+            elif i == 0 and job['title'] == 'Unknown':
+                job['title'] = line
+            elif i == 1 and job['company'] == 'Unknown':
+                job['company'] = line
         
-        for line in lines[2:]:
-            # Check if line starts with bullet
-            if line.startswith('•'):
-                # Save previous responsibility if exists
-                if current_resp:
-                    responsibilities.append(current_resp.strip())
-                
-                # Start new responsibility
-                current_resp = line[1:].strip()  # Remove bullet
-            else:
-                # Continuation of previous line
-                if current_resp:
-                    current_resp += " " + line
-                else:
-                    # Standalone line without bullet
-                    if line and not re.search(r'\d{4}', line):
-                        responsibilities.append(line)
+        # Extract responsibilities (lines after title/company/dates)
+        resp_start_idx = 2 if date_line_idx != 0 else 1
         
-        # Add last responsibility
-        if current_resp:
-            responsibilities.append(current_resp.strip())
+        for line in lines[resp_start_idx:]:
+            if not line or len(line) < 10:
+                continue
+            
+            # Remove bullet if present
+            line = re.sub(r'^[•\-\*]\s*', '', line)
+            
+            # Skip lines that look like dates or company names
+            if re.search(r'\d{4}|Company\s+Name', line, re.IGNORECASE):
+                continue
+            
+            job['responsibilities'].append(line)
         
-        return {
-            'title': title,
-            'company': company,
-            'location': location,
-            'dates': dates,
-            'responsibilities': responsibilities[:5]  # Top 5
-        }
+        # Limit responsibilities
+        job['responsibilities'] = job['responsibilities'][:5]
+        
+        # Validate: must have at least title OR company
+        if job['title'] == 'Unknown' and job['company'] == 'Unknown':
+            return None
+        
+        return job
+    
+    def _deduplicate_experience(self, jobs: List[Dict]) -> List[Dict]:
+        """Remove duplicate job entries"""
+        seen = set()
+        unique_jobs = []
+        
+        for job in jobs:
+            # Create signature
+            sig = (
+                job['title'].lower(),
+                job['company'].lower(),
+                job['dates']
+            )
+            
+            if sig not in seen:
+                seen.add(sig)
+                unique_jobs.append(job)
+        
+        return unique_jobs
+    
+
+    # EDUCATION EXTRACTION
+
     
     def _extract_education(self, text: str) -> List[Dict]:
-        """Extract education"""
-        education = []
-        edu_sections = self._find_section(text, 'education')
+        """Extract education entries"""
+        education_sections = self._find_section(text, 'education')
         
-        for section_name, section_content in edu_sections:
-            entries = self._parse_education_section(section_content)
-            education.extend(entries)
+        if not education_sections:
+            return []
         
-        return education
+        all_education = []
+        
+        for section_text in education_sections:
+            entries = self._parse_education_section(section_text)
+            all_education.extend(entries)
+        
+        return all_education
     
     def _parse_education_section(self, section_text: str) -> List[Dict]:
         """Parse education entries"""
         entries = []
         lines = section_text.split('\n')
         
-        degree_keywords = [
-            'BSc', 'B.Sc', 'Bachelor', 'MSc', 'M.Sc', 'Master',
-            'PhD', 'Ph.D', 'Doctorate', 'Diploma', 'Certificate',
-            'Year One', 'Foundation'
+        # Degree indicators
+        degree_patterns = [
+            r'\b(?:Bachelor|Master|PhD|Ph\.?D|BSc|B\.?Sc|MSc|M\.?Sc|BA|MA|BFA|MFA)\b',
+            r'\b(?:Associate|Diploma|Certificate)\b',
         ]
         
-        for i, line in enumerate(lines):
+        current_entry = None
+        
+        for line in lines:
             line = line.strip()
             if not line:
                 continue
             
-            found_degree = None
-            for degree in degree_keywords:
-                if degree.lower() in line.lower():
-                    found_degree = degree
-                    break
+            # Check if line contains degree
+            has_degree = any(re.search(pattern, line, re.IGNORECASE) for pattern in degree_patterns)
             
-            if not found_degree:
-                continue
-            
-            edu_data = self._parse_education_entry(line, lines[i+1:i+3] if i+1 < len(lines) else [])
-            if edu_data:
-                entries.append(edu_data)
+            if has_degree:
+                # Save previous entry
+                if current_entry:
+                    entries.append(current_entry)
+                
+                # Start new entry
+                current_entry = self._parse_education_entry(line)
+            elif current_entry:
+                # Add info to current entry (institution, dates, etc.)
+                self._update_education_entry(current_entry, line)
+        
+        # Add last entry
+        if current_entry:
+            entries.append(current_entry)
         
         return entries
     
-    def _parse_education_entry(self, main_line: str, next_lines: List[str]) -> Optional[Dict]:
+    def _parse_education_entry(self, line: str) -> Dict:
         """Parse single education entry"""
-        if '|' in main_line:
-            parts = [p.strip() for p in main_line.split('|')]
-            
-            degree_info = parts[0]
-            field_match = re.search(r'(?:in|of)\s+(.+)', degree_info, re.IGNORECASE)
-            
-            degree = re.split(r'\s+in\s+|\s+of\s+', degree_info, maxsplit=1, flags=re.IGNORECASE)[0]
-            field = field_match.group(1).strip() if field_match else 'Not specified'
-            
-            institution = parts[1] if len(parts) > 1 else 'Unknown'
-            location = parts[2] if len(parts) > 2 else 'Unknown'
-            dates = parts[3] if len(parts) > 3 else 'Unknown'
-        else:
-            field_match = re.search(r'(?:in|of)\s+(.+?)(?:\s*\||$)', main_line, re.IGNORECASE)
-            
-            degree = re.split(r'\s+in\s+|\s+of\s+', main_line, maxsplit=1, flags=re.IGNORECASE)[0].strip()
-            field = field_match.group(1).strip() if field_match else 'Not specified'
-            
-            institution = 'Unknown'
-            location = 'Unknown'
-            dates = 'Unknown'
-            
-            for next_line in next_lines:
-                next_line = next_line.strip()
-                if not next_line:
-                    continue
-                
-                date_pattern = r'([A-Za-z]+\s+\d{4}|^\d{4})\s*[–\-]\s*([A-Za-z]+\s+\d{4}|Present|Expected|\d{4})'
-                if re.search(date_pattern, next_line):
-                    if '|' in next_line:
-                        parts = next_line.split('|')
-                        location = parts[0].strip()
-                        dates = parts[1].strip()
-                    else:
-                        dates = next_line
-                elif institution == 'Unknown':
-                    institution = next_line
-        
-        return {
-            'degree': degree,
-            'field': field,
-            'institution': institution,
-            'location': location,
-            'dates': dates
+        entry = {
+            'degree': 'Unknown',
+            'field': 'Unknown',
+            'institution': 'Unknown',
+            'dates': 'Unknown'
         }
+        
+        # Extract degree and field
+        # Pattern: "BSc in Computer Science"
+        match = re.search(
+            r'(Bachelor|Master|PhD|BSc|MSc|BA|MA|BFA|MFA|Associate|Diploma)\s+(?:of|in)\s+(.+)',
+            line,
+            re.IGNORECASE
+        )
+        
+        if match:
+            entry['degree'] = match.group(1)
+            entry['field'] = match.group(2).strip()
+        else:
+            # Just degree mentioned
+            for pattern in [r'\b(Bachelor|Master|PhD|BSc|MSc|BA|MA)\b']:
+                match = re.search(pattern, line, re.IGNORECASE)
+                if match:
+                    entry['degree'] = match.group(1)
+                    break
+        
+        # Extract dates
+        date_match = re.search(r'\b(\d{4})\b', line)
+        if date_match:
+            entry['dates'] = date_match.group(1)
+        
+        # Extract institution (if on same line)
+        # Often comes after "|" or "from"
+        if '|' in line:
+            parts = line.split('|')
+            if len(parts) > 1:
+                entry['institution'] = parts[1].strip()
+        
+        return entry
     
-    def _extract_summary(self, text: str) -> Optional[str]:
-        """
-        Extract professional summary
-        Looks for explicit summary section, not project descriptions
-        """
-        summary_headers = ['professional summary', 'summary', 'profile', 'objective', 'about me']
+    def _update_education_entry(self, entry: Dict, line: str):
+        """Add additional info to education entry"""
         
-        for header in summary_headers:
-            pattern = rf'{header}\s*:?\s*(.{{50,400}}?)(?:\n\n|WORK|EDUCATION|SKILLS|PROJECTS|$)'
-            match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-            if match:
-                summary = match.group(1).strip()
-                # Ensure it's not picking up projects - check first 100 chars
-                summary_start = summary[:100].lower()
-                # Exclude if it contains project indicators
-                if not any(indicator in summary_start for indicator in ['project', 'built', 'implemented', 'developed', '•', 'o ']):
-                    return summary
+        # Check for institution
+        if entry['institution'] == 'Unknown':
+            # Look for "University", "College", "Institute"
+            if re.search(r'\b(?:University|College|Institute|School)\b', line, re.IGNORECASE):
+                entry['institution'] = line
         
-        # No explicit summary found
-        return None
+        # Check for dates
+        if entry['dates'] == 'Unknown':
+            date_match = re.search(r'\b(\d{4})\b', line)
+            if date_match:
+                entry['dates'] = date_match.group(1)
+    
+
+    # SECTION DETECTION
+
+    
+    def _find_section(self, text: str, section_type: str) -> List[str]:
+        """
+        Find and extract sections by type
+        Returns list of section contents (may be multiple)
+        """
+        pattern = self.SECTION_PATTERNS.get(section_type)
+        if not pattern:
+            return []
+        
+        sections = []
+        
+        # Find all section headers
+        # A section ends when another section starts or at end of text
+        all_section_patterns = '|'.join(self.SECTION_PATTERNS.values())
+        
+        # Find section start
+        for match in re.finditer(rf'({pattern})\s*:?', text, re.IGNORECASE):
+            section_start = match.end()
+            
+            # Find next section (or end of text)
+            next_section = re.search(
+                rf'\n\s*({all_section_patterns})\s*:?',
+                text[section_start:],
+                re.IGNORECASE
+            )
+            
+            if next_section:
+                section_end = section_start + next_section.start()
+            else:
+                section_end = len(text)
+            
+            section_content = text[section_start:section_end].strip()
+            sections.append(section_content)
+        
+        return sections
+
+
+
+# TESTING FUNCTION
+
+
+def test_parser_on_files(pdf_paths: List[str]):
+    """Test parser on multiple PDFs"""
+    parser = CVParser()
+    
+    print("=" * 60)
+    print("TESTING ENHANCED CV PARSER")
+    print("=" * 60)
+    
+    for pdf_path in pdf_paths:
+        print(f"\nTesting: {pdf_path}")
+        print("-" * 60)
+        
+        try:
+            with open(pdf_path, 'rb') as f:
+                content = f.read()
+            
+            result = parser.parse(content, pdf_path)
+            
+            # Display results
+            print(f"✅ Parsed successfully")
+            print(f"   Email:       {result['contact_info'].get('email', 'N/A')}")
+            print(f"   Phone:       {result['contact_info'].get('phone', 'N/A')}")
+            print(f"   Name:        {result['contact_info'].get('name', 'N/A')}")
+            print(f"   Skills:      {len(result['skills'])} found")
+            if result['skills']:
+                print(f"                {', '.join(result['skills'][:5])}")
+            print(f"   Experience:  {len(result['experience'])} jobs")
+            if result['experience']:
+                job = result['experience'][0]
+                print(f"                {job['title']} at {job['company']}")
+            print(f"   Education:   {len(result['education'])} entries")
+            
+        except Exception as e:
+            print(f"❌ Error: {e}")
+
+
+if __name__ == "__main__":
+    # Test with uploaded files
+    import sys
+    
+    if len(sys.argv) > 1:
+        test_parser_on_files(sys.argv[1:])
+    else:
+        print("Usage: python enhanced_parser.py <pdf_file1> <pdf_file2> ...")

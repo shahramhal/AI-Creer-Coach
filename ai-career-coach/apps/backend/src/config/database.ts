@@ -39,8 +39,10 @@ prisma.$connect()
  */
 export const connectMongoDB = async (): Promise<void> => {
   try {
-    const mongoUrl = process.env.MONGODB_URL || 'mongodb://admin:admin123@mongodb:27017/career_coach?authSource=admin';
-    
+    const mongoUrl = process.env.MONGODB_URL;
+    if (!mongoUrl) {
+    throw new Error('MONGODB_URL environment variable is not set');
+    }
     await mongoose.connect(mongoUrl, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,

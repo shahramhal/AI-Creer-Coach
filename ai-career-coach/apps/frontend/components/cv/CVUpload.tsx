@@ -1,9 +1,10 @@
-// apps/frontend/components/cv/CVUpload.tsx
-
 'use client';
 
 import { useState, useRef, ChangeEvent, DragEvent } from 'react';
 import { cvService } from '../../services/cv.service';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Upload } from 'lucide-react';
 import type { ParsedCVData } from '../../types/cv.types';
 
 interface CVUploadProps {
@@ -156,121 +157,132 @@ export default function CVUpload({ onUploadSuccess, onUploadError }: CVUploadPro
       />
 
       {/* Drop zone */}
-      <div
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        className={`
-          relative border-2 border-dashed rounded-lg p-8 text-center transition-colors
-          ${isDragging ? 'border-indigo-600 bg-indigo-50' : 'border-gray-300 bg-white'}
-          ${isUploading ? 'pointer-events-none opacity-60' : 'cursor-pointer hover:border-indigo-400'}
-        `}
-        onClick={!selectedFile ? handleBrowseClick : undefined}
-      >
-        {!selectedFile ? (
-          // Upload prompt
-          <div className="space-y-4">
-            <svg
-              className="mx-auto h-16 w-16 text-gray-400"
-              stroke="currentColor"
-              fill="none"
-              viewBox="0 0 48 48"
-              aria-hidden="true"
-            >
-              <path
-                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+      {!selectedFile ? (
+        <div
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onClick={handleBrowseClick}
+          className={`
+            relative border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer
+            ${isDragging 
+              ? 'border-primary bg-primary/5 scale-[1.02]' 
+              : 'border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50'
+            }
+            ${isUploading ? 'pointer-events-none opacity-60' : ''}
+          `}
+        >
+          <div className="flex flex-col items-center gap-4">
+            {/* Upload icon */}
+            <div className={`
+              w-16 h-16 rounded-full flex items-center justify-center transition-colors
+              ${isDragging ? 'bg-primary/20' : 'bg-primary/10'}
+            `}>
+              <Upload className={`h-8 w-8 transition-colors ${isDragging ? 'text-primary' : 'text-primary/70'}`} />
+            </div>
             
-            <div className="text-sm text-gray-600">
-              <p className="font-medium">Drag and drop your CV here</p>
-              <p className="mt-1">or</p>
-              <button
-                type="button"
-                className="mt-2 text-indigo-600 hover:text-indigo-700 font-medium"
-                onClick={handleBrowseClick}
-              >
-                Browse files
-              </button>
+            {/* Text */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">Upload your CV</h3>
+              <p className="text-sm text-muted-foreground">
+                Drag and drop a PDF or DOCX file, or click to browse
+              </p>
+              <p className="text-xs text-muted-foreground">
+                PDF, DOCX up to 10MB
+              </p>
             </div>
-
-            <p className="text-xs text-gray-500">
-              Supported formats: PDF, DOCX (Max 10MB)
-            </p>
           </div>
-        ) : (
-          // Selected file display
-          <div className="space-y-4">
-            <div className="flex items-center justify-center space-x-3">
-              <svg
-                className="h-10 w-10 text-indigo-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <div className="text-left">
-                <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
-                <p className="text-xs text-gray-500">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
+        </div>
+      ) : (
+        // Selected file display
+        <Card className="border-border bg-card">
+          <div className="p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4 flex-1">
+                {/* File icon */}
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="h-6 w-6 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+
+                {/* File info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                  {!isUploading && (
+                    <div className="flex items-center gap-2 mt-3">
+                      <Button
+                        size="sm"
+                        onClick={handleUpload}
+                        disabled={isUploading}
+                      >
+                        Upload & Parse
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRemoveFile}
+                        disabled={isUploading}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Remove button */}
+              {!isUploading && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveFile}
+                  className="flex-shrink-0"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
+              )}
             </div>
 
-            <div className="flex justify-center space-x-3">
-              <button
-                type="button"
-                onClick={handleRemoveFile}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                disabled={isUploading}
-              >
-                Remove
-              </button>
-              <button
-                type="button"
-                onClick={handleUpload}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isUploading}
-              >
-                {isUploading ? 'Uploading...' : 'Upload & Parse'}
-              </button>
-            </div>
+            {/* Loading state */}
+            {isUploading && (
+              <div className="mt-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                  <p className="text-sm text-muted-foreground">Parsing your CV with AI...</p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Loading overlay */}
-        {isUploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 rounded-lg">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
-              <p className="mt-3 text-sm text-gray-600">Parsing your CV...</p>
-            </div>
-          </div>
-        )}
-      </div>
+        </Card>
+      )}
 
       {/* Error message */}
       {error && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex">
-            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <p className="ml-3 text-sm text-red-700">{error}</p>
+        <Card className="mt-4 border-destructive/50 bg-destructive/10">
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <svg className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

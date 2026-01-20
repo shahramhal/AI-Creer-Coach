@@ -29,7 +29,7 @@ class CVService {
    * @param file - CV file (PDF or DOCX)
    * @returns Parsed CV data
    */
-  async uploadCV(file: File): Promise<CVUploadResponse> {
+  async uploadCV(file: File, onProgress?: (percent: number) => void): Promise<CVUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -37,6 +37,12 @@ class CVService {
     const response = await api.post('/api/ml/parse-cv', formData, {
       headers: {
         'Content-Type': 'multipart/form-data', // Important for file upload
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
       },
     });
 
@@ -104,6 +110,7 @@ class CVService {
    */
   async deleteCV(cvId: string): Promise<void> {
     await api.delete(`/api/ml/cvs/${cvId}`);
+    
     // axios returns response.data, but we don't need it for delete
   }
 
@@ -149,6 +156,23 @@ class CVService {
     // Clean up
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
+  }
+  validateFile(file: File): { valid: boolean; error?: string } {
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    if (!allowedTypes.includes(file.type)) {
+      return { valid: false, error: 'Only PDF and DOCX files are allowed' };
+    }
+
+    if (file.size > maxSize) {
+      return { valid: false, error: 'File size must be less than 10MB' };
+    }
+
+    return { valid: true };
   }
 }
 

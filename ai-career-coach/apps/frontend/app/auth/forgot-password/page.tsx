@@ -75,7 +75,7 @@ export default function ForgotPasswordPage() {
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
             Email address
           </label>
           <input
@@ -85,9 +85,9 @@ export default function ForgotPasswordPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={`w-full px-4 py-3 rounded-lg border ${
-              error ? 'border-red-500' : 'border-gray-300'
-            } focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition`}
+            className={`w-full px-4 py-3 rounded-lg border bg-[#1e2433] text-white placeholder-gray-500 ${
+              error ? 'border-red-500' : 'border-[#2a3441]'
+            } focus:ring-2 focus:ring-[#6366FF ] focus:border-transparent outline-none transition`}
             placeholder="you@example.com"
           />
           {error && (

@@ -1,21 +1,16 @@
-
 'use client';
 
 /**
- * Authentication Context - Updated with Security Features
+ * Authentication Context - FIXED Back Button Prevention
  * 
- * New features added:
- * 1. Periodic auth checks (every 5 minutes)
- * 2. Window focus listener (catches back button)
- * 3. Secure logout with router.replace()
- * 4. Better error handling
+ * Key fix: Only block back button AFTER logout, not during normal usage
  */
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '../lib/api';
 
-// User type definition
+// Types
 interface User {
   id: string;
   email: string;
@@ -24,7 +19,6 @@ interface User {
   isEmailVerified: boolean;
 }
 
-// Auth context type
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -33,10 +27,9 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  checkAuth: () => Promise<boolean>; // NEW
+  checkAuth: () => Promise<boolean>;
 }
 
-// Registration data type
 interface RegisterData {
   email: string;
   password: string;
@@ -51,20 +44,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
+  
+  // Track if we just logged out
+  const justLoggedOut = useRef(false);
 
-  // Mark component as mounted
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Load user on mount
   useEffect(() => {
     if (isMounted) {
       loadUser();
     }
   }, [isMounted]);
 
-  // Load user from localStorage or API
+  /**
+   * Load user from storage
+   */
   const loadUser = async () => {
     try {
       if (typeof window === 'undefined') {
@@ -78,14 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (token && savedUser) {
         setUser(JSON.parse(savedUser));
 
+        // Validate token with backend
         try {
           const { data } = await authAPI.getCurrentUser();
           setUser(data.data.user);
           localStorage.setItem('user', JSON.stringify(data.data.user));
         } catch (error) {
-          console.log('🔒 Token validation failed');
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('user');
+          console.log('🔒 Token invalid - clearing');
+          localStorage.clear();
           setUser(null);
         }
       }
@@ -97,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   /**
-   * NEW: Check authentication status
+   * Check authentication status
    */
   const checkAuth = async (): Promise<boolean> => {
     const token = localStorage.getItem('accessToken');
@@ -119,7 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Login function
+  /**
+   * Login function
+   */
   const login = async (email: string, password: string) => {
     const { data } = await authAPI.login(email, password);
     
@@ -127,20 +125,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('user', JSON.stringify(data.data.user));
     setUser(data.data.user);
     
+    // Reset logout flag on login
+    justLoggedOut.current = false;
+    
     console.log('✅ User logged in');
   };
 
-  // Register function
+  /**
+   * Register function
+   */
   const register = async (registerData: RegisterData) => {
     await authAPI.register(registerData);
   };
 
   /**
-   * UPDATED: Secure logout
-   * Uses router.replace() to prevent back button
+   * FIXED: Logout with proper back button prevention
    */
   const logout = async () => {
-    console.log('🚪 Logging out');
+    console.log('🚪 Logging out...');
     
     try {
       await authAPI.logout();
@@ -148,21 +150,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Logout error:', error);
     }
     
-    // Clear storage
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
+    // 1. Clear all storage
+    localStorage.clear();
     sessionStorage.clear();
     
-    // Clear state
+    // 2. Clear React state
     setUser(null);
     
-    // CRITICAL: Use replace() not push()
+    // 3. Set logout flag (IMPORTANT!)
+    justLoggedOut.current = true;
+    
+    // 4. Replace current page in history
+    window.history.replaceState(null, '', '/login');
+    
+    // 5. Navigate to login
     router.replace('/login');
+    
+    // 6. Setup back button blocker AFTER logout
+    setupBackButtonBlocker();
     
     console.log('✅ Logout complete');
   };
 
-  // Refresh user data
+  /**
+   * Setup back button blocker
+   * Only active AFTER logout for 2 seconds
+   */
+  const setupBackButtonBlocker = () => {
+    let blockCount = 0;
+    const MAX_BLOCKS = 5; // Block up to 5 attempts
+    
+    const blockBackButton = (e: PopStateEvent) => {
+      if (blockCount < MAX_BLOCKS) {
+        // Push login page back into history
+        window.history.pushState(null, '', '/login');
+        blockCount++;
+        console.log(`🔒 Back button blocked (${blockCount}/${MAX_BLOCKS})`);
+      } else {
+        // After 5 attempts, remove listener
+        window.removeEventListener('popstate', blockBackButton);
+        justLoggedOut.current = false;
+        console.log('✅ Back button blocker removed');
+      }
+    };
+    
+    // Add listener
+    window.addEventListener('popstate', blockBackButton);
+    
+    // Auto-remove after 2 seconds (user likely navigated away)
+    setTimeout(() => {
+      window.removeEventListener('popstate', blockBackButton);
+      justLoggedOut.current = false;
+      console.log('⏱️ Back button blocker timeout');
+    }, 2000);
+  };
+
+  /**
+   * Refresh user data
+   */
   const refreshUser = async () => {
     try {
       const { data } = await authAPI.getCurrentUser();
@@ -174,43 +219,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   /**
-   * NEW: Periodic check (every 5 minutes)
-   * Catches token expiry during idle sessions
-   */
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const token = localStorage.getItem('accessToken');
-      
-      if (!token) {
-        console.log('🔒 Periodic check: No token - Logging out');
-        logout();
-      } else {
-        console.log('🔄 Periodic check: Token exists');
-      }
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  /**
-   * NEW: Window focus listener
-   * Blocks back button after logout
+   * Window focus check
+   * Only redirects if no token AND not just after logout
    */
   useEffect(() => {
     const handleFocus = () => {
-      const token = localStorage.getItem('accessToken');
+      // Don't check immediately after logout
+      if (justLoggedOut.current) return;
       
-      if (!token) {
-        console.log('🔒 Focus: No token - Redirecting');
+      const token = localStorage.getItem('accessToken');
+      const currentPath = window.location.pathname;
+      
+      // If no token and on protected route, redirect
+      if (!token && currentPath !== '/login' && currentPath !== '/register') {
+        console.log('🔒 No token on focus - redirecting');
         router.replace('/login');
-      } else {
-        console.log('👀 Focus: Token exists');
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+  }, [router]);
+
+  /**
+   * Visibility change check
+   */
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Don't check immediately after logout
+        if (justLoggedOut.current) return;
+        
+        const token = localStorage.getItem('accessToken');
+        const currentPath = window.location.pathname;
+        
+        if (!token && currentPath !== '/login' && currentPath !== '/register') {
+          console.log('🔒 Visibility check - redirecting');
+          router.replace('/login');
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [router]);
 
   const value = {
     user,
@@ -226,6 +278,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/**
+ * Hook to use auth context
+ */
 export function useAuth() {
   const context = useContext(AuthContext);
   

@@ -1,27 +1,27 @@
 'use client';
 
 import { useEffect, ReactNode } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/authContext';
 
-interface ProtectedRouteProps {
+interface PublicRouteProps {
   children: ReactNode;
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+/**
+ * PublicRoute - Protects login/register pages from authenticated users
+ * Redirects to dashboard if user is already logged in
+ */
+export default function PublicRoute({ children }: PublicRouteProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const { isAuthenticated, isLoading } = useAuth();
 
-  /**
-   * Check auth on mount and route change
-   */
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      console.log('🔒 Not authenticated - redirecting to login');
-      router.replace('/login');
+    if (!isLoading && isAuthenticated) {
+      console.log('🔓 Already authenticated - redirecting to dashboard');
+      router.replace('/dashboard');
     }
-  }, [isLoading, isAuthenticated, pathname, router]);
+  }, [isLoading, isAuthenticated, router]);
 
   // Show loading state
   if (isLoading) {
@@ -35,11 +35,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // Block render if not authenticated
-  if (!isAuthenticated) {
+  // Block render if authenticated (redirect is happening)
+  if (isAuthenticated) {
     return null;
   }
 
-  // Render protected content
+  // Render public content for unauthenticated users
   return <>{children}</>;
 }

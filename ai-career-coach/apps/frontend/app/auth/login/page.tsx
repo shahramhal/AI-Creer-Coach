@@ -2,14 +2,17 @@
 
 import AuthLayout from '../../../components/auth/AuthLayout';
 import LoginForm from '../../../components/auth/LoginForm';
+import PublicRoute from '../../../components/auth/PublicRoute';
 
 export default function LoginPage() {
   return (
-    <AuthLayout
-      title="Welcome back"
-      subtitle="Sign in to your account to continue"
-    >
-      <LoginForm />
-    </AuthLayout>
+    <PublicRoute>
+      <AuthLayout
+        title="Welcome back"
+        subtitle="Sign in to your account to continue"
+      >
+        <LoginForm />
+      </AuthLayout>
+    </PublicRoute>
   );
 }

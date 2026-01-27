@@ -20,6 +20,24 @@ services:
     networks:
       - career_coach_network
 
+  job-api-service:
+    build: ./apps/job-api-service
+    container_name: job-api-service
+    ports:
+      - "8001:8001"
+    environment:
+      - MONGODB_URL=mongodb://admin:admin123@mongodb:27017/career_coach?authSource=admin
+      - ADZUNA_APP_ID=${ADZUNA_APP_ID}
+      - ADZUNA_APP_KEY=${ADZUNA_APP_KEY}
+      - REED_API_KEY=${REED_API_KEY}
+      - PORT=8001
+      - ENV=development
+    volumes:
+      - ./apps/job-api-service:/app
+    depends_on:
+      - mongodb
+    networks:
+    - career_coach_network
   ml-service:
     build: ./apps/ml-service
     ports:

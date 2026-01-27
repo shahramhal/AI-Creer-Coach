@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.routes.js';
 import profileRoutes from "./routes/profile.routes.js";
 import mlRoutes from "./routes/ml.routes.js";
 import { connectMongoDB } from './config/database.js';
+import jobRoutes from './routes/jobs.routes.js';
 
 // Load environment variables
 dotenv.config();
@@ -56,6 +57,8 @@ app.use('/api/profile', profileRoutes);
 
 // ML service routes
 app.use('/api/ml', mlRoutes);
+// Job routes
+app.use('/api/jobs', jobRoutes);
 
 // Upload routes (static files)
 app.use('/uploads', express.static('public/uploads'));

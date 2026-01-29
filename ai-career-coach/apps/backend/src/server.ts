@@ -9,6 +9,7 @@ import profileRoutes from "./routes/profile.routes.js";
 import mlRoutes from "./routes/ml.routes.js";
 import { connectMongoDB } from './config/database.js';
 import jobRoutes from './routes/jobs.routes.js';
+import matchingRoutes from './routes/matching.routes.js';
 
 // Load environment variables
 dotenv.config();
@@ -62,6 +63,8 @@ app.use('/api/jobs', jobRoutes);
 
 // Upload routes (static files)
 app.use('/uploads', express.static('public/uploads'));
+
+app.use('/api/matching', matchingRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

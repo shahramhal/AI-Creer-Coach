@@ -10,8 +10,16 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Set pip timeout for large downloads
+ENV PIP_DEFAULT_TIMEOUT=300
+ENV PIP_RETRIES=5
+
+# Install all Python dependencies
+# Use CPU-only PyTorch index as primary, PyPI as fallback for other packages
+RUN pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://pypi.org/simple \
+    -r requirements.txt
 RUN python -m spacy download en_core_web_sm
 
 # Copy application code

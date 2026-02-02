@@ -7,7 +7,6 @@
  */
 
 import express from 'express';
-import axios from 'axios';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -29,19 +28,34 @@ router.get('/search', authenticate, async (req, res) => {
       });
     }
     
-    // Trigger job fetching from APIs
-    const fetchResponse = await axios.post(`${JOB_API_URL}/api/jobs/fetch`, {
-      keywords,
-      location
+    // Forward request to job-api-service using fetch
+    const fetchResponse = await fetch(`${JOB_API_URL}/api/jobs/fetch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        keywords,
+        location
+      })
     });
+    // Parse JSON response
+    const data = await fetchResponse.json();
     
+    // Handle non-OK responses
+    if (!fetchResponse.ok) {
+      return res.status(fetchResponse.status).json({
+        success: false,
+        message: data.message || 'Job search failed',
+      });
+    }
     // Query MongoDB for jobs
     // (You can do this directly or through job-api-service)
     
     res.json({
       success: true,
       message: 'Jobs fetched successfully',
-      data: fetchResponse.data
+      data: data
     });
     
   } catch (error) {
@@ -59,9 +73,18 @@ router.get('/search', authenticate, async (req, res) => {
  */
 router.get('/stats', authenticate, async (req, res) => {
   try {
-    const response = await axios.get(`${JOB_API_URL}/api/jobs/stats`);
+    const response = await fetch(`${JOB_API_URL}/api/jobs/stats`);
+    const data = await response.json();
+
+    // Handle errors
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        message: data.message || 'Failed to get statistics',
+      });
+    }
     
-    res.json(response.data);
+    res.json(data)
     
   } catch (error) {
     console.error('Job stats error:', error);

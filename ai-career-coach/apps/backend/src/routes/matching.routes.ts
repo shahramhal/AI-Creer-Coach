@@ -8,7 +8,6 @@
 
 import express from 'express';
 import type { Request, Response } from 'express';
-import axios from 'axios';
 import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
@@ -112,33 +111,51 @@ router.post('/find-jobs', authenticate, async (req: Request, res: Response) => {
       });
     }
     
-    // Step 3: Call ML service for semantic matching
-    const mlResponse = await axios.post(`${ML_SERVICE_URL}/api/ml/match-jobs`, {
-      cv_text: userCV.raw_text,
-      jobs: jobs.map((job: JobDocument) => ({
-        job_id: job.job_id,
-        source: job.source,
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        description: job.description,
-        requirements: job.requirements || [],
-        salary_min: job.salary_min,
-        salary_max: job.salary_max,
-        source_url: job.source_url,
-        posted_date: job.posted_date
-      })),
-      top_k,
-      filters
+    // Step 3: Call ML service for semantic matching using native fetch
+    const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/match-jobs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        cv_text: userCV.raw_text,
+        jobs: jobs.map((job: JobDocument) => ({
+          job_id: job.job_id,
+          source: job.source,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          description: job.description,
+          requirements: job.requirements || [],
+          salary_min: job.salary_min,
+          salary_max: job.salary_max,
+          source_url: job.source_url,
+          posted_date: job.posted_date
+        })),
+        top_k,
+        filters
+      })
     });
+    
+    // Parse JSON response from ML service
+    const mlData = await mlResponse.json();
+    
+    // Handle ML service errors
+    if (!mlResponse.ok) {
+      return res.status(mlResponse.status).json({
+        success: false,
+        message: mlData.message || 'ML service failed to match jobs',
+        error: mlData.error
+      });
+    }
     
     // Step 4: Return matched jobs
     res.json({
       success: true,
-      message: `Found ${mlResponse.data.matched_jobs.length} matching jobs`,
+      message: `Found ${mlData.matched_jobs.length} matching jobs`,
       data: {
-        matched_jobs: mlResponse.data.matched_jobs,
-        total_analyzed: mlResponse.data.total_analyzed,
+        matched_jobs: mlData.matched_jobs,
+        total_analyzed: mlData.total_analyzed,
         user_cv: {
           name: userCV.personal_info?.name,
           uploaded_at: userCV.created_at

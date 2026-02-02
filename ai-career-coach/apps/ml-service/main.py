@@ -11,6 +11,7 @@ from typing import Optional, List, Dict
 from database.mongodb import get_mongodb_connection
 from utils.serializers import serialize_objectid
 import uvicorn
+import jwt
 
 # Import CV parser
 from cv_parser.parser import CVParser
@@ -80,6 +81,7 @@ async def root():
 
 @app.post("/api/ml/parse-cv", response_model=ParseResponse)
 async def parse_cv(file: UploadFile = File(...)):
+    authorization: str = Header(None)
     """
     Parse uploaded CV file (PDF or DOCX)
     
@@ -96,6 +98,17 @@ async def parse_cv(file: UploadFile = File(...)):
                 status_code=400,
                 detail="Only PDF and DOCX files are supported"
             )
+            # Extract user_id from JWT token
+        user_id = None
+        if authorization and authorization.startswith('Bearer '):
+            token = authorization.split(' ')[1]
+            try:
+                # Decode JWT to get user_id
+                payload = jwt.decode(token, options={"verify_signature": False})
+                user_id = payload.get('userId') or payload.get('id')
+                print(f"📝 Parsing CV for user: {user_id}")
+            except Exception as e:
+                print(f"⚠️ Could not decode JWT: {e}")
         
         # Read file content
         content = await file.read()
@@ -105,7 +118,10 @@ async def parse_cv(file: UploadFile = File(...)):
 
         # Save to MongoDB
         mongo = get_mongodb_connection()
-        doc_id = mongo.save_parsed_cv("temp_user", parsed_data)
+        # Add user_id to parsed data
+        parsed_data['user_id'] = user_id 
+        
+        doc_id = mongo.save_parsed_cv(user_id , parsed_data)
 
         # Serialize ObjectIds to strings before returning
         serialized_data = serialize_objectid(parsed_data)

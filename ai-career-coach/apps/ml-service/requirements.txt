@@ -30,7 +30,11 @@ pandas>=2.0.0
 scikit-learn>=1.5.0
 joblib>=1.5.0
 
-# Job Matching 
+# Job Matching
 sentence-transformers>=2.7.0
-torch>=2.2.0
+# torch is installed separately in Dockerfile (CPU-only version)
+# This line ensures pip doesn't try to upgrade/reinstall torch
+torch>=2.0.0
 transformers>=4.30.0
+# Jwt decoder 
+pyjwt>=2.8.0

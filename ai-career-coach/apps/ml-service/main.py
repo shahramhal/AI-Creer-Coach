@@ -12,9 +12,10 @@ from database.mongodb import get_mongodb_connection
 from utils.serializers import serialize_objectid
 import uvicorn
 import jwt
+import os
 
 # Import CV parser
-from cv_parser.parser import CVParser
+from cv_parser.parserV2 import CVParser
 
 # Import job matcher
 from job_matcher.matcher import JobMatcher
@@ -36,7 +37,9 @@ app.add_middleware(
 )
 
 # Initialize services
-cv_parser = CVParser()
+cv_parser = CVParser(
+    anthropic_api_key=os.environ.get('ANTHROPIC_API_KEY')
+)
 job_matcher = JobMatcher()
 
 

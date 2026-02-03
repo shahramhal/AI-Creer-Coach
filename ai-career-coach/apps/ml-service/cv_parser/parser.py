@@ -229,20 +229,46 @@ class CVParser:
             except EmailNotValidError:
                 continue
         
-        # Extract phone (look in first 500 chars)
+        # Extract phone (look in first 1000 chars for better coverage)
+        # Try UK region specifically first
         try:
-            for match in phonenumbers.PhoneNumberMatcher(text[:500], None):
+            for match in phonenumbers.PhoneNumberMatcher(text[:1000], "GB"):
                 contact['phone'] = phonenumbers.format_number(
                     match.number, 
                     phonenumbers.PhoneNumberFormat.INTERNATIONAL
                 )
                 break
         except Exception:
-            # Fallback: simple pattern
-            phone_pattern = r'[\+]?[(]?\d{1,4}[)]?[-\s\.]?\d{1,4}[-\s\.]?\d{1,9}'
-            phone_match = re.search(phone_pattern, text[:500])
-            if phone_match:
-                contact['phone'] = phone_match.group()
+            pass
+        
+        # If not found, try generic region
+        if not contact['phone']:
+            try:
+                for match in phonenumbers.PhoneNumberMatcher(text[:1000], None):
+                    contact['phone'] = phonenumbers.format_number(
+                        match.number, 
+                        phonenumbers.PhoneNumberFormat.INTERNATIONAL
+                    )
+                    break
+            except Exception:
+                pass
+        
+        # Improved fallback regex for UK numbers
+        if not contact['phone']:
+            # UK mobile: 07XXX XXXXXX or +447XXX XXXXXX
+            uk_mobile = r'\b(?:\+44\s?7|\(?07)\d{3}\s?\d{6}\b'
+            # UK landline: 020 XXXX XXXX or +4420 XXXX XXXX  
+            uk_landline = r'\b(?:\+44\s?[1-9]|\(?0[1-9])\d{1,4}\s?\d{6,7}\b'
+            # Generic international
+            generic = r'[\+]?\d{1,4}[\s\-\.]?\(?\d{1,4}\)?[\s\-\.]?\d{1,4}[\s\-\.]?\d{1,9}'
+            
+            for pattern in [uk_mobile, uk_landline, generic]:
+                phone_match = re.search(pattern, text[:1000])
+                if phone_match:
+                    # Clean up the match
+                    phone = phone_match.group().replace(' ', '').replace('(', '').replace(')', '')
+                    contact['phone'] = phone
+                    break
         
         # Extract LinkedIn
         linkedin_pattern = r'linkedin\.com/in/[\w-]+'
@@ -258,6 +284,17 @@ class CVParser:
             if ent.label_ == 'PERSON' and len(ent.text.split()) >= 2:
                 contact['name'] = ent.text
                 break
+        
+        # Fallback - try to extract name from first line
+        if not contact['name']:
+            first_line = text.split('\n')[0].strip()
+            # Check if first line looks like a name (2-4 words, mostly letters)
+            words = first_line.split()
+            if 2 <= len(words) <= 4:
+                # Check if it's mostly alphabetic (allow some punctuation)
+                clean_words = [w.replace(',', '').replace('.', '') for w in words]
+                if all(len(w) > 1 and w.isalpha() for w in clean_words):
+                    contact['name'] = first_line
         
         return contact
     
@@ -291,37 +328,26 @@ class CVParser:
     def _extract_skills(self, text: str, doc) -> List[str]:
         """
         Extract skills using multiple methods:
-        1. Skills section extraction
-        2. NER (Organizations, Products)
-        3. Common skill keywords
-        4. Frequency analysis
+        1. Skills section extraction (PRIMARY)
+        2. Common skill keywords matching
         """
         skills = set()
         
-        # Method 1: Extract from skills section
-        # FIX: _find_section returns a LIST, not a string
+        # Method 1: Extract from skills section (PRIMARY SOURCE)
         skills_sections = self._find_section(text, 'skills')
         if skills_sections:
-            # Iterate over each section found
             for section_text in skills_sections:
                 section_skills = self._extract_skills_from_section(section_text)
                 skills.update(section_skills)
         
-        # Method 2: Use NER to find technologies and tools
-        for ent in doc.ents:
-            if ent.label_ in ['ORG', 'PRODUCT', 'GPE']:
-                # Filter out obvious non-skills
-                if len(ent.text) > 2 and not ent.text.isupper():
-                    skills.add(ent.text)
-        
-        # Method 3: Match common skill keywords
+        # Method 2: Match common skill keywords from COMMON_SKILLS
         text_lower = text.lower()
         for skill in self.COMMON_SKILLS:
             if skill in text_lower:
                 skills.add(skill.title())
         
-        # Method 4: Extract capitalized noun phrases (likely skills)
-        skills.update(self._extract_noun_phrases(doc))
+        # 🔥 REMOVED: NER extraction (adds too much noise: locations, companies)
+        # 🔥 REMOVED: noun_phrases extraction (adds garbage from entire document)
         
         # Clean and deduplicate
         skills = self._clean_skills(skills)
@@ -373,24 +399,109 @@ class CVParser:
         return skills
     
     def _clean_skills(self, skills: Set[str]) -> Set[str]:
-        """Clean and deduplicate skills"""
+        """Clean and deduplicate skills - AGGRESSIVE FILTERING"""
         cleaned = set()
+        
+        # 🔥 Comprehensive noise filtering
+        noise_keywords = {
+            # Action verbs
+            'achieved', 'achieving', 'performed', 'implemented', 'designed',
+            'built', 'developed', 'created', 'managed', 'led', 'established',
+            'leveraged', 'collaborated', 'engineered', 'programmed',
+            # Metrics/descriptors
+            'customers', 'users', 'efficiency', 'stability', 'conflicts',
+            'updates', 'fixes', 'protection', 'specifications', 'cities',
+            'process', 'conditions', 'summary', 'administration', 'logic',
+            'menu', 'design', 'part', 'interests', 'achievements',
+            'coursework', 'delivered', 'system', 'platform', 'backend',
+            'frontend', 'tests', 'teams', 'developers', 'members',
+            'production', 'grade', 'apps', 'daily', 'concurrent',
+            'tasks', 'service', 'delivery', 'running', 'keeping',
+            # Job roles/titles
+            'developer', 'engineer', 'manager', 'waiter', 'remote',
+            # Soft skills (too generic)
+            'communication', 'collaboration', 'leadership', 'teamwork',
+            'problem-solving', 'time management', 'multitasking',
+            # Education terms
+            'education', 'university', 'college', 'degree', 'bsc', 'msc',
+            'coursework', 'programming', 'basic',
+            # Locations
+            'kingdom', 'united', 'london', 'essex', 'tashkent', 'uzbekistan',
+            # Generic words
+            'review', 'coding', 'reading', 'football', 'travel', 'cultures',
+            'interests', 'languages', 'fluent', 'english', 'russian', 'uzbek'
+        }
+        
+        # Blocked exact matches (full strings)
+        blocked_exact = {
+            'and interests', 'tech languages', 'key skills', 'skills developed',
+            'relevant coursework', 'computer science', 'backend developer',
+            'education bsc', 'balanced tasks', 'code review', 'coding',
+            'basic programming', 'communication', 'collaboration',
+            # V3: Additional blocks
+            'aspera restaurant', 'other work experience', 'work experience',
+            'sql querying', 'data entry', 'data management',
+            # Languages (not tech skills)
+            'english', 'russian', 'uzbek', 'tajik', 'turkish'
+        }
         
         for skill in skills:
             # Remove extra whitespace
             skill = re.sub(r'\s+', ' ', skill).strip()
             
-            # Skip if too short/long or contains numbers
+            # Skip if too short or too long
             if len(skill) < 2 or len(skill) > 30:
                 continue
             
-            # Skip common non-skills
-            if skill.lower() in {'city', 'state', 'company', 'name', 'phone', 'email'}:
+            # Skip if starts with numbers
+            if re.match(r'^\d+', skill):
                 continue
             
-            cleaned.add(skill)
+            # Skip if ends with bullet or 'o' artifact
+            if skill.endswith(('•', ' o', 'o')):
+                continue
+            
+            # Skip if contains pipe (malformed extraction)
+            if '|' in skill:
+                continue
+            
+            skill_lower = skill.lower()
+            
+            # Skip exact blocked matches
+            if skill_lower in blocked_exact:
+                continue
+            
+            # Skip if contains ANY noise keyword
+            if any(keyword in skill_lower for keyword in noise_keywords):
+                continue
+            
+            # Skip generic words
+            if skill_lower in {'and', 'the', 'with', 'for', 'from', 'that', 'this',
+                               'city', 'state', 'name', 'phone', 'email'}:
+                continue
+            
+            # Skip if more than 3 words (likely a phrase, not a skill)
+            if len(skill.split()) > 3:
+                continue
+            
+            # Only keep if it looks like a tech term
+            # Tech terms typically: start with capital, contain specific chars, or all caps
+            if skill[0].isupper() or skill.isupper() or any(c in skill for c in ['.', '+', '#']):
+                cleaned.add(skill)
         
-        return cleaned
+        # 🔥 V3: Deduplicate case-insensitive (SQL vs Sql)
+        final_skills = {}
+        for skill in cleaned:
+            skill_lower = skill.lower()
+            # Keep the version with better casing (prefer all caps for acronyms)
+            if skill_lower not in final_skills:
+                final_skills[skill_lower] = skill
+            else:
+                # Prefer all uppercase (SQL over Sql)
+                if skill.isupper():
+                    final_skills[skill_lower] = skill
+        
+        return set(final_skills.values())
     
 
     # EXPERIENCE EXTRACTION

@@ -4,7 +4,7 @@ Main FastAPI application for ML services
 Handles CV parsing, job matching, and ML-related endpoints
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict
@@ -80,8 +80,7 @@ async def root():
 
 
 @app.post("/api/ml/parse-cv", response_model=ParseResponse)
-async def parse_cv(file: UploadFile = File(...)):
-    authorization: str = Header(None)
+async def parse_cv(file: UploadFile = File(...), authorization: str = Header(None)):
     """
     Parse uploaded CV file (PDF or DOCX)
     
@@ -112,20 +111,25 @@ async def parse_cv(file: UploadFile = File(...)):
         
         # Read file content
         content = await file.read()
-        
+
         # Parse CV
         parsed_data = cv_parser.parse(content, file.filename)
+        parsed_data['user_id'] = user_id
 
-        # Save to MongoDB
-        mongo = get_mongodb_connection()
-        # Add user_id to parsed data
-        parsed_data['user_id'] = user_id 
-        
-        doc_id = mongo.save_parsed_cv(user_id , parsed_data)
+        # Try to save to MongoDB (optional - don't fail if unavailable)
+        doc_id = None
+        try:
+            mongo = get_mongodb_connection()
+            if mongo.connect():
+                doc_id = mongo.save_parsed_cv(user_id, parsed_data)
+                print(f"✅ CV saved to MongoDB: {doc_id}")
+        except Exception as mongo_error:
+            print(f"⚠️ MongoDB save skipped: {mongo_error}")
 
-        # Serialize ObjectIds to strings before returning
+        # Serialize and return
         serialized_data = serialize_objectid(parsed_data)
-        serialized_data['document_id'] = doc_id
+        if doc_id:
+            serialized_data['document_id'] = doc_id
 
         return ParseResponse(
             success=True,

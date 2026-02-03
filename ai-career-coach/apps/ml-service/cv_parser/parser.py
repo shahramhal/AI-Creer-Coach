@@ -13,6 +13,16 @@ from collections import Counter
 import PyPDF2
 import pdfplumber
 
+# OCR support 
+try:
+    import pytesseract
+    from pdf2image import convert_from_bytes
+    from PIL import Image
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+    print("⚠️  OCR libraries not installed. Scanned PDFs won't be parsed.")
+
 # DOCX parsing
 from docx import Document
 
@@ -36,6 +46,9 @@ class CVParser:
         'education': r'education(?:al)?(?:\s+(?:background|qualifications?))?',
         'skills': r'(?:skills|competencies|core\s+competencies|technical\s+skills)',
         'summary': r'(?:professional\s+)?(?:summary|profile|objective|career\s+focus)',
+        #  Projects and Certifications
+        'projects': r'projects?|portfolio|academic\s+projects?|personal\s+projects?',
+        'certifications': r'certifications?|certificates?|licenses?|credentials?|professional\s+development',
     }
     
     # Common soft skills and domain terms (complement NER extraction)
@@ -72,20 +85,188 @@ class CVParser:
             os.system("python -m spacy download en_core_web_sm")
             self.nlp = spacy.load("en_core_web_sm")
     
+
+
+    #  CONFIDENCE SCORING
+    
+    def calculate_confidence_scores(self, parsed_data: Dict) -> Dict:
+        """
+        Calculate quality confidence scores for parsed CV data
+        Returns scores from 0.0 to 1.0 for each section + overall
+        
+        Helps identify which CVs parsed well vs need manual review
+        """
+        scores = {
+            'contact': 0.0,
+            'experience': 0.0,
+            'education': 0.0,
+            'skills': 0.0,
+            'projects': 0.0,
+            'certifications': 0.0,
+            'overall': 0.0
+        }
+        
+        contact = parsed_data.get('contact_info', {})
+        
+        # Contact scoring (30% weight)
+        contact_checks = [
+            bool(contact.get('email')),           # Critical
+            bool(contact.get('name')),            # Critical
+            bool(contact.get('phone')),           # Important
+            bool(contact.get('location')),        # Nice to have
+            bool(contact.get('linkedin'))         # Nice to have
+        ]
+        scores['contact'] = sum(contact_checks) / len(contact_checks)
+        
+        # Experience scoring (25% weight)
+        experiences = parsed_data.get('experience', [])
+        if experiences:
+            exp_qualities = []
+            for exp in experiences:
+                quality_checks = [
+                    bool(exp.get('title')),
+                    bool(exp.get('company')),
+                    bool(exp.get('dates')),
+                    len(exp.get('responsibilities', [])) > 0,
+                    len(exp.get('responsibilities', [])) >= 2,
+                    bool(exp.get('location'))
+                ]
+                quality = sum(quality_checks) / len(quality_checks)
+                exp_qualities.append(quality)
+            
+            scores['experience'] = sum(exp_qualities) / len(exp_qualities)
+        
+        # Education scoring (15% weight)
+        education = parsed_data.get('education', [])
+        if education:
+            edu_qualities = []
+            for edu in education:
+                quality_checks = [
+                    bool(edu.get('degree')),
+                    bool(edu.get('institution')),
+                    bool(edu.get('dates')),
+                    bool(edu.get('field'))
+                ]
+                quality = sum(quality_checks) / len(quality_checks)
+                edu_qualities.append(quality)
+            
+            scores['education'] = sum(edu_qualities) / len(edu_qualities)
+        
+        # Skills scoring (15% weight)
+        skills = parsed_data.get('skills', [])
+        if skills:
+            skill_count = len(skills)
+            if skill_count >= 15:
+                scores['skills'] = 1.0
+            elif skill_count >= 10:
+                scores['skills'] = 0.8
+            elif skill_count >= 5:
+                scores['skills'] = 0.6
+            else:
+                scores['skills'] = 0.4
+        
+        # Projects scoring (10% weight)
+        projects = parsed_data.get('projects', [])
+        if projects:
+            proj_qualities = []
+            for proj in projects:
+                quality_checks = [
+                    bool(proj.get('name')),
+                    bool(proj.get('description')),
+                    len(proj.get('technologies', [])) > 0,
+                    bool(proj.get('url') or proj.get('github'))
+                ]
+                quality = sum(quality_checks) / len(quality_checks)
+                proj_qualities.append(quality)
+            
+            scores['projects'] = sum(proj_qualities) / len(proj_qualities)
+        
+        # Certifications scoring (5% weight)
+        certifications = parsed_data.get('certifications', [])
+        if certifications:
+            cert_qualities = []
+            for cert in certifications:
+                quality_checks = [
+                    bool(cert.get('name')),
+                    bool(cert.get('issuer')),
+                    bool(cert.get('date'))
+                ]
+                quality = sum(quality_checks) / len(quality_checks)
+                cert_qualities.append(quality)
+            
+            scores['certifications'] = sum(cert_qualities) / len(cert_qualities)
+        
+        # Calculate overall weighted score
+        scores['overall'] = (
+            scores['contact'] * 0.30 +
+            scores['experience'] * 0.25 +
+            scores['education'] * 0.15 +
+            scores['skills'] * 0.15 +
+            scores['projects'] * 0.10 +
+            scores['certifications'] * 0.05
+        )
+        
+        # Determine quality level
+        overall = scores['overall']
+        if overall >= 0.85:
+            quality_level = "excellent"
+            issues = []
+        elif overall >= 0.70:
+            quality_level = "good"
+            issues = []
+        elif overall >= 0.50:
+            quality_level = "fair"
+            issues = []
+        else:
+            quality_level = "poor"
+            issues = []
+        
+        # Identify specific issues
+        if scores['contact'] < 0.6:
+            issues.append("Missing critical contact information")
+        if scores['experience'] < 0.5:
+            issues.append("Experience section needs more detail")
+        if scores['skills'] < 0.5:
+            issues.append("Few skills detected")
+        
+        return {
+            'scores': scores,
+            'quality': quality_level,
+            'issues': issues,
+            'completeness': {
+                'has_contact': scores['contact'] > 0,
+                'has_experience': scores['experience'] > 0,
+                'has_education': scores['education'] > 0,
+                'has_skills': scores['skills'] > 0,
+                'has_projects': scores['projects'] > 0,
+                'has_certifications': scores['certifications'] > 0
+            }
+        }
+
     def parse(self, file_content: bytes, filename: str) -> Dict:
         """
-        Main parsing function
+        Main parsing function with OCR fallback and confidence scoring
         
         Args:
             file_content: Raw file bytes
             filename: Name of file (used to determine type)
             
         Returns:
-            Dictionary with parsed CV data
+            Dictionary with parsed CV data including confidence scores
         """
         # Extract text based on file type
         if filename.endswith('.pdf'):
             text = self._extract_text_from_pdf(file_content)
+            
+            # : OCR fallback if text is too short
+            MIN_TEXT_LENGTH = 100
+            if len(text.strip()) < MIN_TEXT_LENGTH:
+                print(f"⚠️  Text too short ({len(text)} chars), attempting OCR...")
+                ocr_text = self._extract_text_with_ocr(file_content)
+                if len(ocr_text) > len(text):
+                    print("✅ OCR produced better results, using OCR text")
+                    text = ocr_text
+                    
         elif filename.endswith('.docx'):
             text = self._extract_text_from_docx(file_content)
         else:
@@ -94,12 +275,17 @@ class CVParser:
         # Parse the text
         parsed_data = self._parse_text(text)
         
+        #  Add confidence scoring
+        parsed_data['confidence'] = self.calculate_confidence_scores(parsed_data)
+        
         # Add metadata
-        parsed_data.update({
+        parsed_data['metadata'] = {
             'raw_text': text,
             'filename': filename,
-            'parsed_at': datetime.utcnow().isoformat()
-        })
+            'parsed_at': datetime.utcnow().isoformat(),
+            'parser_version': '2.0-enhanced',
+            'text_length': len(text)
+        }
         
         return parsed_data
     
@@ -150,6 +336,37 @@ class CVParser:
         
         return self._clean_text('\n'.join(parts))
     
+
+    
+    def _extract_text_with_ocr(self, file_content: bytes) -> str:
+        """
+        OCR Support
+        Extract text from scanned PDFs using Tesseract OCR
+        Fallback method when regular text extraction fails
+        """
+        if not OCR_AVAILABLE:
+            return ""
+        
+        try:
+            # Convert PDF pages to images
+            images = convert_from_bytes(file_content)
+            
+            # OCR each page
+            full_text = ""
+            for i, image in enumerate(images):
+                page_text = pytesseract.image_to_string(
+                    image, 
+                    lang='eng',
+                    config='--psm 6'  # Assume uniform text block
+                )
+                full_text += f"\n--- Page {i+1} ---\n{page_text}"
+            
+            return full_text
+            
+        except Exception as e:
+            print(f"OCR extraction failed: {e}")
+            return ""
+
     def _clean_text(self, text: str) -> str:
         """
         Clean and normalize text
@@ -176,6 +393,192 @@ class CVParser:
     # MAIN PARSING ORCHESTRATOR
 
     
+
+
+    #  PROJECTS EXTRACTION
+    
+    def _extract_projects(self, text: str) -> List[Dict]:
+        """
+        Extract project details from CV
+        Returns list of projects with name, description, technologies, urls
+        """
+        projects = []
+        
+        # Find projects sections
+        project_sections = self._find_section(text, 'projects')
+        
+        if not project_sections:
+            return projects
+        
+        for section_text in project_sections:
+            # Split into individual project entries
+            # Projects typically separated by bullets or blank lines
+            entries = re.split(r'\n(?=[•\-\*]|\w+.*?[:|])', section_text)
+            
+            for entry in entries:
+                if len(entry.strip()) < 30:
+                    continue
+                
+                project = {
+                    'name': '',
+                    'description': '',
+                    'technologies': [],
+                    'url': '',
+                    'github': '',
+                    'dates': ''
+                }
+                
+                # Extract project name (first line)
+                lines = [l.strip() for l in entry.split('\n') if l.strip()]
+                if lines:
+                    # Remove bullets and extract name
+                    name_line = lines[0].strip(r'•-*	 ')
+                    # Name is usually before first pipe or dash
+                    name_match = re.match(r'^([^|\-]+)', name_line)
+                    if name_match:
+                        project['name'] = name_match.group(1).strip()[:150]
+                
+                # Extract description (remaining lines)
+                if len(lines) > 1:
+                    desc_lines = []
+                    for line in lines[1:]:
+                        # Skip lines that start with 'o' (sub-bullets)
+                        line = re.sub(r'^o\s*', '', line)
+                        desc_lines.append(line)
+                    project['description'] = ' '.join(desc_lines)[:500]
+                
+                # Extract technologies (look for tech keywords and patterns)
+                tech_pattern = r"\b(" + "|".join([
+                    r'Python', r'Java', r'JavaScript', r'TypeScript', r'C\+\+', r'C#',
+                    r'Django', r'Flask', r'FastAPI', r'React', r'Angular', r'Vue',
+                    r'Node\\.?js', r'Express', r'Spring', r'Laravel',
+                    r'MySQL', r'PostgreSQL', r'MongoDB', r'Redis', r'SQLite',
+                    r'AWS', r'Azure', r'GCP', r'Docker', r'Kubernetes',
+                    r'Git', r'GitHub', r'GitLab', r'Jenkins', r'CI/CD',
+                    r'HTML', r'CSS', r'Tailwind', r'Bootstrap',
+                    r'Kotlin', r'Swift', r'Android', r'iOS',
+                    r'SQL', r'NoSQL', r'GraphQL', r'REST', r'API',
+                    r'UML', r'Draw\\.io', r'matplotlib', r'pandas',
+                    r'NetBeans', r'VS Code', r'IntelliJ', r'PyCharm'
+                ]) + r")\b"
+                
+                techs = re.findall(tech_pattern, entry, re.IGNORECASE)
+                project['technologies'] = list(set([t.title() for t in techs]))[:10]
+                
+                # Extract URLs
+                url_pattern = r'https?://[^\s]+'
+                urls = re.findall(url_pattern, entry)
+                for url in urls:
+                    url = url.rstrip('.,;)')
+                    if 'github.com' in url.lower():
+                        project['github'] = url
+                    elif not project['url']:
+                        project['url'] = url
+                
+                # Extract dates
+                date_patterns = [
+                    r'\b(20\d{2})\s*[-–—]\s*(20\d{2}|Present|Current)\b',
+                    r'\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+20\d{2}\b'
+                ]
+                for pattern in date_patterns:
+                    match = re.search(pattern, entry, re.I)
+                    if match:
+                        project['dates'] = match.group(0)
+                        break
+                
+                # Only add if we have meaningful info
+                if project['name'] and (project['description'] or project['technologies']):
+                    projects.append(project)
+        
+        return projects[:10]  # Limit to 10 projects
+
+
+
+    #  CERTIFICATIONS EXTRACTION
+    
+    def _extract_certifications(self, text: str) -> List[Dict]:
+        """
+        Extract certifications and professional development
+        Returns list with name, issuer, date, credential_id, url
+        """
+        certifications = []
+        
+        # Find certifications sections
+        cert_sections = self._find_section(text, 'certifications')
+        
+        if not cert_sections:
+            return certifications
+        
+        for section_text in cert_sections:
+            # Split into individual certification entries
+            entries = re.split(r'\n(?=[•\-\*]|\d+\.)', section_text)
+            
+            for entry in entries:
+                entry = entry.strip()
+                if len(entry) < 15:
+                    continue
+                
+                cert = {
+                    'name': '',
+                    'issuer': '',
+                    'date': '',
+                    'expiry_date': '',
+                    'credential_id': '',
+                    'url': ''
+                }
+                
+                # Extract cert name (first line)
+                lines = [l.strip() for l in entry.split('\n') if l.strip()]
+                if lines:
+                    cert['name'] = lines[0].strip(r'•-*	 ')[:200]
+                
+                # Extract issuer (look for organization names using NER)
+                doc = self.nlp(entry[:500])  # Limit to first 500 chars
+                orgs = [ent.text for ent in doc.ents if ent.label_ == 'ORG']
+                if orgs:
+                    cert['issuer'] = orgs[0]
+                else:
+                    # Fallback: look for "by", "from", "issued by" patterns
+                    issuer_match = re.search(r'(?:by|from|issued by)\s+([A-Z][A-Za-z\s&]+?)(?:\||,|\n|$)', entry)
+                    if issuer_match:
+                        cert['issuer'] = issuer_match.group(1).strip()
+                
+                # Extract dates
+                date_pattern = r'\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}\b'
+                date_matches = re.findall(date_pattern, entry, re.I)
+                if date_matches:
+                    cert['date'] = date_matches[0]
+                    if len(date_matches) > 1:
+                        cert['expiry_date'] = date_matches[1]
+                else:
+                    # Try year only
+                    year_match = re.search(r'\b(20\d{2})\b', entry)
+                    if year_match:
+                        cert['date'] = year_match.group(0)
+                
+                # Extract credential ID
+                cred_patterns = [
+                    r'credential\s*(?:id)?[:\s]+([A-Z0-9\-]+)',
+                    r'certificate\s*(?:id)?[:\s]+([A-Z0-9\-]+)',
+                    r'id[:\s]+([A-Z0-9\-]+)',
+                ]
+                for pattern in cred_patterns:
+                    match = re.search(pattern, entry, re.I)
+                    if match:
+                        cert['credential_id'] = match.group(1)
+                        break
+                
+                # Extract URL
+                url_match = re.search(r'https?://[^\s]+', entry)
+                if url_match:
+                    cert['url'] = url_match.group(0).rstrip('.,;)')
+                
+                # Only add if we have meaningful info
+                if cert['name'] and len(cert['name']) > 5:
+                    certifications.append(cert)
+        
+        return certifications[:15]  # Limit to 15
+
     def _parse_text(self, text: str) -> Dict:
         """Parse CV text into structured data"""
         
@@ -189,12 +592,18 @@ class CVParser:
         experience = self._extract_experience(text)
         education = self._extract_education(text)
         
+        #  Add projects and certifications
+        projects = self._extract_projects(text)
+        certifications = self._extract_certifications(text)
+        
         return {
             'contact_info': contact_info,
             'summary': summary,
             'skills': skills,
             'experience': experience,
             'education': education,
+            'projects': projects,
+            'certifications': certifications,
         }
     
 
@@ -230,7 +639,7 @@ class CVParser:
                 continue
         
         # Extract phone (look in first 1000 chars for better coverage)
-        # Try UK region specifically first
+        #  Try UK region specifically first
         try:
             for match in phonenumbers.PhoneNumberMatcher(text[:1000], "GB"):
                 contact['phone'] = phonenumbers.format_number(
@@ -253,7 +662,7 @@ class CVParser:
             except Exception:
                 pass
         
-        # Improved fallback regex for UK numbers
+        #  Improved fallback regex for UK numbers
         if not contact['phone']:
             # UK mobile: 07XXX XXXXXX or +447XXX XXXXXX
             uk_mobile = r'\b(?:\+44\s?7|\(?07)\d{3}\s?\d{6}\b'
@@ -285,7 +694,7 @@ class CVParser:
                 contact['name'] = ent.text
                 break
         
-        # Fallback - try to extract name from first line
+        #  Fallback - try to extract name from first line
         if not contact['name']:
             first_line = text.split('\n')[0].strip()
             # Check if first line looks like a name (2-4 words, mostly letters)
@@ -346,9 +755,7 @@ class CVParser:
             if skill in text_lower:
                 skills.add(skill.title())
         
-        # 🔥 REMOVED: NER extraction (adds too much noise: locations, companies)
-        # 🔥 REMOVED: noun_phrases extraction (adds garbage from entire document)
-        
+       
         # Clean and deduplicate
         skills = self._clean_skills(skills)
         
@@ -402,7 +809,7 @@ class CVParser:
         """Clean and deduplicate skills - AGGRESSIVE FILTERING"""
         cleaned = set()
         
-        # 🔥 Comprehensive noise filtering
+        #  Comprehensive noise filtering
         noise_keywords = {
             # Action verbs
             'achieved', 'achieving', 'performed', 'implemented', 'designed',
@@ -489,7 +896,7 @@ class CVParser:
             if skill[0].isupper() or skill.isupper() or any(c in skill for c in ['.', '+', '#']):
                 cleaned.add(skill)
         
-        # 🔥 V3: Deduplicate case-insensitive (SQL vs Sql)
+        #  Deduplicate case-insensitive (SQL vs Sql)
         final_skills = {}
         for skill in cleaned:
             skill_lower = skill.lower()

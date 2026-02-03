@@ -21,7 +21,12 @@ RUN pip install --no-cache-dir \
     --extra-index-url https://pypi.org/simple \
     -r requirements.txt
 RUN python -m spacy download en_core_web_sm
-
+# Install Tesseract OCR and Poppler for PDF processing
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
 # Copy application code
 COPY . .
 

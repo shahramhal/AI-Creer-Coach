@@ -6,25 +6,19 @@ Test script for job matching endpoint
 import requests
 import json
 
+
 ML_SERVICE_URL = "http://localhost:8000"
 
 def test_job_matching():
     """Test the job matching endpoint"""
     
     # Sample CV text
-    cv_text = """
-    Experienced Python Developer with 5 years of professional experience.
+    cv_text = input("Enter sample CV text (or paste a CV excerpt):\n")
     
-    Skills: Python, Django, Flask, FastAPI, PostgreSQL, MongoDB, Docker, 
-    Kubernetes, Git, AWS, REST APIs, Microservices, Agile, TDD
-    
-    Experience:
-    - Senior Python Developer at TechCorp (3 years)
-    - Backend Engineer at StartupXYZ (2 years)
-    
-    Education:
-    - BSc Computer Science, University of Westminster
-    """
+    try :
+        cv_text = cv_text.encode('utf-8').decode('unicode_escape')
+    except :
+        pass
     
     # Sample jobs
     jobs = [

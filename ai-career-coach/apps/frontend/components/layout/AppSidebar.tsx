@@ -6,7 +6,8 @@ import {
   User,
   ChevronLeft,
   Zap,
-  LogOut
+  LogOut,
+  Briefcase
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -14,11 +15,13 @@ import { cn } from "../../lib/utils";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { useAuth } from "../../context/authContext";
+import { title } from "process";
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "CV Analysis", url: "/cvs", icon: FileText },
-  { title: "Profile", url: "/profile", icon: User },
+  { title: 'Job Matches', url: '/jobs', icon: Briefcase },
+  { title: "Profile", url: "/profile", icon: User }
 ];
 
 export function AppSidebar() {

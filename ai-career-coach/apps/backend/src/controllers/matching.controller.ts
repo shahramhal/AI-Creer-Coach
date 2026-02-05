@@ -58,6 +58,18 @@ interface CVDocument {
   personal_info?: {
     name?: string;
   };
+  summary?: string;
+  skills?: string[];
+  experience?: Array<{
+    title?: string;
+    company?: string;
+    description?: string;
+  }>;
+  education?: Array<{
+    degree?: string;
+    institution?: string;
+    field?: string;
+  }>;
   created_at?: Date;
 }
 
@@ -165,15 +177,51 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     console.log(`📊 [Matching] Found ${jobCount} jobs in database`);
 
     // Step 6: Get matches from ML service
-    // Raw text can be at top level or in metadata.raw_text
-    const cvRawText = userCV.raw_text || userCV.metadata?.raw_text;
+    // Try to get raw text, or build it from available fields
+    let cvRawText = userCV.raw_text || userCV.metadata?.raw_text || '';
 
+    // If no raw_text, build from available CV fields
     if (!cvRawText) {
-      console.error(`❌ [Matching] CV found but no raw_text available`);
+      console.log(`⚠️ [Matching] No raw_text, building from CV fields...`);
+      const textParts: string[] = [];
+
+      // Add summary
+      if (userCV.summary) {
+        textParts.push(userCV.summary);
+      }
+
+      // Add skills
+      if (userCV.skills && Array.isArray(userCV.skills)) {
+        textParts.push(`Skills: ${userCV.skills.join(', ')}`);
+      }
+
+      // Add experience
+      if (userCV.experience && Array.isArray(userCV.experience)) {
+        userCV.experience.forEach((exp: any) => {
+          const expText = [exp.title, exp.company, exp.description].filter(Boolean).join(' - ');
+          if (expText) textParts.push(expText);
+        });
+      }
+
+      // Add education
+      if (userCV.education && Array.isArray(userCV.education)) {
+        userCV.education.forEach((edu: any) => {
+          const eduText = [edu.degree, edu.institution, edu.field].filter(Boolean).join(' - ');
+          if (eduText) textParts.push(eduText);
+        });
+      }
+
+      cvRawText = textParts.join('\n');
+      console.log(`✅ [Matching] Built CV text from fields (${cvRawText.length} chars)`);
+    }
+
+    // If still no text, we can't match
+    if (!cvRawText || cvRawText.length < 10) {
+      console.error(`❌ [Matching] CV found but no usable text content`);
       throw new MatchingError(
         MatchingErrorCode.NO_CV,
         404,
-        'Your CV was found but the text content is missing. Please re-upload your CV.',
+        'Your CV was found but has no usable content for matching. Please re-upload your CV.',
         { action: 'upload_cv', redirect: '/cvs' }
       );
     }

@@ -2,13 +2,14 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AuthLayout from '../../../components/auth/AuthLayout';
 import { authAPI } from '../../../library/api';
 
-export default function ResetPasswordPage() {
+// 1. Inner Component: Contains ALL your original logic
+function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
@@ -191,5 +192,20 @@ export default function ResetPasswordPage() {
         </button>
       </form>
     </AuthLayout>
+  );
+}
+
+// 2. Main Page: Wraps the logic in Suspense
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <AuthLayout title="Reset Password" showLogo>
+        <div className="flex justify-center p-8">
+           <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        </div>
+      </AuthLayout>
+    }>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

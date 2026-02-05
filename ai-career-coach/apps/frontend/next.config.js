@@ -8,8 +8,12 @@ const nextConfig = {
   // 2. Ignore TypeScript errors during build
   typescript: {
     ignoreBuildErrors: true,
+  },  // <--- You were missing this closing comma and bracket!
+
+  // 3. General Settings (Must be outside the 'typescript' block)
   reactStrictMode: true,
   output: 'standalone',
+
   async redirects() {
     return [
       {
@@ -22,7 +26,6 @@ const nextConfig = {
         destination: '/auth/login',
         permanent: false,
       },
-      
       {
         source: '/verify-email',
         destination: '/auth/verify-email',

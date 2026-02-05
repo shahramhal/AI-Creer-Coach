@@ -66,6 +66,26 @@ app.use('/uploads', express.static('public/uploads'));
 
 app.use('/api/matching', matchingRoutes);
 
+// Debug: List all registered routes
+app.get('/api/debug/routes', (req: Request, res: Response) => {
+  const routes: string[] = [];
+  app._router.stack.forEach((middleware: any) => {
+    if (middleware.route) {
+      routes.push(`${Object.keys(middleware.route.methods).join(',')} ${middleware.route.path}`);
+    } else if (middleware.name === 'router') {
+      middleware.handle.stack.forEach((handler: any) => {
+        if (handler.route) {
+          const path = middleware.regexp.toString().includes('matching') ? '/api/matching' :
+                       middleware.regexp.toString().includes('auth') ? '/api/auth' :
+                       middleware.regexp.toString().includes('ml') ? '/api/ml' : '';
+          routes.push(`${Object.keys(handler.route.methods).join(',')} ${path}${handler.route.path}`);
+        }
+      });
+    }
+  });
+  res.json({ routes, matchingLoaded: !!matchingRoutes });
+});
+
 // 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({

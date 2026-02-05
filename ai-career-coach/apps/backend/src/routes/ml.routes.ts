@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import type { Request, Response, RequestHandler } from 'express';
 import multer from 'multer';
+import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { prisma } from '../config/database.js';
 import fs from 'fs';
@@ -114,7 +115,39 @@ router.post(
 
       console.log(` Saved to database with ID: ${cvRecord.id}`);
 
-      // Step 4: Return response
+      // Step 4: Sync to MongoDB for Matching Service
+      try {
+        if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+          const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
+
+          // Remove old CVs for this user
+          await mongoCollection.deleteMany({ user_id: userId });
+
+          // Insert new CV data
+          await mongoCollection.insertOne({
+            user_id: userId,
+            cv_id: cvRecord.id,
+            filename: filename,
+            raw_text: parsedData.raw_text || parsedData.full_text || '',
+            skills: parsedData.skills || [],
+            experience: parsedData.experience || [],
+            education: parsedData.education || [],
+            contact_info: parsedData.contact_info || {},
+            summary: parsedData.summary || '',
+            metadata: { raw_text: parsedData.raw_text || parsedData.full_text },
+            created_at: new Date(),
+          });
+
+          console.log(`✅ Synced to MongoDB for matching service`);
+        } else {
+          console.warn(`⚠️ MongoDB not connected, matching may not work`);
+        }
+      } catch (mongoError) {
+        console.error(`❌ MongoDB sync failed:`, mongoError);
+        // Don't fail the request, CV is still saved to PostgreSQL
+      }
+
+      // Step 5: Return response
       res.status(200).json({
         success: true,
         message: 'CV parsed and saved successfully',
@@ -260,10 +293,20 @@ router.delete(
         return;
       }
 
-      // Delete CV
+      // Delete CV from PostgreSQL
       await prisma.cV.delete({
         where: { id: cvId },
       });
+
+      // Also delete from MongoDB
+      try {
+        if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+          await mongoose.connection.db.collection('parsed_cvs').deleteMany({ user_id: userId });
+          console.log(`🗑️ Deleted CV from MongoDB`);
+        }
+      } catch (mongoError) {
+        console.warn(`⚠️ MongoDB cleanup failed:`, mongoError);
+      }
 
       res.json({
         success: true,

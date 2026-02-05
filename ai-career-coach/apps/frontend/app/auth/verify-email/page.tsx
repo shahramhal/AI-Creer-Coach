@@ -2,13 +2,14 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AuthLayout from '../../../components/auth/AuthLayout';
 import { authAPI } from '../../../library/api';
 
-export default function VerifyEmailPage() {
+// 1. Isolate the logic that uses useSearchParams into its own component
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
@@ -24,11 +25,15 @@ export default function VerifyEmailPage() {
     }
 
     verifyEmail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const verifyEmail = async () => {
     try {
-      const { data } = await authAPI.verifyEmail(token!);
+      // Ensure token is not null before calling API
+      if (!token) return;
+      
+      const { data } = await authAPI.verifyEmail(token);
       setStatus('success');
       setMessage(data.data.message);
       
@@ -86,5 +91,21 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </AuthLayout>
+  );
+}
+
+// 2. The Main Page just renders the Suspense boundary
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <AuthLayout title="Email Verification" showLogo>
+        <div className="text-center space-y-4">
+           <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
+           <p className="text-gray-600">Loading verification...</p>
+        </div>
+      </AuthLayout>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

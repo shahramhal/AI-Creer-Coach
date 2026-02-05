@@ -9,31 +9,38 @@ This is the CORE ML feature of the platform
 from sentence_transformers import SentenceTransformer, util
 import torch
 import numpy as np
-from typing import List, Dict
+from typing import List, Dict, Optional
 import logging
+import hashlib
+import time
 
 logger = logging.getLogger(__name__)
 
 class JobMatcher:
     """
     Semantic job matching using sentence transformers
-    
+
     How it works:
     1. Load pre-trained transformer model
     2. Generate embeddings for CV text
-    3. Generate embeddings for job descriptions
+    3. Generate embeddings for job descriptions (with caching)
     4. Calculate cosine similarity
     5. Rank jobs by similarity score
     6. Apply filters (location, salary, experience)
     """
-    
+
     def __init__(self):
         """Initialize the sentence transformer model"""
         logger.info("Loading sentence transformer model...")
-        
+
         # Load pre-trained model (384-dimensional embeddings)
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
-        
+
+        # In-memory cache for job embeddings (job_id -> embedding)
+        self._embedding_cache: Dict[str, np.ndarray] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
+
         logger.info("✅ Model loaded successfully")
     
     def match_jobs(
@@ -45,73 +52,149 @@ class JobMatcher:
     ) -> List[Dict]:
         """
         Match CV with jobs using semantic similarity
-        
+
         Args:
             cv_text: Extracted text from user's CV
             jobs: List of job dictionaries from MongoDB
             top_k: Number of top matches to return
             filters: Optional filters (location, salary, etc.)
-            
+
         Returns:
             List of matched jobs with similarity scores
         """
         if not cv_text or not jobs:
             logger.warning("Empty CV text or job list")
             return []
-        
+
+        start_time = time.time()
         logger.info(f"Matching CV against {len(jobs)} jobs")
-        
+
         # Step 1: Generate CV embedding
         cv_embedding = self.model.encode(
             cv_text,
             convert_to_tensor=True,
             show_progress_bar=False
         )
-        
-        # Step 2: Extract job descriptions and generate embeddings
-        job_descriptions = [self._prepare_job_text(job) for job in jobs]
-        
-        job_embeddings = self.model.encode(
-            job_descriptions,
-            convert_to_tensor=True,
-            batch_size=32,
-            show_progress_bar=False
-        )
-        
+
+        # Step 2: Get job embeddings (with caching for efficiency)
+        job_embeddings = self._get_job_embeddings_cached(jobs)
+
+        embedding_time = time.time() - start_time
+        logger.info(f"📊 Embeddings ready in {embedding_time:.2f}s (cache hits: {self._cache_hits}, misses: {self._cache_misses})")
+
         # Step 3: Calculate cosine similarity
         similarities = util.cos_sim(cv_embedding, job_embeddings)[0]
-        
+
         # Step 4: Get top K matches
         top_results = torch.topk(similarities, k=min(top_k, len(jobs)))
-        
+
         # Step 5: Build result list with scores
         matched_jobs = []
         for idx, score in zip(top_results.indices, top_results.values):
             job = jobs[idx.item()]
+            description = job.get('description', '')
+            truncated_description = (description[:200] + '...') if len(description) > 200 else description
+
             job_match = {
                 'job_id': job['job_id'],
-                'source': job['source'],
-                'title': job['title'],
-                'company': job['company'],
-                'location': job['location'],
-                'description': job['description'][:200] + '...',  # Truncate
+                'source': job.get('source', ''),
+                'title': job.get('title', ''),
+                'company': job.get('company', ''),
+                'location': job.get('location', ''),
+                'description': truncated_description,
                 'salary_min': job.get('salary_min'),
                 'salary_max': job.get('salary_max'),
-                'source_url': job['source_url'],
+                'source_url': job.get('source_url', ''),
                 'posted_date': job.get('posted_date'),
-                
+
                 # Matching details
                 'match_score': float(score.item() * 100),  # Convert to percentage
                 'match_breakdown': self._calculate_breakdown(cv_text, job)
             }
             matched_jobs.append(job_match)
-        
+
         # Step 6: Apply filters if provided
         if filters:
             matched_jobs = self._apply_filters(matched_jobs, filters)
-        
-        logger.info(f"✅ Matched {len(matched_jobs)} jobs")
+
+        total_time = time.time() - start_time
+        logger.info(f"✅ Matched {len(matched_jobs)} jobs in {total_time:.2f}s")
         return matched_jobs
+
+    def _get_job_embeddings_cached(self, jobs: List[Dict]) -> torch.Tensor:
+        """
+        Get job embeddings with caching support
+
+        Args:
+            jobs: List of job dictionaries
+
+        Returns:
+            Tensor of job embeddings
+        """
+        embeddings_list = []
+        jobs_to_encode = []
+        jobs_to_encode_indices = []
+
+        # Check cache for each job
+        for i, job in enumerate(jobs):
+            job_id = job.get('job_id', '')
+            if job_id and job_id in self._embedding_cache:
+                embeddings_list.append((i, self._embedding_cache[job_id]))
+                self._cache_hits += 1
+            else:
+                jobs_to_encode.append(job)
+                jobs_to_encode_indices.append(i)
+                self._cache_misses += 1
+
+        # Encode uncached jobs in batches
+        if jobs_to_encode:
+            logger.info(f"🔄 Encoding {len(jobs_to_encode)} uncached jobs...")
+            job_texts = [self._prepare_job_text(job) for job in jobs_to_encode]
+
+            # Process in smaller batches to avoid memory issues
+            batch_size = 256
+            new_embeddings = []
+
+            for batch_start in range(0, len(job_texts), batch_size):
+                batch_end = min(batch_start + batch_size, len(job_texts))
+                batch_texts = job_texts[batch_start:batch_end]
+
+                batch_embeddings = self.model.encode(
+                    batch_texts,
+                    convert_to_numpy=True,
+                    batch_size=64,
+                    show_progress_bar=False
+                )
+                new_embeddings.extend(batch_embeddings)
+
+            # Cache and collect new embeddings
+            for idx, (job, embedding) in enumerate(zip(jobs_to_encode, new_embeddings)):
+                job_id = job.get('job_id', '')
+                if job_id:
+                    self._embedding_cache[job_id] = embedding
+                embeddings_list.append((jobs_to_encode_indices[idx], embedding))
+
+        # Sort by original index and extract embeddings
+        embeddings_list.sort(key=lambda x: x[0])
+        embeddings_array = np.array([emb for _, emb in embeddings_list])
+
+        return torch.tensor(embeddings_array)
+
+    def clear_cache(self):
+        """Clear the embedding cache"""
+        self._embedding_cache.clear()
+        self._cache_hits = 0
+        self._cache_misses = 0
+        logger.info("🗑️ Embedding cache cleared")
+
+    def get_cache_stats(self) -> Dict:
+        """Get cache statistics"""
+        return {
+            'cached_jobs': len(self._embedding_cache),
+            'cache_hits': self._cache_hits,
+            'cache_misses': self._cache_misses,
+            'hit_rate': self._cache_hits / max(1, self._cache_hits + self._cache_misses) * 100
+        }
     
     def _prepare_job_text(self, job: Dict) -> str:
         """

@@ -1,7 +1,7 @@
 // apps/frontend/services/cv.service.ts
 
 
-import api from '../lib/api'; // Your existing api.ts with interceptors
+import api from '../lib/api'; 
 import type {
   CV,
   CVUploadResponse,

@@ -25,36 +25,40 @@ class MongoDBConnection:
         self.db = None
         self.collection = None
     
-    def connect(self):
-        """Establish connection to MongoDB"""
+    def connect(self) -> bool:
+        """Establish connection to MongoDB
+
+        Returns:
+            True if connection successful, False otherwise
+        """
         try:
             # Get connection string from environment
-            mongo_uri = os.getenv(  # Fixed typo: was 'gotenv'
-                "MONGODB_URI", 
+            mongo_uri = os.getenv(
+                "MONGODB_URI",
                 "mongodb://localhost:27017/"
             )
-            
+
             # Connect to MongoDB server
             self.client = MongoClient(mongo_uri)
-            
+
             # Select database
-            db_name = os.getenv("MONGODB_DB_NAME", "ai_career_coach_db")
+            db_name = os.getenv("MONGODB_DB_NAME", "career_coach")
             self.db = self.client[db_name]
-            
-            # Select collection for CVs (fixed typo: was 'colllection')
-            self.collection = self.db['parsed_cvs']  # Fixed: removed space
-            
+
+            # Select collection for CVs
+            self.collection = self.db['parsed_cvs']
+
             # Test connection
             self.client.admin.command('ping')
             print("✓ Connected to MongoDB successfully")
-            
-            return self.collection
-        
+
+            return True
+
         except Exception as e:
             print(f"✗ Error connecting to MongoDB: {e}")
-            return None
+            return False
     
-    def save_parsed_cv(self, user_id: str, parsed_data: dict) -> str:
+    def save_parsed_cv(self, user_id: str, parsed_data: dict) -> Optional[str]:
         """
         Save parsed CV data to MongoDB
 
@@ -63,11 +67,15 @@ class MongoDBConnection:
             parsed_data: Parsed CV dictionary
 
         Returns:
-            Document ID
+            Document ID or None if save failed
         """
         # Ensure connection exists
         if self.collection is None:
             self.connect()
+
+        if self.collection is None:
+            print("✗ Cannot save CV: MongoDB collection not available")
+            return None
 
         # Create a copy to avoid mutating original data
         data_to_save = parsed_data.copy()
@@ -89,8 +97,11 @@ class MongoDBConnection:
             Parsed CV data or None (with ObjectIds serialized to strings)
         """
         # Ensure connection exists
-        if not self.collection:
+        if self.collection is None:
             self.connect()
+
+        if self.collection is None:
+            return None
 
         # Find most recent CV for user
         cv = self.collection.find_one(
@@ -99,7 +110,7 @@ class MongoDBConnection:
         )
 
         # Serialize ObjectIds before returning
-        if cv:
+        if cv is not None:
             cv = serialize_objectid(cv)
 
         return cv

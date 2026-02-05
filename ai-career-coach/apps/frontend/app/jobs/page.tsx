@@ -1,44 +1,144 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/authContext';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { JobMatchCard } from '@/components/jobs/JobMatchCard'; // Ensure this path is correct
+import { JobMatchCard } from '@/components/jobs/JobMatchCard';
 import { matchingService } from '@/services/matching.service';
 import type { MatchedJob } from '@/types/matching.types';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Briefcase, AlertCircle } from 'lucide-react';
+import { Loader2, RefreshCw, Briefcase, AlertCircle, Upload, Clock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+
+// Error codes from backend
+type MatchingErrorCode = 'NO_CV' | 'NO_JOBS' | 'DB_CONNECTION_ERROR' | 'ML_SERVICE_ERROR' | 'AUTH_ERROR' | 'UNKNOWN_ERROR';
+
+interface MatchingError {
+  code: MatchingErrorCode;
+  message: string;
+  details?: Record<string, any>;
+}
 
 export default function JobMatchesPage() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
-  
+
   const [jobs, setJobs] = useState<MatchedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MatchingError | null>(null);
+  const [hasFetched, setHasFetched] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/auth/login');
-    } else if (isAuthenticated) {
-      fetchMatches();
+  const fetchMatches = useCallback(async () => {
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
-  }, [authLoading, isAuthenticated, router]);
+    abortControllerRef.current = new AbortController();
 
-  const fetchMatches = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await matchingService.findMatches();
       setJobs(response.data.matched_jobs);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to fetch job matches');
+      // Ignore cancelled requests
+      if (err.name === 'CanceledError' || err.message === 'canceled') {
+        return;
+      }
+      console.error('Error fetching job matches:', err);
+
+      // Extract error from axios response
+      const apiError = err.response?.data?.error;
+      if (apiError && apiError.code) {
+        setError({
+          code: apiError.code,
+          message: apiError.message,
+          details: apiError.details
+        });
+      } else {
+        setError({
+          code: 'UNKNOWN_ERROR',
+          message: err.message || 'An unexpected error occurred while fetching job matches.'
+        });
+      }
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    } else if (isAuthenticated && !hasFetched) {
+      setHasFetched(true);
+      fetchMatches();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [authLoading, isAuthenticated, router, hasFetched, fetchMatches]);
+
+  // Helper to render error-specific UI
+  const renderErrorAction = () => {
+    if (!error) return null;
+
+    switch (error.code) {
+      case 'NO_CV':
+        return (
+          <Button
+            variant="default"
+            size="sm"
+            className="mt-3"
+            onClick={() => router.push('/cvs')}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Upload Your CV
+          </Button>
+        );
+      case 'NO_JOBS':
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={fetchMatches}
+          >
+            <Clock className="mr-2 h-4 w-4" />
+            Check Again
+          </Button>
+        );
+      case 'ML_SERVICE_ERROR':
+      case 'DB_CONNECTION_ERROR':
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={fetchMatches}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
+        );
+      default:
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={fetchMatches}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Try Again
+          </Button>
+        );
     }
   };
 
@@ -63,21 +163,20 @@ export default function JobMatchesPage() {
 
         {/* Error State */}
         {error && (
-          <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
+          <Alert
+            variant={error.code === 'NO_CV' ? 'default' : 'destructive'}
+            className="animate-in fade-in slide-in-from-top-2"
+          >
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription className="flex flex-col gap-2">
-              <p>{error}</p>
-              {error.includes('No CV') && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="w-fit mt-2 border-destructive/50 hover:bg-destructive/10"
-                  onClick={() => router.push('/cvs')}
-                >
-                  Upload CV
-                </Button>
-              )}
+            <AlertTitle>
+              {error.code === 'NO_CV' ? 'CV Required' :
+               error.code === 'NO_JOBS' ? 'No Jobs Available' :
+               error.code === 'ML_SERVICE_ERROR' ? 'Service Unavailable' :
+               'Error'}
+            </AlertTitle>
+            <AlertDescription className="flex flex-col">
+              <p>{error.message}</p>
+              {renderErrorAction()}
             </AlertDescription>
           </Alert>
         )}

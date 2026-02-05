@@ -15,7 +15,7 @@ import matchingRoutes from './routes/matching.routes.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 
 /**
  * Middleware setup
@@ -29,11 +29,11 @@ app.use(
   })
 );
 
-// Parse JSON request bodies
-app.use(express.json());
+// Parse JSON request bodies (increased limit for large job payloads)
+app.use(express.json({ limit: '10mb' }));
 
 // Parse URL-encoded bodies
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Parse cookies (for refresh token)
 app.use(cookieParser() as RequestHandler);
@@ -102,6 +102,10 @@ async function startServer() {
       console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
       console.log(`🤖 ML Service URL: ${process.env.ML_SERVICE_URL}`);
     });
+
+    // Increase server timeout for long-running ML operations (3 minutes)
+    server.timeout = 180000;
+    server.keepAliveTimeout = 180000;
 
     // Graceful shutdown
     process.on('SIGTERM', () => {

@@ -30,7 +30,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5000"],
+    allow_origins=["http://localhost:3000", "http://localhost:4000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,6 +79,35 @@ async def root():
         "status": "ML Service is running",
         "version": "1.0.0",
         "features": ["cv_parsing", "job_matching"]
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    return {
+        "status": "healthy",
+        "service": "ml-service",
+        "cache_stats": job_matcher.get_cache_stats()
+    }
+
+
+@app.get("/api/ml/cache-stats")
+async def get_cache_stats():
+    """Get job embedding cache statistics"""
+    return {
+        "success": True,
+        "stats": job_matcher.get_cache_stats()
+    }
+
+
+@app.post("/api/ml/clear-cache")
+async def clear_cache():
+    """Clear the job embedding cache"""
+    job_matcher.clear_cache()
+    return {
+        "success": True,
+        "message": "Cache cleared successfully"
     }
 
 
@@ -187,6 +216,19 @@ async def match_jobs(request: JobMatchRequest):
             status_code=500,
             detail=f"Job matching failed: {str(e)}"
         )
+
+@app.post("/api/matching/find-jobs", response_model=JobMatchResponse)
+async def find_jobs(request: JobMatchRequest):
+    """
+    Alias for match_jobs endpoint - used by frontend
+
+    Args:
+        request: CV text, list of jobs, filters
+
+    Returns:
+        Ranked list of matched jobs with scores
+    """
+    return await match_jobs(request)
 
 
 if __name__ == "__main__":

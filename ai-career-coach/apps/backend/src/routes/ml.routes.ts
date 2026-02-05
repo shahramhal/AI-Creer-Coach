@@ -51,10 +51,14 @@ router.post(
 
       // Step 2: Forward to ML service for parsing
       console.log(` Forwarding to ML service: ${ML_SERVICE_URL}/api/ml/parse-cv`);
-      
+
+      // Pass the Authorization header so ML service knows the user
+      const authHeader = req.headers.authorization;
+
       const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/parse-cv`, {
         method: 'POST',
         body: formData,
+        headers: authHeader ? { 'Authorization': authHeader } : {},
       });
 
       const mlData = await mlResponse.json();

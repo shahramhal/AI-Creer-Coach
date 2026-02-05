@@ -12,7 +12,7 @@ const nextConfig = {
 
   // 3. General Settings (Must be outside the 'typescript' block)
   reactStrictMode: true,
-  output: 'standalone',
+  // output: 'standalone',
 
   async redirects() {
     return [

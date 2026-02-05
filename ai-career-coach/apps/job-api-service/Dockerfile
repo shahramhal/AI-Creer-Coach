@@ -2,8 +2,11 @@
 
 FROM python:3.11-slim
 
+
+
 # Set working directory
 WORKDIR /app
+ENV PYTHONUNBUFFERED=1
 
 # Install dependencies
 COPY requirements.txt .
@@ -16,4 +19,4 @@ COPY . .
 EXPOSE 8001
 
 # Run the application
-CMD ["python", "main.py"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]

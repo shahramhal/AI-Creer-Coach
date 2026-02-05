@@ -1,4 +1,4 @@
-import api from '../lib/api'; // Assuming you have this axios instance setup
+import api from '../library/api'; // Assuming you have this axios instance setup
 import type { JobMatchResponse, MatchFilters } from '../types/matching.types';
 
 class MatchingService {

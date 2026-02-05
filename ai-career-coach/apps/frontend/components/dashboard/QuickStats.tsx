@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Briefcase, Target, BookOpen, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/library/utils";
 
 interface StatCardProps {
   title: string;

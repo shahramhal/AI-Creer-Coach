@@ -8,7 +8,7 @@ import {
   Target,
   TrendingUp
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/library/utils";
 
 interface Action {
   id: string;

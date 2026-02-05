@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { API_BASE_URL } from '../../lib/config';
+import { API_BASE_URL } from '../../library/config';
 import { useAuth } from '../../context/authContext';
 import { Profile } from '../../types/profile';
 import ProfileForm from '../../components/profile/ProfileForm';

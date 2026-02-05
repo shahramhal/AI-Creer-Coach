@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { cn } from "../../lib/utils";
+import { cn } from "../../library/utils";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { useAuth } from "../../context/authContext";

@@ -1,7 +1,7 @@
 // apps/frontend/components/profile/ProfileForm.tsx
 
 'use client';
-import { API_BASE_URL } from '../../lib/config';
+import { API_BASE_URL } from '../../library/config';
 import { Profile } from '../../types/profile';
 
 import { useState, ChangeEvent, FormEvent } from 'react';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, ChangeEvent } from 'react';
-import { API_BASE_URL } from '../../lib/config';
+import { API_BASE_URL } from '../../library/config';
 
 interface AvatarUploadProps {
   currentAvatar?: string | null;

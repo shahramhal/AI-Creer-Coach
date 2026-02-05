@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AuthLayout from '../../../components/auth/AuthLayout';
-import { authAPI } from '../../../lib/api';
+import { authAPI } from '../../../library/api';
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();

@@ -8,7 +8,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { authAPI } from '../lib/api';
+import { authAPI } from '../library/api';
 
 // Types
 interface User {

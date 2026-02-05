@@ -2,7 +2,7 @@
 
 'use client';
 
-import { API_BASE_URL } from '../../lib/config';
+import { API_BASE_URL } from '../../library/config';
 
 interface AvatarProps {
   avatarUrl?: string | null;

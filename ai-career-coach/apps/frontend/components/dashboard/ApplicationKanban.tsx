@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Building2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/library/utils";
 
 interface KanbanColumn {
   id: string;

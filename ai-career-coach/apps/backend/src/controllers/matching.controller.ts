@@ -52,31 +52,24 @@ interface CVDocument {
   user_id: string;
   cv_id?: string;
   raw_text?: string;
-  filename?: string;
+  metadata?: {
+    raw_text?: string;
+  };
+  personal_info?: {
+    name?: string;
+  };
   summary?: string;
-  skills?: string[] | Record<string, string[]>;
+  skills?: string[];
   experience?: Array<{
     title?: string;
     company?: string;
     description?: string;
-    responsibilities?: string;
   }>;
   education?: Array<{
     degree?: string;
     institution?: string;
     field?: string;
-    major?: string;
   }>;
-  personal_info?: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    location?: string;
-  };
-  projects?: Array<any>;
-  certifications?: Array<any>;
-  languages?: Array<any>;
-  metadata?: any;
   created_at?: Date;
 }
 
@@ -145,9 +138,9 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
       );
     }
 
-    // Step 4: Fetch user's CV from MongoDB
+    // Step 4: Fetch user's CV
     console.log(`📄 [Matching] Fetching CV for user: ${userId}`);
-    const userCV = await fetchUserCVFromMongo(db, userId);
+    const userCV = await fetchUserCV(db, userId, cv_id);
     if (!userCV) {
       console.log(`⚠️ [Matching] No CV found for user: ${userId}`);
       throw new MatchingError(
@@ -184,8 +177,8 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     console.log(`📊 [Matching] Found ${jobCount} jobs in database`);
 
     // Step 6: Get matches from ML service
-    // Extract CV text from MongoDB document
-    let cvRawText = userCV.raw_text || '';
+    // Try to get raw text, or build it from available fields
+    let cvRawText = userCV.raw_text || userCV.metadata?.raw_text || '';
 
     // If no raw_text, build from available CV fields
     if (!cvRawText) {
@@ -198,21 +191,14 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
       }
 
       // Add skills
-      if (userCV.skills) {
-        const skills = Array.isArray(userCV.skills)
-          ? userCV.skills
-          : typeof userCV.skills === 'object'
-            ? Object.values(userCV.skills).flat()
-            : [];
-        if (skills.length > 0) {
-          textParts.push(`Skills: ${skills.join(', ')}`);
-        }
+      if (userCV.skills && Array.isArray(userCV.skills)) {
+        textParts.push(`Skills: ${userCV.skills.join(', ')}`);
       }
 
       // Add experience
       if (userCV.experience && Array.isArray(userCV.experience)) {
         userCV.experience.forEach((exp: any) => {
-          const expText = [exp.title, exp.company, exp.description, exp.responsibilities].filter(Boolean).join(' - ');
+          const expText = [exp.title, exp.company, exp.description].filter(Boolean).join(' - ');
           if (expText) textParts.push(expText);
         });
       }
@@ -220,15 +206,9 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
       // Add education
       if (userCV.education && Array.isArray(userCV.education)) {
         userCV.education.forEach((edu: any) => {
-          const eduText = [edu.degree, edu.institution, edu.field, edu.major].filter(Boolean).join(' - ');
+          const eduText = [edu.degree, edu.institution, edu.field].filter(Boolean).join(' - ');
           if (eduText) textParts.push(eduText);
         });
-      }
-
-      // Add contact info if available
-      if (userCV.personal_info) {
-        const contact = userCV.personal_info;
-        if (contact.name) textParts.push(`Name: ${contact.name}`);
       }
 
       cvRawText = textParts.join('\n');
@@ -329,17 +309,15 @@ export const getMatchingDiagnostics = async (req: Request, res: Response): Promi
       state: mongoose.connection.readyState
     };
 
-    // Check if user has CV in MongoDB
+    // Check if user has CV
     if (mongoose.connection.db) {
       const db = mongoose.connection.db;
-
-      // Check CV
-      const cvCollection = db.collection('parsed_cvs');
+      const cvCollection = db.collection<CVDocument>('parsed_cvs');
       const userCV = await cvCollection.findOne({ user_id: userId });
       diagnostics.checks.user_cv = {
         exists: !!userCV,
+        cv_id: userCV?.cv_id,
         has_raw_text: !!userCV?.raw_text,
-        has_skills: !!(userCV?.skills && userCV.skills.length > 0),
         created_at: userCV?.created_at
       };
 
@@ -404,29 +382,25 @@ export const getMatchingDiagnostics = async (req: Request, res: Response): Promi
 
 /**
  * Fetch user's CV from MongoDB
- *
+ * 
  * @param db - MongoDB database instance
  * @param userId - User ID
+ * @param cvId - Optional specific CV ID
  * @returns User's CV document or null
  */
-async function fetchUserCVFromMongo(
+async function fetchUserCV(
   db: mongoose.mongo.Db,
-  userId: string
+  userId: string,
+  cvId?: string
 ): Promise<CVDocument | null> {
-  try {
-    const cvCollection = db.collection<CVDocument>('parsed_cvs');
-
-    // Find most recent CV for this user
-    const cv = await cvCollection.findOne(
-      { user_id: userId },
-      { sort: { created_at: -1 } }
-    );
-
-    return cv;
-  } catch (error) {
-    console.error(`❌ [Matching] Error fetching CV from MongoDB:`, error);
-    return null;
+  const cvCollection = db.collection<CVDocument>('parsed_cvs');
+  
+  const query: any = { user_id: userId };
+  if (cvId) {
+    query.cv_id = cvId;
   }
+  
+  return await cvCollection.findOne(query);
 }
 
 /**

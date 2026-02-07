@@ -65,7 +65,8 @@ model CV {
   userId       String   @map("user_id") @db.Uuid
   filename     String   @db.VarChar(255)
   fileUrl      String   @map("file_url") @db.VarChar(500)
-  parsedData   Json?    @map("parsed_data") @db.JsonB // Parsed CV content
+  mongoDocId   String?  @map("mongo_doc_id") @db.VarChar(50) // Reference to MongoDB parsed_cvs document
+  parsedData   Json?    @map("parsed_data") @db.JsonB // Parsed CV content (optional backup)
   analysisData Json?    @map("analysis_data") @db.JsonB // ATS score, recommendations
   isPrimary    Boolean  @default(false) @map("is_primary")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()

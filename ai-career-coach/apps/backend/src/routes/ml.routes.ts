@@ -101,51 +101,51 @@ router.post(
         throw new Error('File save failed');
       }
 
-      // Step 3: Save parsed data to MongoDB FIRST (primary storage for matching)
-      let mongoDocId: string | null = null;
-
-      if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
-        const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
-
-        // Remove old CVs for this user
-        await mongoCollection.deleteMany({ user_id: userId });
-
-        // Insert new CV data with all parsed information
-        const mongoResult = await mongoCollection.insertOne({
-          user_id: userId,
-          filename: filename,
-          raw_text: parsedData.raw_text || parsedData.full_text || '',
-          skills: parsedData.skills || [],
-          experience: parsedData.experience || [],
-          education: parsedData.education || [],
-          contact_info: parsedData.contact_info || {},
-          summary: parsedData.summary || '',
-          projects: parsedData.projects || [],
-          certifications: parsedData.certifications || [],
-          languages: parsedData.languages || [],
-          metadata: parsedData,
-          created_at: new Date(),
-        });
-
-        mongoDocId = mongoResult.insertedId.toString();
-        console.log(`✅ Saved to MongoDB: ${mongoDocId}`);
-      } else {
-        console.warn(`⚠️ MongoDB not connected! CV data won't be available for matching.`);
-      }
-
-      // Step 4: Save metadata to PostgreSQL (with reference to MongoDB)
+      // Step 3: Save to PostgreSQL
+      // Store parsed data in CV table (parsedData field as JSONB)
       const cvRecord = await prisma.cV.create({
         data: {
           userId: userId,
           filename: filename,
-          fileUrl: `/uploads/cvs/${userId}/${filename}`,
-          mongoDocId: mongoDocId, // Reference to MongoDB document
-          parsedData: null, // Don't duplicate data - it's in MongoDB
-          isPrimary: true, // Auto-set as primary for now
+          fileUrl: `/uploads/cvs/${userId}/${filename}`, // Placeholder - implement file storage
+          parsedData: parsedData, // Store entire parsed CV as JSON
+          isPrimary: false, // User can set primary CV later
         },
       });
 
-      console.log(`✅ Saved to PostgreSQL: ${cvRecord.id} (MongoDB ref: ${mongoDocId})`);
+      console.log(` Saved to database with ID: ${cvRecord.id}`);
+
+      // Step 4: Sync to MongoDB for Matching Service
+      try {
+        if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+          const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
+
+          // Remove old CVs for this user
+          await mongoCollection.deleteMany({ user_id: userId });
+
+          // Insert new CV data
+          await mongoCollection.insertOne({
+            user_id: userId,
+            cv_id: cvRecord.id,
+            filename: filename,
+            raw_text: parsedData.raw_text || parsedData.full_text || '',
+            skills: parsedData.skills || [],
+            experience: parsedData.experience || [],
+            education: parsedData.education || [],
+            contact_info: parsedData.contact_info || {},
+            summary: parsedData.summary || '',
+            metadata: { raw_text: parsedData.raw_text || parsedData.full_text },
+            created_at: new Date(),
+          });
+
+          console.log(`✅ Synced to MongoDB for matching service`);
+        } else {
+          console.warn(`⚠️ MongoDB not connected, matching may not work`);
+        }
+      } catch (mongoError) {
+        console.error(`❌ MongoDB sync failed:`, mongoError);
+        // Don't fail the request, CV is still saved to PostgreSQL
+      }
 
       // Step 5: Return response
       res.status(200).json({

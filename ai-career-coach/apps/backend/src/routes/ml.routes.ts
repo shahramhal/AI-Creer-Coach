@@ -13,6 +13,74 @@ const upload = multer();
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
 
+/**
+ * Parse a date range string like "Nov 2024 - May 2025" into startDate/endDate.
+ * Returns { startDate, endDate } with the original substrings or undefined.
+ */
+function parseDateRange(dates?: string): { startDate: string; endDate: string } {
+  if (!dates) return { startDate: '', endDate: '' };
+  const parts = dates.split(/\s*[-–]\s*/);
+  return {
+    startDate: parts[0]?.trim() || '',
+    endDate: parts[1]?.trim() || '',
+  };
+}
+
+/**
+ * Transform raw ML/MongoDB parsed data into the shape the frontend expects.
+ * Maps contact_info -> personal, experience.dates -> startDate/endDate, etc.
+ */
+function transformParsedDataForFrontend(raw: Record<string, any>): Record<string, unknown> {
+  const contactInfo = raw.contact_info || raw.personal || {};
+
+  const experience = (raw.experience || []).map((exp: any) => {
+    const { startDate, endDate } = parseDateRange(exp.dates);
+    return {
+      company: exp.company || '',
+      title: exp.title || '',
+      location: exp.location || '',
+      startDate: exp.startDate || startDate || '',
+      endDate: exp.endDate || endDate || '',
+      duration: exp.duration || '',
+      responsibilities: exp.responsibilities || [],
+      achievements: exp.achievements || [],
+    };
+  });
+
+  const education = (raw.education || []).map((edu: any) => {
+    const { startDate, endDate } = parseDateRange(edu.dates);
+    return {
+      institution: edu.institution || '',
+      degree: edu.degree || '',
+      field: edu.field || '',
+      location: edu.location || '',
+      startDate: edu.startDate || startDate || '',
+      endDate: edu.endDate || endDate || '',
+      gpa: edu.gpa || edu.grade || '',
+      achievements: edu.achievements || [],
+    };
+  });
+
+  return {
+    personal: {
+      name: contactInfo.name || '',
+      email: contactInfo.email || '',
+      phone: contactInfo.phone || '',
+      location: contactInfo.location || '',
+      linkedin: contactInfo.linkedin || '',
+      github: contactInfo.github || '',
+      website: contactInfo.website || '',
+    },
+    summary: raw.summary || '',
+    experience,
+    education,
+    skills: raw.skills || [],
+    certifications: raw.certifications || [],
+    languages: raw.languages || [],
+    projects: raw.projects || [],
+  };
+}
+
 /** Fetch parsed CV data from MongoDB by document ID */
 async function fetchParsedDataFromMongo(mongoDocId: string): Promise<Record<string, unknown> | null> {
   if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
@@ -21,14 +89,7 @@ async function fetchParsedDataFromMongo(mongoDocId: string): Promise<Record<stri
   const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
   const doc = await mongoCollection.findOne({ _id: new mongoose.Types.ObjectId(mongoDocId) });
   if (!doc) return null;
-  return {
-    raw_text: doc.raw_text || '',
-    skills: doc.skills || [],
-    experience: doc.experience || [],
-    education: doc.education || [],
-    contact_info: doc.contact_info || {},
-    summary: doc.summary || '',
-  };
+  return transformParsedDataForFrontend(doc);
 }
 
 /**
@@ -170,14 +231,14 @@ router.post(
         { $set: { cv_id: cvRecord.id } },
       );
 
-      // Step 5: Return response
+      // Step 5: Return response (transform to frontend shape)
       res.status(200).json({
         success: true,
         message: 'CV parsed and saved successfully',
         data: {
           cvId: cvRecord.id,
           filename: cvRecord.filename,
-          parsedData: parsedData,
+          parsedData: transformParsedDataForFrontend(parsedData),
           createdAt: cvRecord.createdAt,
         }
       });

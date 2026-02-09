@@ -192,9 +192,6 @@ router.post(
 
       const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
 
-      // Remove old CVs for this user
-      await mongoCollection.deleteMany({ user_id: userId });
-
       // Insert parsed data into MongoDB
       const mongoResult = await mongoCollection.insertOne({
         user_id: userId,

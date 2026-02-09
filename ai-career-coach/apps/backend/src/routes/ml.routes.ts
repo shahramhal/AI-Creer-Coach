@@ -13,6 +13,24 @@ const upload = multer();
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
 
+/** Fetch parsed CV data from MongoDB by document ID */
+async function fetchParsedDataFromMongo(mongoDocId: string): Promise<Record<string, unknown> | null> {
+  if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+    return null;
+  }
+  const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
+  const doc = await mongoCollection.findOne({ _id: new mongoose.Types.ObjectId(mongoDocId) });
+  if (!doc) return null;
+  return {
+    raw_text: doc.raw_text || '',
+    skills: doc.skills || [],
+    experience: doc.experience || [],
+    education: doc.education || [],
+    contact_info: doc.contact_info || {},
+    summary: doc.summary || '',
+  };
+}
+
 /**
  * Upload and parse CV
  * Protected route - requires authentication
@@ -20,8 +38,9 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
  * Flow:
  * 1. User uploads CV file
  * 2. Forward to ML service for parsing
- * 3. Save parsed data to PostgreSQL (CV table)
- * 4. Return parsed data to user
+ * 3. Save parsed data to MongoDB (primary store)
+ * 4. Save metadata + mongoDocId to PostgreSQL
+ * 5. Return parsed data to user
  */
 router.post(
   '/parse-cv', 
@@ -101,51 +120,55 @@ router.post(
         throw new Error('File save failed');
       }
 
-      // Step 3: Save to PostgreSQL
-      // Store parsed data in CV table (parsedData field as JSONB)
+      // Step 3: Save parsed data to MongoDB (primary store)
+      if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+        res.status(503).json({
+          success: false,
+          message: 'MongoDB unavailable - cannot store parsed CV data',
+        });
+        return;
+      }
+
+      const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
+
+      // Remove old CVs for this user
+      await mongoCollection.deleteMany({ user_id: userId });
+
+      // Insert parsed data into MongoDB
+      const mongoResult = await mongoCollection.insertOne({
+        user_id: userId,
+        filename: filename,
+        raw_text: parsedData.raw_text || parsedData.full_text || '',
+        skills: parsedData.skills || [],
+        experience: parsedData.experience || [],
+        education: parsedData.education || [],
+        contact_info: parsedData.contact_info || {},
+        summary: parsedData.summary || '',
+        metadata: { raw_text: parsedData.raw_text || parsedData.full_text },
+        created_at: new Date(),
+      });
+
+      const mongoDocId = mongoResult.insertedId.toString();
+      console.log(` Saved to MongoDB with ID: ${mongoDocId}`);
+
+      // Step 4: Save metadata + mongoDocId to PostgreSQL
       const cvRecord = await prisma.cV.create({
         data: {
           userId: userId,
           filename: filename,
-          fileUrl: `/uploads/cvs/${userId}/${filename}`, // Placeholder - implement file storage
-          parsedData: parsedData, // Store entire parsed CV as JSON
-          isPrimary: false, // User can set primary CV later
+          fileUrl: `/uploads/cvs/${userId}/${filename}`,
+          mongoDocId: mongoDocId,
+          isPrimary: false,
         },
       });
 
-      console.log(` Saved to database with ID: ${cvRecord.id}`);
+      console.log(` Saved to PostgreSQL with ID: ${cvRecord.id}`);
 
-      // Step 4: Sync to MongoDB for Matching Service
-      try {
-        if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
-          const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
-
-          // Remove old CVs for this user
-          await mongoCollection.deleteMany({ user_id: userId });
-
-          // Insert new CV data
-          await mongoCollection.insertOne({
-            user_id: userId,
-            cv_id: cvRecord.id,
-            filename: filename,
-            raw_text: parsedData.raw_text || parsedData.full_text || '',
-            skills: parsedData.skills || [],
-            experience: parsedData.experience || [],
-            education: parsedData.education || [],
-            contact_info: parsedData.contact_info || {},
-            summary: parsedData.summary || '',
-            metadata: { raw_text: parsedData.raw_text || parsedData.full_text },
-            created_at: new Date(),
-          });
-
-          console.log(`✅ Synced to MongoDB for matching service`);
-        } else {
-          console.warn(`⚠️ MongoDB not connected, matching may not work`);
-        }
-      } catch (mongoError) {
-        console.error(`❌ MongoDB sync failed:`, mongoError);
-        // Don't fail the request, CV is still saved to PostgreSQL
-      }
+      // Update MongoDB doc with the PostgreSQL cv_id back-reference
+      await mongoCollection.updateOne(
+        { _id: mongoResult.insertedId },
+        { $set: { cv_id: cvRecord.id } },
+      );
 
       // Step 5: Return response
       res.status(200).json({
@@ -154,7 +177,7 @@ router.post(
         data: {
           cvId: cvRecord.id,
           filename: cvRecord.filename,
-          parsedData: cvRecord.parsedData,
+          parsedData: parsedData,
           createdAt: cvRecord.createdAt,
         }
       });
@@ -180,24 +203,41 @@ router.get(
     try {
       const userId = req.user!.id;
 
-      // Fetch all CVs for user
+      // Fetch CV metadata from PostgreSQL
       const cvs = await prisma.cV.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           filename: true,
-          parsedData: true,
+          mongoDocId: true,
           isPrimary: true,
           createdAt: true,
           updatedAt: true,
         },
       });
 
+      // Batch-fetch parsed data from MongoDB
+      const cvsWithParsedData = await Promise.all(
+        cvs.map(async (cv) => {
+          const parsedData = cv.mongoDocId
+            ? await fetchParsedDataFromMongo(cv.mongoDocId)
+            : null;
+          return {
+            id: cv.id,
+            filename: cv.filename,
+            parsedData,
+            isPrimary: cv.isPrimary,
+            createdAt: cv.createdAt,
+            updatedAt: cv.updatedAt,
+          };
+        }),
+      );
+
       res.json({
         success: true,
-        data: cvs,
-        count: cvs.length,
+        data: cvsWithParsedData,
+        count: cvsWithParsedData.length,
       });
 
     } catch (error) {
@@ -230,13 +270,11 @@ router.get(
         return;
       }
 
-      // Fetch CV and verify ownership
-      // Use findUnique with where clause instead of findFirst
+      // Fetch CV metadata and verify ownership
       const cv = await prisma.cV.findUnique({
         where: { id: cvId },
       });
 
-      // Verify ownership after fetching
       if (!cv || cv.userId !== userId) {
         res.status(404).json({
           success: false,
@@ -245,9 +283,23 @@ router.get(
         return;
       }
 
+      // Fetch parsed data from MongoDB
+      const parsedData = cv.mongoDocId
+        ? await fetchParsedDataFromMongo(cv.mongoDocId)
+        : null;
+
       res.json({
         success: true,
-        data: cv,
+        data: {
+          id: cv.id,
+          filename: cv.filename,
+          fileUrl: cv.fileUrl,
+          parsedData,
+          analysisData: cv.analysisData,
+          isPrimary: cv.isPrimary,
+          createdAt: cv.createdAt,
+          updatedAt: cv.updatedAt,
+        },
       });
 
     } catch (error) {
@@ -293,20 +345,24 @@ router.delete(
         return;
       }
 
+      // Delete from MongoDB using mongoDocId
+      if (cv.mongoDocId) {
+        try {
+          if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+            await mongoose.connection.db.collection('parsed_cvs').deleteOne({
+              _id: new mongoose.Types.ObjectId(cv.mongoDocId),
+            });
+            console.log(`Deleted CV from MongoDB: ${cv.mongoDocId}`);
+          }
+        } catch (mongoError) {
+          console.warn(`MongoDB cleanup failed:`, mongoError);
+        }
+      }
+
       // Delete CV from PostgreSQL
       await prisma.cV.delete({
         where: { id: cvId },
       });
-
-      // Also delete from MongoDB
-      try {
-        if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
-          await mongoose.connection.db.collection('parsed_cvs').deleteMany({ user_id: userId });
-          console.log(`🗑️ Deleted CV from MongoDB`);
-        }
-      } catch (mongoError) {
-        console.warn(`⚠️ MongoDB cleanup failed:`, mongoError);
-      }
 
       res.json({
         success: true,
@@ -368,10 +424,24 @@ router.patch(
         data: { isPrimary: true },
       });
 
+      // Fetch parsed data from MongoDB for the response
+      const parsedData = updatedCv.mongoDocId
+        ? await fetchParsedDataFromMongo(updatedCv.mongoDocId)
+        : null;
+
       res.json({
         success: true,
         message: 'Primary CV updated',
-        data: updatedCv,
+        data: {
+          id: updatedCv.id,
+          filename: updatedCv.filename,
+          fileUrl: updatedCv.fileUrl,
+          parsedData,
+          analysisData: updatedCv.analysisData,
+          isPrimary: updatedCv.isPrimary,
+          createdAt: updatedCv.createdAt,
+          updatedAt: updatedCv.updatedAt,
+        },
       });
 
     } catch (error) {

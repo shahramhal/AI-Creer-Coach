@@ -313,7 +313,7 @@ export const getMatchingDiagnostics = async (req: Request, res: Response): Promi
     if (mongoose.connection.db) {
       const db = mongoose.connection.db;
       const cvCollection = db.collection<CVDocument>('parsed_cvs');
-      const userCV = await cvCollection.findOne({ user_id: userId });
+      const userCV = await cvCollection.findOne({ user_id: userId }, { sort: { created_at: -1 } });
       diagnostics.checks.user_cv = {
         exists: !!userCV,
         cv_id: userCV?.cv_id,
@@ -394,13 +394,14 @@ async function fetchUserCV(
   cvId?: string
 ): Promise<CVDocument | null> {
   const cvCollection = db.collection<CVDocument>('parsed_cvs');
-  
+
   const query: any = { user_id: userId };
   if (cvId) {
     query.cv_id = cvId;
   }
-  
-  return await cvCollection.findOne(query);
+
+  // Sort by created_at descending to always return the latest CV
+  return await cvCollection.findOne(query, { sort: { created_at: -1 } });
 }
 
 /**

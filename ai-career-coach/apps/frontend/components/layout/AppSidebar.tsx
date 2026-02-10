@@ -1,13 +1,14 @@
 'use client';
 
-import { 
-  LayoutDashboard, 
-  FileText, 
+import {
+  LayoutDashboard,
+  FileText,
   User,
   ChevronLeft,
   Zap,
   LogOut,
-  Briefcase
+  Briefcase,
+  DollarSign
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -21,6 +22,7 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "CV Analysis", url: "/cvs", icon: FileText },
   { title: 'Job Matches', url: '/jobs', icon: Briefcase },
+  { title: "Salary Insights", url: "/salary-insights", icon: DollarSign },
   { title: "Profile", url: "/profile", icon: User }
 ];
 

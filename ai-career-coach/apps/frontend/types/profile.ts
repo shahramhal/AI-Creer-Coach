@@ -14,6 +14,7 @@ export interface Profile {
   portfolioUrl?: string | null;
   bio?: string | null;
   avatarUrl?: string | null;
+  jobTitle?: string | null;
   createdAt: string;
   updatedAt: string;
 }

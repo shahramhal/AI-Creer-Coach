@@ -8,6 +8,7 @@
 
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import { cache } from '../config/database.js';
 
 // Configuration
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
@@ -226,8 +227,40 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
       );
     }
 
+    // Step 6b: Check match result cache before calling ML service
+    const filterHash = filters ? Buffer.from(JSON.stringify(filters)).toString('base64url') : 'none';
+    const cvTimestamp = userCV.created_at ? new Date(userCV.created_at).getTime() : 'unknown';
+    const matchCacheKey = `match:user:${userId}:cv:${cvTimestamp}:topk:${top_k}:filters:${filterHash}`;
+
+    const cachedMatchResult = await cache.get<any[]>(matchCacheKey);
+    if (cachedMatchResult) {
+      const duration = Date.now() - startTime;
+      console.log(`📦 [Matching] Cache HIT! Returning ${cachedMatchResult.length} cached matches in ${duration}ms`);
+      res.json({
+        success: true,
+        message: `Found ${cachedMatchResult.length} matching jobs (cached)`,
+        data: {
+          matched_jobs: cachedMatchResult,
+          total_analyzed: jobCount,
+          user_cv: {
+            name: userCV.personal_info?.name,
+            uploaded_at: userCV.created_at
+          }
+        },
+        meta: {
+          duration_ms: duration,
+          cached: true
+        }
+      });
+      return;
+    }
+
     console.log(`🤖 [Matching] Calling ML service for matching...`);
     const matchedJobs = await getMLMatches(cvRawText, jobs, top_k, filters);
+
+    // Cache match results for 1 hour
+    await cache.set(matchCacheKey, matchedJobs, 3600);
+    console.log(`📦 [Matching] Results cached (TTL: 1hr)`);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [Matching] Complete! Matched ${matchedJobs.length} jobs in ${duration}ms`);
@@ -412,6 +445,15 @@ async function fetchUserCV(
  * @returns Array of job documents
  */
 async function fetchJobs(db: mongoose.mongo.Db, limit: number = 1000): Promise<JobDocument[]> {
+  const cacheKey = `jobs:list:${limit}`;
+
+  // Try cache first (jobs change infrequently)
+  const cachedJobs = await cache.get<JobDocument[]>(cacheKey);
+  if (cachedJobs) {
+    console.log(`📦 [Matching] Jobs cache HIT (${cachedJobs.length} jobs)`);
+    return cachedJobs;
+  }
+
   const jobsCollection = db.collection<JobDocument>('jobs');
 
   // Only fetch fields needed for matching (reduces memory and transfer)
@@ -430,11 +472,17 @@ async function fetchJobs(db: mongoose.mongo.Db, limit: number = 1000): Promise<J
   };
 
   // Sort by posted_date descending to get most recent jobs first
-  return await jobsCollection
+  const jobs = await jobsCollection
     .find({}, { projection })
     .sort({ posted_date: -1 })
     .limit(limit)
     .toArray();
+
+  // Cache for 30 minutes
+  await cache.set(cacheKey, jobs, 1800);
+  console.log(`📦 [Matching] Jobs cached (${jobs.length} jobs, TTL: 30min)`);
+
+  return jobs;
 }
 
 /**

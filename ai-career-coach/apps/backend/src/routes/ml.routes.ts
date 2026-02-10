@@ -4,7 +4,7 @@ import type { Request, Response, RequestHandler } from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
-import { prisma } from '../config/database.js';
+import { prisma, cache } from '../config/database.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -229,7 +229,12 @@ router.post(
         { $set: { cv_id: cvRecord.id } },
       );
 
-      // Step 5: Return response (transform to frontend shape)
+      // Step 5: Invalidate user caches (CV list + job matching)
+      await cache.del(`cvs:user:${userId}`);
+      await cache.delByPattern(`match:user:${userId}:*`);
+      console.log(`📦 [Cache] Invalidated CV list + matching caches for user: ${userId}`);
+
+      // Step 6: Return response (transform to frontend shape)
       res.status(200).json({
         success: true,
         message: 'CV parsed and saved successfully',
@@ -261,6 +266,15 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.user!.id;
+
+      // Check cache first
+      const cacheKey = `cvs:user:${userId}`;
+      const cachedResponse = await cache.get(cacheKey);
+      if (cachedResponse) {
+        console.log(`📦 [Cache] CV list cache HIT for user: ${userId}`);
+        res.json(cachedResponse);
+        return;
+      }
 
       // Fetch CV metadata from PostgreSQL
       const cvs = await prisma.cV.findMany({
@@ -295,11 +309,16 @@ router.get(
         }),
       );
 
-      res.json({
+      const responseData = {
         success: true,
         data: cvsWithParsedData,
         count: cvsWithParsedData.length,
-      });
+      };
+
+      // Cache for 5 minutes
+      await cache.set(cacheKey, responseData, 300);
+
+      res.json(responseData);
 
     } catch (error) {
       console.error('Error fetching CVs:', error);
@@ -424,6 +443,11 @@ router.delete(
       await prisma.cV.delete({
         where: { id: cvId },
       });
+
+      // Invalidate user caches (CV list + job matching)
+      await cache.del(`cvs:user:${userId}`);
+      await cache.delByPattern(`match:user:${userId}:*`);
+      console.log(`📦 [Cache] Invalidated CV list + matching caches for user: ${userId}`);
 
       res.json({
         success: true,
@@ -604,6 +628,17 @@ router.post(
         return;
       }
 
+      // Return cached analysis if it exists (skip ML call entirely)
+      if (cv.analysisData && !req.body?.forceReanalyze) {
+        console.log(`📦 [Cache] Returning cached analysis for CV: ${cvId}`);
+        res.json({
+          success: true,
+          message: 'CV analysis loaded from cache',
+          data: cv.analysisData,
+        });
+        return;
+      }
+
       // Fetch parsed data + raw text from MongoDB
       if (!cv.mongoDocId || mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
         res.status(400).json({
@@ -689,6 +724,9 @@ router.post(
         where: { id: cvId },
         data: { analysisData: analysisData },
       });
+
+      // Invalidate CV list cache so score shows in list
+      await cache.del(`cvs:user:${userId}`);
 
       console.log(`Analysis stored for CV: ${cvId}, score: ${analysisData.overallScore}/100`);
 

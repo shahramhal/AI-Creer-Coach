@@ -7,18 +7,16 @@ import type { CV } from '../../types/cv.types';
 
 interface CVCardProps {
   cv: CV;
+  isSelected?: boolean;
   onView: (cv: CV) => void;
   onSetPrimary: (cvId: string) => Promise<void>;
   onDownload: (cvId: string, filename: string) => Promise<void>;
   onDelete: (cvId: string, filename: string) => Promise<void>;
 }
 
-/**
- * CVCard - Display individual CV card with actions
- * Used by CVList to render each CV
- */
 export default function CVCard({
   cv,
+  isSelected,
   onView,
   onSetPrimary,
   onDownload,
@@ -76,7 +74,11 @@ export default function CVCard({
   };
 
   return (
-    <div className="bg-card border border-border rounded-lg p-6 hover:border-primary/30 hover:shadow-card transition-all">
+    <div className={`bg-card border rounded-lg p-6 transition-all ${
+      isSelected
+        ? 'border-primary/50 shadow-card ring-1 ring-primary/20'
+        : 'border-border hover:border-primary/30 hover:shadow-card'
+    }`}>
       <div className="flex items-start justify-between">
         {/* Left section: CV info */}
         <div className="flex-1">
@@ -156,12 +158,17 @@ export default function CVCard({
 
         {/* Right section: Action buttons */}
         <div className="ml-4 flex flex-col space-y-2 flex-shrink-0">
-          {/* View Details button */}
+          {/* Select / Analyze button */}
           <button
             onClick={() => onView(cv)}
-            className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/80 transition-colors"
+            disabled={isSelected}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              isSelected
+                ? 'text-primary bg-primary/15 border border-primary/30 cursor-default'
+                : 'text-primary-foreground bg-primary hover:bg-primary/80'
+            }`}
           >
-            View Details
+            {isSelected ? 'Selected' : 'Select'}
           </button>
 
           {/* Set as Primary button (only show if not already primary) */}

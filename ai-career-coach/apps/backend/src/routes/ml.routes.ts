@@ -269,6 +269,7 @@ router.get(
           id: true,
           filename: true,
           mongoDocId: true,
+          analysisData: true,
           isPrimary: true,
           createdAt: true,
           updatedAt: true,
@@ -285,6 +286,7 @@ router.get(
             id: cv.id,
             filename: cv.filename,
             parsedData,
+            analysisData: cv.analysisData,
             isPrimary: cv.isPrimary,
             createdAt: cv.createdAt,
             updatedAt: cv.updatedAt,
@@ -577,6 +579,119 @@ router.get('/cvs/:cvId/download', authenticate as RequestHandler,
 
     
 });
+/**
+ * Analyze CV — triggers ML analysis and stores results
+ * Returns ATS scores, keyword gaps, and recommendations
+ */
+router.post(
+  '/cvs/:cvId/analyze',
+  authenticate as RequestHandler,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const cvId = req.params.cvId;
+
+      if (!cvId) {
+        res.status(400).json({ success: false, message: 'CV ID is required' });
+        return;
+      }
+
+      // Verify ownership
+      const cv = await prisma.cV.findUnique({ where: { id: cvId } });
+      if (!cv || cv.userId !== userId) {
+        res.status(404).json({ success: false, message: 'CV not found' });
+        return;
+      }
+
+      // Fetch parsed data + raw text from MongoDB
+      if (!cv.mongoDocId || mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+        res.status(400).json({
+          success: false,
+          message: 'Parsed CV data not available for analysis',
+        });
+        return;
+      }
+
+      const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
+      const mongoDoc = await mongoCollection.findOne({
+        _id: new mongoose.Types.ObjectId(cv.mongoDocId),
+      });
+
+      if (!mongoDoc) {
+        res.status(404).json({
+          success: false,
+          message: 'Parsed CV data not found in database',
+        });
+        return;
+      }
+
+      // Extract raw text and parsed data
+      const rawText = mongoDoc.raw_text || mongoDoc.metadata?.raw_text || '';
+      const parsedData = {
+        contact_info: mongoDoc.contact_info || {},
+        summary: mongoDoc.summary || '',
+        experience: mongoDoc.experience || [],
+        education: mongoDoc.education || [],
+        skills: mongoDoc.skills || [],
+        certifications: mongoDoc.certifications || [],
+        projects: mongoDoc.projects || [],
+      };
+
+      // Get target role from request body (optional, from user settings)
+      const targetRole = req.body?.targetRole || null;
+
+      console.log(`Analyzing CV: ${cv.filename} for user: ${userId}`);
+
+      // Call ML service for analysis
+      const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/analyze-cv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cv_text: rawText,
+          parsed_data: parsedData,
+          filename: cv.filename,
+          target_role: targetRole,
+        }),
+      });
+
+      const mlData = await mlResponse.json();
+
+      if (!mlResponse.ok || !mlData.success) {
+        console.error('ML analysis error:', mlData);
+        res.status(500).json({
+          success: false,
+          message: mlData.error || 'CV analysis failed',
+        });
+        return;
+      }
+
+      const analysisData = mlData.data;
+
+      // Store analysis in PostgreSQL
+      await prisma.cV.update({
+        where: { id: cvId },
+        data: { analysisData: analysisData },
+      });
+
+      console.log(`Analysis stored for CV: ${cvId}, score: ${analysisData.overallScore}/100`);
+
+      res.json({
+        success: true,
+        message: 'CV analyzed successfully',
+        data: analysisData,
+      });
+
+    } catch (error) {
+      console.error('Error analyzing CV:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to analyze CV',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+);
+
 /**
  * Health check for ML service
  */

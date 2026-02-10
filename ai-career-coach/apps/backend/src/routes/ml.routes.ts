@@ -193,16 +193,17 @@ router.post(
       const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
 
       // Insert parsed data into MongoDB
+      const cvRawText = parsedData.raw_text || parsedData.metadata?.raw_text || parsedData.full_text || '';
       const mongoResult = await mongoCollection.insertOne({
         user_id: userId,
         filename: filename,
-        raw_text: parsedData.raw_text || parsedData.full_text || '',
+        raw_text: cvRawText,
         skills: parsedData.skills || [],
         experience: parsedData.experience || [],
         education: parsedData.education || [],
         contact_info: parsedData.contact_info || {},
         summary: parsedData.summary || '',
-        metadata: { raw_text: parsedData.raw_text || parsedData.full_text },
+        metadata: { raw_text: cvRawText },
         created_at: new Date(),
       });
 
@@ -626,7 +627,7 @@ router.post(
       }
 
       // Extract raw text and parsed data
-      const rawText = mongoDoc.raw_text || mongoDoc.metadata?.raw_text || '';
+      let rawText = mongoDoc.raw_text || mongoDoc.metadata?.raw_text || '';
       const parsedData = {
         contact_info: mongoDoc.contact_info || {},
         summary: mongoDoc.summary || '',
@@ -637,10 +638,26 @@ router.post(
         projects: mongoDoc.projects || [],
       };
 
+      // If no raw_text stored, build from parsed fields
+      if (!rawText) {
+        const textParts: string[] = [];
+        if (parsedData.summary) textParts.push(parsedData.summary);
+        if (parsedData.skills?.length) textParts.push(`Skills: ${parsedData.skills.join(', ')}`);
+        for (const exp of parsedData.experience as any[]) {
+          const parts = [exp.title, exp.company, ...(exp.responsibilities || [])].filter(Boolean);
+          if (parts.length) textParts.push(parts.join(' - '));
+        }
+        for (const edu of parsedData.education as any[]) {
+          const parts = [edu.degree, edu.institution, edu.field].filter(Boolean);
+          if (parts.length) textParts.push(parts.join(' - '));
+        }
+        rawText = textParts.join('\n');
+      }
+
       // Get target role from request body (optional, from user settings)
       const targetRole = req.body?.targetRole || null;
 
-      console.log(`Analyzing CV: ${cv.filename} for user: ${userId}`);
+      console.log(`Analyzing CV: ${cv.filename} for user: ${userId} (text: ${rawText.length} chars)`);
 
       // Call ML service for analysis
       const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/analyze-cv`, {

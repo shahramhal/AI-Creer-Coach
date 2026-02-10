@@ -112,17 +112,31 @@ export default function CVsPage() {
     }
   };
 
-  const handleCVDelete = (cvId: string) => {
+  // Called by CVList (which already calls cvService.deleteCV internally)
+  const handleCVDeleteFromList = (cvId: string) => {
+    removeCVFromState(cvId);
+  };
+
+  // Called by CVSummaryCard (needs to call the API)
+  const handleCVDeleteFromSummary = async (cvId: string, filename: string) => {
+    await cvService.deleteCV(cvId);
+    removeCVFromState(cvId);
+  };
+
+  const removeCVFromState = (cvId: string) => {
     const updatedCvs = cvs.filter(cv => cv.id !== cvId);
     setCvs(updatedCvs);
 
-    // If the deleted CV was selected, select the next latest
     if (selectedCV?.id === cvId) {
       setSelectedCV(updatedCvs.length > 0 ? updatedCvs[0] : null);
     }
     if (detailCV?.id === cvId) {
       setDetailCV(null);
     }
+  };
+
+  const handleDownload = async (cvId: string, filename: string) => {
+    await cvService.downloadCV(cvId, filename);
   };
 
   const handleAnalyze = useCallback(async () => {
@@ -256,7 +270,12 @@ export default function CVsPage() {
             {/* Selected CV Summary */}
             {selectedCV && (
               <>
-                <CVSummaryCard cv={selectedCV} onViewDetail={handleCVViewDetail} />
+                <CVSummaryCard
+                  cv={selectedCV}
+                  onViewDetail={handleCVViewDetail}
+                  onDownload={handleDownload}
+                  onDelete={handleCVDeleteFromSummary}
+                />
 
                 {/* Analysis Tabs */}
                 <CVAnalysisTabs
@@ -268,23 +287,14 @@ export default function CVsPage() {
             )}
 
             {/* CV History */}
-            {cvs.length > 0 && (
-              <Card className="border-border bg-card shadow-card">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">
-                    {cvs.length === 1 ? 'Your CV' : 'Your CVs'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CVList
-                    cvs={cvs}
-                    selectedCVId={selectedCV?.id}
-                    onCVSelect={handleCVSelect}
-                    onCVDelete={handleCVDelete}
-                    onCVUpdate={handleCVUpdate}
-                  />
-                </CardContent>
-              </Card>
+            {cvs.length > 1 && (
+              <CVList
+                cvs={cvs}
+                selectedCVId={selectedCV?.id}
+                onCVSelect={handleCVSelect}
+                onCVDelete={handleCVDeleteFromList}
+                onCVUpdate={handleCVUpdate}
+              />
             )}
           </>
         )}

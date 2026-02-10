@@ -50,6 +50,7 @@ model UserProfile {
   portfolioUrl String?  @map("portfolio_url") @db.VarChar(500)
   bio          String?  @db.Text
   avatarUrl    String?  @map("avatar_url") @db.VarChar(500)
+  jobTitle     String?  @map("job_title") @db.VarChar(255)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamp()
 

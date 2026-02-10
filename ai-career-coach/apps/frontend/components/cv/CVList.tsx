@@ -9,16 +9,13 @@ import CVCard from './CVCard';
 
 interface CVListProps {
   cvs: CV[];
+  selectedCVId?: string;
   onCVSelect: (cv: CV) => void;
   onCVDelete: (cvId: string) => void;
   onCVUpdate: (updatedCV: CV) => void;
 }
 
-/**
- * CVList - Display list of user's CVs
- * Split into "Latest CV" and collapsible "CV History"
- */
-export default function CVList({ cvs, onCVSelect, onCVDelete, onCVUpdate }: CVListProps) {
+export default function CVList({ cvs, selectedCVId, onCVSelect, onCVDelete, onCVUpdate }: CVListProps) {
   const [error, setError] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
@@ -109,6 +106,7 @@ export default function CVList({ cvs, onCVSelect, onCVDelete, onCVUpdate }: CVLi
         </h3>
         <CVCard
           cv={latestCv}
+          isSelected={selectedCVId === latestCv.id}
           onView={onCVSelect}
           onSetPrimary={handleSetPrimary}
           onDownload={handleDownload}
@@ -147,6 +145,7 @@ export default function CVList({ cvs, onCVSelect, onCVDelete, onCVUpdate }: CVLi
                 <CVCard
                   key={cv.id}
                   cv={cv}
+                  isSelected={selectedCVId === cv.id}
                   onView={onCVSelect}
                   onSetPrimary={handleSetPrimary}
                   onDownload={handleDownload}

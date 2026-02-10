@@ -20,6 +20,9 @@ from cv_parser.parserV2 import CVParser
 # Import job matcher
 from job_matcher.matcher import JobMatcher
 
+# Import CV analyzer
+from cv_analyzer.analyzer import CVAnalyzer
+
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Career Coach ML Service",
@@ -41,6 +44,7 @@ cv_parser = CVParser(
     anthropic_api_key=os.environ.get('ANTHROPIC_API_KEY')
 )
 job_matcher = JobMatcher()
+cv_analyzer = CVAnalyzer()
 
 
 # REQUEST/RESPONSE MODELS
@@ -66,6 +70,21 @@ class JobMatchResponse(BaseModel):
     success: bool
     matched_jobs: List[Dict]
     total_analyzed: int
+
+
+class AnalyzeCVRequest(BaseModel):
+    """Request model for CV analysis"""
+    cv_text: str
+    parsed_data: Dict
+    filename: str = ""
+    target_role: Optional[str] = None
+
+
+class AnalyzeCVResponse(BaseModel):
+    """Response model for CV analysis"""
+    success: bool
+    data: Optional[Dict] = None
+    error: Optional[str] = None
 
 
 
@@ -172,6 +191,43 @@ async def parse_cv(file: UploadFile = File(...), authorization: str = Header(Non
         return ParseResponse(
             success=False,
             error=str(e)
+        )
+
+
+@app.post("/api/ml/analyze-cv", response_model=AnalyzeCVResponse)
+async def analyze_cv(request: AnalyzeCVRequest):
+    """
+    Analyze CV for ATS compatibility, keyword gaps, and recommendations.
+    Runs entirely locally — no external API calls.
+
+    Args:
+        request: CV text, parsed data, filename, optional target role
+
+    Returns:
+        Comprehensive analysis data (scores, ATS checks, keywords, recommendations)
+    """
+    try:
+        print(f"Analyzing CV: {request.filename}")
+
+        analysis_result = cv_analyzer.analyze(
+            cv_text=request.cv_text,
+            parsed_data=request.parsed_data,
+            filename=request.filename,
+            target_role=request.target_role,
+        )
+
+        print(f"Analysis complete: score={analysis_result['overallScore']}/100")
+
+        return AnalyzeCVResponse(
+            success=True,
+            data=analysis_result,
+        )
+
+    except Exception as e:
+        print(f"Analysis error: {e}")
+        return AnalyzeCVResponse(
+            success=False,
+            error=str(e),
         )
 
 

@@ -10,6 +10,7 @@ import type {
   CVUpdateResponse,
   CVUpdatePayload,
   SetPrimaryCVResponse,
+  AnalysisData,
 } from '../types/cv.types';
 
 /**
@@ -157,6 +158,17 @@ class CVService {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   }
+  /**
+   * Analyze a CV for ATS compatibility, keywords, and recommendations
+   * Runs locally via ML service (no external API calls)
+   */
+  async analyzeCV(cvId: string, targetRole?: string): Promise<{ success: boolean; data: AnalysisData }> {
+    const response = await api.post(`/api/ml/cvs/${cvId}/analyze`, {
+      targetRole: targetRole || undefined,
+    });
+    return response.data;
+  }
+
   validateFile(file: File): { valid: boolean; error?: string } {
     const allowedTypes = [
       'application/pdf',

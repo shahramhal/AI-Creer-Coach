@@ -1,135 +1,233 @@
-# Turborepo starter
+# AI Career Coach
 
-This Turborepo starter is maintained by the Turborepo core team.
+Full-stack platform that helps job seekers optimize their CVs, find matching jobs, and understand salary markets. Built as a microservices monorepo with a React frontend, Express API, Python ML pipeline, job aggregation service, and web scraper.
 
-## Using this example
-
-Run the following command:
-
-```sh
-npx create-turbo@latest
-```
-
-## What's inside?
-
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
+## System Overview
 
 ```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+                                 +------------------+
+                                 |    Frontend       |
+                                 |  Next.js :3000    |
+                                 +--------+---------+
+                                          |
+                                          v
+                              +-----------+-----------+
+                              |      Backend API      |
+                              |    Express.js :4000   |
+                              +--+-------+-------+---+
+                                 |       |       |
+                    +------------+   +---+---+   +------------+
+                    |                |       |                |
+                    v                v       v                v
+            +-------+------+  +-----+--+ +--+-----+  +-------+------+
+            |  ML Service  |  | Postgres| |MongoDB |  | Job API Svc  |
+            | FastAPI :8000|  |  :5432  | | :27017 |  | FastAPI :8001|
+            +--------------+  +---------+ +---+----+  +------+-------+
+                                              |              |
+                                          +---+----+         |
+                                          | Redis  |         |
+                                          | :6379  +---------+
+                                          +---+----+
+                                              |
+                                       +------+-------+
+                                       |   Scraper    |
+                                       | Scrapy batch |
+                                       +--------------+
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+### Services
 
+| Service | Port | Stack | Purpose |
+|---------|------|-------|---------|
+| [Frontend](apps/frontend/) | 3000 | Next.js 15, React 19, Tailwind | User interface |
+| [Backend](apps/backend/) | 4000 | Express 5, Prisma, Mongoose | REST API, auth, orchestration |
+| [ML Service](apps/ml-service/) | 8000 | FastAPI, Sentence Transformers, Claude | CV parsing, analysis, job matching |
+| [Job API Service](apps/job-api-service/) | 8001 | FastAPI, Motor, APScheduler | Job aggregation from Adzuna/Reed APIs |
+| [Scraper Service](apps/scrapper-service/) | -- | Scrapy, Selenium | Indeed job scraping (batch) |
+
+### Data Stores
+
+| Store | Purpose |
+|-------|---------|
+| PostgreSQL 17 | Users, profiles, CV metadata, applications, skills, courses (Prisma ORM) |
+| MongoDB 7 | Parsed CV documents, job listings for ML matching |
+| Redis 7 | Application cache, session storage, Bull job queues, scraper deduplication |
+
+## Features
+
+### CV Management and Analysis
+Upload a PDF or DOCX resume. The ML service extracts structured data using Claude, then runs a local analysis pipeline that scores the CV across five categories (content quality, ATS compatibility, keyword match, format/structure, experience clarity). Users get actionable recommendations with priority rankings and estimated time to implement.
+
+### Job Matching
+Semantic similarity matching between user CVs and job listings. The ML service encodes both using Sentence Transformers (`all-MiniLM-L6-v2`), calculates cosine similarity, and returns ranked matches with skill breakdowns showing what matches and what's missing. Results are cached in Redis for one hour.
+
+### Salary Insights
+Salary predictions based on job title, location, and user profile. Pulls market data from the Adzuna API (histogram and historical endpoints), then adjusts for experience level, education, skill premiums, and regional factors. Supports seven countries (UK, US, DE, FR, NL, AU, CA).
+
+### Job Aggregation
+Two sources feed the job database:
+1. **Job API Service** -- fetches from Adzuna and Reed APIs on a 24-hour schedule across multiple keywords and UK cities
+2. **Scraper Service** -- crawls Indeed with Scrapy, processes through cleaning/dedup/storage pipelines
+
+### Authentication
+JWT-based auth with access tokens (1h) and refresh tokens (7d, httpOnly cookie). Email verification, password reset via email, bcrypt password hashing.
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- Python 3.11+
+- PostgreSQL 17
+- MongoDB 7
+- Redis 7
+- Adzuna API credentials (free at developer.adzuna.com)
+- Anthropic API key (for CV parsing)
+
+### Option 1: Docker Compose (recommended)
+
+Create a `.env` file in the project root:
+
+```env
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_postgres_password
+POSTGRES_DB=career_coach
+
+MONGO_ROOT_USER=admin
+MONGO_ROOT_PASSWORD=admin123
+MONGO_INITDB_DATABASE=career_coach
+
+REDIS_PASSWORD=your_redis_password
+
+ADZUNA_APP_ID=your_adzuna_app_id
+ADZUNA_APP_KEY=your_adzuna_app_key
+REED_API_KEY=your_reed_api_key
 ```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+Then start everything:
+
+```bash
+docker-compose up --build
 ```
 
-### Develop
+This brings up all seven services (frontend, backend, ml-service, job-api-service, postgres, mongodb, redis) with proper networking.
 
-To develop all apps and packages, run the following command:
+### Option 2: Local Development
 
+```bash
+# Install Node.js dependencies
+npm install
+
+# Start infrastructure (databases)
+docker-compose up postgres mongodb redis
+
+# In separate terminals:
+
+# Backend
+cd apps/backend
+cp .env.example .env  # Edit with your credentials
+npm run prisma:generate
+npm run prisma:migrate
+npm run dev
+
+# Frontend
+cd apps/frontend
+echo "NEXT_PUBLIC_API_URL=http://localhost:4000" > .env.local
+npm run dev
+
+# ML Service
+cd apps/ml-service
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
+uvicorn main:app --port 8000 --reload
+
+# Job API Service
+cd apps/job-api-service
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --port 8001 --reload
 ```
-cd my-turborepo
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
+### Option 3: Turborepo (Node services only)
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
+```bash
+npm install
 npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+This starts the frontend and backend simultaneously with Turborepo's task orchestration. You'll still need to run the Python services separately.
+
+## Monorepo Structure
 
 ```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+ai-career-coach/
+  apps/
+    backend/              # Express.js REST API
+    frontend/             # Next.js web app
+    ml-service/           # Python ML microservice
+    job-api-service/      # Python job aggregation service
+    scrapper-service/     # Python Scrapy job scraper
+    docs/                 # Next.js documentation site (Turborepo template)
+  packages/
+    ui/                   # Shared React component library (@repo/ui)
+    typescript-config/    # Shared tsconfig presets (@repo/typescript-config)
+    eslint-config/        # Shared ESLint config (@repo/eslint-config)
+  scripts/
+    init-db/
+      postgres-init.sql   # PostgreSQL initialization
+      mongo-init.js       # MongoDB initialization
+    setup-database.sh     # Database setup helper
+  docker-compose.yml      # Full stack orchestration
+  turbo.json              # Turborepo task configuration
+  package.json            # Root workspace config (npm workspaces)
 ```
 
-### Remote Caching
+Managed with npm workspaces and Turborepo. The `packages/` directory contains shared configurations consumed by the Node.js apps. The Python services are standalone with their own virtual environments.
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+## Environment Variables Reference
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+Each service has its own README with full environment variable documentation. Here's a summary of external API keys you'll need:
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+| Variable | Where to Get It | Used By |
+|----------|----------------|---------|
+| `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | [developer.adzuna.com](https://developer.adzuna.com) | Backend (salary), Job API Service |
+| `REED_API_KEY` | [reed.co.uk/developers](https://www.reed.co.uk/developers) | Job API Service |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | ML Service (CV parsing) |
 
-```
-cd my-turborepo
+## Development
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
+### Turborepo Commands
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+```bash
+npx turbo dev          # Start all Node.js services in dev mode
+npx turbo build        # Build all packages
+npx turbo lint         # Lint all packages
+npx turbo check-types  # Type-check all packages
 ```
 
-## Useful Links
+### Database Management
 
-Learn more about the power of Turborepo:
+```bash
+cd apps/backend
+npm run prisma:studio      # Visual database browser at localhost:5555
+npm run prisma:migrate     # Create and apply new migration
+npm run prisma:deploy      # Apply migrations (production)
+```
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+### Populating Jobs
+
+Run the scraper to seed the job database for matching:
+
+```bash
+cd apps/scrapper-service
+python run_scrapers.py
+```
+
+Or trigger the job API service to fetch from external APIs:
+
+```bash
+curl -X POST http://localhost:8001/api/jobs/fetch \
+  -H "Content-Type: application/json" \
+  -d '{"keywords": "software engineer", "location": "London"}'
+```

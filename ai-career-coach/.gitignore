@@ -40,3 +40,7 @@ yarn-error.log*
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Claude Code
+.claude/
+CLAUDE.md

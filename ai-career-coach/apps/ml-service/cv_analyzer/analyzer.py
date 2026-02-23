@@ -12,6 +12,8 @@ from cv_analyzer.keyword_analyzer import KeywordAnalyzer
 from cv_analyzer.ats_checker import ATSChecker
 from cv_analyzer.score_calculator import ScoreCalculator
 from cv_analyzer.recommendation_engine import RecommendationEngine
+from cv_analyzer.cv_overview_scorer import CVOverviewScorer
+from cv_analyzer.ats_scorer import ATSScorer
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,8 @@ class CVAnalyzer:
         self.ats_checker = ATSChecker()
         self.score_calculator = ScoreCalculator()
         self.recommendation_engine = RecommendationEngine()
+        self.overview_scorer = CVOverviewScorer()
+        self.ats_scorer = ATSScorer()
         logger.info("CVAnalyzer initialized")
 
     def analyze(
@@ -100,6 +104,34 @@ class CVAnalyzer:
         )
 
         return analysis_data
+
+    def analyze_overview(
+        self,
+        cv_text: str,
+        parsed_data: Dict,
+        filename: str = "",
+    ) -> Dict:
+        """
+        Run job-agnostic CV overview analysis.
+        Returns quality scores without keyword/job matching.
+        """
+        return self.overview_scorer.analyze(cv_text, parsed_data, filename)
+
+    def analyze_ats(
+        self,
+        cv_text: str,
+        parsed_data: Dict,
+        job_description: str,
+        job_requirements: str = "",
+        job_skills: Optional[List] = None,
+    ) -> Dict:
+        """
+        Run job-specific ATS keyword matching.
+        Compares CV against a specific job description.
+        """
+        return self.ats_scorer.score(
+            cv_text, parsed_data, job_description, job_requirements, job_skills
+        )
 
     def _compile_priority_issues(
         self,

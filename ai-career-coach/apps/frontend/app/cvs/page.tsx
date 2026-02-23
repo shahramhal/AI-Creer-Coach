@@ -12,7 +12,7 @@ import CVList from '../../components/cv/CVList';
 import CVDetail from '../../components/cv/CVDetail';
 import CVSummaryCard from '../../components/cv/CVSummaryCard';
 import CVAnalysisTabs from '../../components/cv/CVAnalysisTabs';
-import type { CV, ParsedCVData, AnalysisData } from '../../types/cv.types';
+import type { CV, ParsedCVData, CVOverviewData } from '../../types/cv.types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Upload, FileText } from 'lucide-react';
@@ -119,8 +119,13 @@ export default function CVsPage() {
 
   // Called by CVSummaryCard (needs to call the API)
   const handleCVDeleteFromSummary = async (cvId: string, filename: string) => {
-    await cvService.deleteCV(cvId);
-    removeCVFromState(cvId);
+    try {
+      await cvService.deleteCV(cvId);
+      removeCVFromState(cvId);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete CV';
+      setError(errorMessage);
+    }
   };
 
   const removeCVFromState = (cvId: string) => {
@@ -147,10 +152,9 @@ export default function CVsPage() {
 
     try {
       const response = await cvService.analyzeCV(selectedCV.id);
-      const analysisData: AnalysisData = response.data;
+      const overviewData: CVOverviewData = response.data;
 
-      // Update the selected CV with analysis data
-      const updatedCV: CV = { ...selectedCV, analysisData };
+      const updatedCV: CV = { ...selectedCV, analysisData: null, overviewData };
       setSelectedCV(updatedCV);
       setCvs(prev => prev.map(cv => cv.id === updatedCV.id ? updatedCV : cv));
     } catch (err) {
@@ -280,6 +284,7 @@ export default function CVsPage() {
                 {/* Analysis Tabs */}
                 <CVAnalysisTabs
                   analysisData={selectedCV.analysisData}
+                  overviewData={selectedCV.overviewData}
                   isAnalyzing={isAnalyzing}
                   onAnalyze={handleAnalyze}
                 />

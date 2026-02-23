@@ -1,10 +1,10 @@
 'use client';
 
-import type { AnalysisData } from '../../types/cv.types';
+import type { AnalysisData, CVOverviewData } from '../../types/cv.types';
 import { Progress } from '../ui/progress';
 
 interface OverviewTabProps {
-  data: AnalysisData;
+  data: AnalysisData | CVOverviewData;
 }
 
 function getScoreColor(score: number): string {
@@ -23,10 +23,12 @@ function getProgressColor(score: number): string {
 
 const SCORE_LABELS: Record<string, string> = {
   contentQuality: 'Content Quality',
-  atsCompatibility: 'ATS Compatibility',
-  keywordsMatch: 'Keywords Match',
   formatStructure: 'Format & Structure',
   experienceClarity: 'Experience Clarity',
+  atsReadability: 'ATS Readability',
+  // Legacy labels (backward compat with old analysisData)
+  atsCompatibility: 'ATS Compatibility',
+  keywordsMatch: 'Keywords Match',
 };
 
 export default function OverviewTab({ data }: OverviewTabProps) {

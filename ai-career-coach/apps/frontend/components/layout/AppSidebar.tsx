@@ -8,7 +8,8 @@ import {
   Zap,
   LogOut,
   Briefcase,
-  DollarSign
+  DollarSign,
+  ScanSearch
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,11 +17,11 @@ import { cn } from "../../library/utils";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { useAuth } from "../../context/authContext";
-import { title } from "process";
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "CV Analysis", url: "/cvs", icon: FileText },
+  { title: "ATS Score", url: "/ats-score", icon: ScanSearch },
   { title: 'Job Matches', url: '/jobs', icon: Briefcase },
   { title: "Salary Insights", url: "/salary-insights", icon: DollarSign },
   { title: "Profile", url: "/profile", icon: User }

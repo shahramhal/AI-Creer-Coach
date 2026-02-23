@@ -1,26 +1,29 @@
 'use client';
 
-import type { AnalysisData } from '../../types/cv.types';
+import type { AnalysisData, CVOverviewData } from '../../types/cv.types';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { Button } from '../ui/button';
 import OverviewTab from './OverviewTab';
-import ATSTab from './ATSTab';
-import KeywordsTab from './KeywordsTab';
 import RecommendationsTab from './RecommendationsTab';
 
 interface CVAnalysisTabsProps {
   analysisData: AnalysisData | null;
+  overviewData?: CVOverviewData | null;
   isAnalyzing: boolean;
   onAnalyze: () => void;
 }
 
 export default function CVAnalysisTabs({
   analysisData,
+  overviewData,
   isAnalyzing,
   onAnalyze,
 }: CVAnalysisTabsProps) {
+  // Prefer overviewData, fall back to analysisData for backward compat
+  const activeData = overviewData || analysisData;
+
   // No analysis yet — show CTA
-  if (!analysisData) {
+  if (!activeData) {
     return (
       <div className="bg-card border border-border rounded-xl p-8 text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
@@ -30,7 +33,7 @@ export default function CVAnalysisTabs({
         </div>
         <h3 className="mt-4 text-lg font-semibold text-foreground">Analyze Your CV</h3>
         <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
-          Get AI-powered insights on ATS compatibility, keyword optimization, and personalized recommendations to improve your CV.
+          Get AI-powered insights on content quality, formatting, and personalized recommendations to improve your CV.
         </p>
         <Button
           onClick={onAnalyze}
@@ -55,18 +58,14 @@ export default function CVAnalysisTabs({
     );
   }
 
-  // Show analysis tabs
+  const recommendations = activeData.recommendations ?? [];
+
+  // Show analysis tabs (2 tabs: Overview, Recommendations)
   return (
     <Tabs defaultValue="overview" className="w-full">
       <TabsList className="bg-muted/50 border border-border p-1 rounded-lg">
         <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md px-4">
           Overview
-        </TabsTrigger>
-        <TabsTrigger value="ats" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md px-4">
-          ATS Compatibility
-        </TabsTrigger>
-        <TabsTrigger value="keywords" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md px-4">
-          Keywords
         </TabsTrigger>
         <TabsTrigger value="recommendations" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md px-4">
           Recommendations
@@ -74,19 +73,11 @@ export default function CVAnalysisTabs({
       </TabsList>
 
       <TabsContent value="overview" className="mt-4">
-        <OverviewTab data={analysisData} />
-      </TabsContent>
-
-      <TabsContent value="ats" className="mt-4">
-        <ATSTab checks={analysisData.atsAnalysis} />
-      </TabsContent>
-
-      <TabsContent value="keywords" className="mt-4">
-        <KeywordsTab keywords={analysisData.missingKeywords} />
+        <OverviewTab data={activeData} />
       </TabsContent>
 
       <TabsContent value="recommendations" className="mt-4">
-        <RecommendationsTab recommendations={analysisData.recommendations} />
+        <RecommendationsTab recommendations={recommendations} />
       </TabsContent>
     </Tabs>
   );

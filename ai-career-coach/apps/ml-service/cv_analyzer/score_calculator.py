@@ -1,6 +1,12 @@
 """
 Score Calculator — Computes CV quality scores across 5 categories.
 Uses rule-based analysis with weighted scoring.
+
+DEPRECATION NOTICE: This module's 5-category scoring (including keywordsMatch)
+is being superseded by:
+  - cv_overview_scorer.py — job-agnostic 4-category CV quality scores
+  - ats_scorer.py — job-specific ATS keyword matching
+This module is retained for backward compatibility with the legacy analyze() method.
 """
 
 import re

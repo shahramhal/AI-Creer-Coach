@@ -285,6 +285,7 @@ router.get(
           filename: true,
           mongoDocId: true,
           analysisData: true,
+          overviewData: true,
           isPrimary: true,
           createdAt: true,
           updatedAt: true,
@@ -302,6 +303,7 @@ router.get(
             filename: cv.filename,
             parsedData,
             analysisData: cv.analysisData,
+            overviewData: cv.overviewData,
             isPrimary: cv.isPrimary,
             createdAt: cv.createdAt,
             updatedAt: cv.updatedAt,
@@ -376,6 +378,7 @@ router.get(
           fileUrl: cv.fileUrl,
           parsedData,
           analysisData: cv.analysisData,
+          overviewData: cv.overviewData ?? null,
           isPrimary: cv.isPrimary,
           createdAt: cv.createdAt,
           updatedAt: cv.updatedAt,
@@ -523,6 +526,7 @@ router.patch(
           fileUrl: updatedCv.fileUrl,
           parsedData,
           analysisData: updatedCv.analysisData,
+          overviewData: updatedCv.overviewData ?? null,
           isPrimary: updatedCv.isPrimary,
           createdAt: updatedCv.createdAt,
           updatedAt: updatedCv.updatedAt,
@@ -629,12 +633,13 @@ router.post(
       }
 
       // Return cached analysis if it exists (skip ML call entirely)
-      if (cv.analysisData && !req.body?.forceReanalyze) {
+      const cachedResult = cv.overviewData ?? cv.analysisData;
+      if (cachedResult && !req.body?.forceReanalyze) {
         console.log(`📦 [Cache] Returning cached analysis for CV: ${cvId}`);
         res.json({
           success: true,
           message: 'CV analysis loaded from cache',
-          data: cv.analysisData,
+          data: cachedResult,
         });
         return;
       }
@@ -694,15 +699,14 @@ router.post(
 
       console.log(`Analyzing CV: ${cv.filename} for user: ${userId} (text: ${rawText.length} chars)`);
 
-      // Call ML service for analysis
-      const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/analyze-cv`, {
+      // Call ML service for CV overview (job-agnostic analysis)
+      const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/cv-overview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cv_text: rawText,
           parsed_data: parsedData,
           filename: cv.filename,
-          target_role: targetRole,
         }),
       });
 
@@ -719,10 +723,13 @@ router.post(
 
       const analysisData = mlData.data;
 
-      // Store analysis in PostgreSQL
+      // Store in both overviewData (new) and analysisData (backward compat)
       await prisma.cV.update({
         where: { id: cvId },
-        data: { analysisData: analysisData },
+        data: {
+          overviewData: analysisData,
+          analysisData: analysisData,
+        },
       });
 
       // Invalidate CV list cache so score shows in list

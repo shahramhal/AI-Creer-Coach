@@ -146,11 +146,24 @@ The matching flow:
 | GET | `/insights` | Yes | Query: `jobTitle` (required), `location?`, `country?` (default: gb) |
 | PATCH | `/preferences` | Yes | Save job title/location preferences |
 
-Salary calculation pulls data from the Adzuna API (histogram + history endpoints) and applies adjustments:
-- Experience multiplier (0-45% premium based on years)
-- Education multiplier (PhD +15%, Master +10%, Bachelor +5%)
-- Skills premium (based on hardcoded market values per skill, capped at 25k)
-- Location factor (regional difference from national median)
+Salary calculation pulls the market median from the Adzuna API (histogram + history endpoints) then applies adjustments *relative to the market average*:
+
+```
+predictedSalary = marketMedian
+    + (marketMedian × experienceAdjustment)    // centered log curve, -27% to +20%
+    + (marketMedian × educationMultiplier)     // 0/8/15%, neutral default
+    + locationDelta                             // regional vs national median difference
+    + skillsPremium(skills, marketMedian)       // % of base, top 5 skills, capped at 20%
+```
+
+The Adzuna median already represents the average listing — multipliers adjust relative to that baseline:
+- **Experience**: centered Mincer curve — average worker (~5yr) gets 0% adjustment; juniors get negative (down to -27%), seniors get positive (up to +20%)
+- **Education**: PhD +15%, Master +8%, Bachelor/missing/unrecognised = neutral (no penalty)
+- **Skills premium**: top 5 skills by value, percentage-based with diminishing returns, capped at 20% of base — scales correctly across currencies
+- **Location**: difference between location-specific and national Adzuna median
+- **Salary range**: histogram IQR spread (P75 - P25) centered on the predicted salary (falls back to ±15% if < 2 buckets)
+- **Confidence**: weighted combination of sample size (200+ = full score) and distribution tightness (coefficient of variation)
+- **Rate limiting**: regional histogram calls are throttled sequentially (200ms delay) to avoid Adzuna 429 errors
 
 Supported countries: `gb`, `us`, `de`, `fr`, `nl`, `au`, `ca`
 

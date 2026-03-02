@@ -124,35 +124,65 @@ router.post(
       console.log(` Processing CV: ${filename} for user: ${userId}`);
 
       // Step 1: Create FormData for ML service
-      const formData = new FormData();
-      const fileBlob = new Blob([new Uint8Array(req.file.buffer)], { 
-        type: req.file.mimetype 
+      let formData = new FormData();
+      const fileBlob = new Blob([new Uint8Array(req.file.buffer)], {
+        type: req.file.mimetype
       });
       formData.append('file', fileBlob, filename);
 
-      // Step 2: Forward to ML service for parsing
+      // Step 2: Forward to ML service for parsing (with retry for transient errors)
       console.log(` Forwarding to ML service: ${ML_SERVICE_URL}/api/ml/parse-cv`);
 
-      // Pass the Authorization header so ML service knows the user
       const authHeader = req.headers.authorization;
+      const MAX_RETRIES = 2;
+      let mlData: any = null;
+      let mlResponse: globalThis.Response | null = null;
+      let lastError: string | null = null;
 
-      const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/parse-cv`, {
-        method: 'POST',
-        body: formData,
-        headers: authHeader ? { 'Authorization': authHeader } : {},
-      });
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        if (attempt > 0) {
+          const delayMs = attempt * 3000; // 3s, 6s
+          console.log(` Retry ${attempt}/${MAX_RETRIES} after ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
 
-      const mlData = await mlResponse.json();
+          // Rebuild FormData for retry (previous body was consumed)
+          const retryFormData = new FormData();
+          const retryBlob = new Blob([req.file!.buffer], { type: req.file!.mimetype });
+          retryFormData.append('file', retryBlob, filename);
+          formData = retryFormData;
+        }
 
-      // Handle ML service errors
-      if (!mlResponse.ok) {
-        console.error(' ML service error:', mlData);
-        res.status(mlResponse.status).json({
-          success: false,
-          message: mlData.message || 'ML service error',
-          error: mlData.error
+        mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/parse-cv`, {
+          method: 'POST',
+          body: formData,
+          headers: authHeader ? { 'Authorization': authHeader } : {},
         });
-        return;
+
+        mlData = await mlResponse.json();
+
+        // Check if this is a retryable error (overloaded / 529)
+        const isOverloaded = !mlResponse.ok || mlData.success === false || !mlData.data;
+        const isRetryable = mlData.error?.includes?.('overloaded') || mlData.error?.includes?.('529');
+
+        if (!isOverloaded) break; // Success
+        lastError = mlData.error || mlData.message || 'Unknown ML error';
+
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          console.error(` ML service error (attempt ${attempt + 1}):`, mlData);
+
+          const message = isRetryable
+            ? 'The AI parsing service is temporarily overloaded. Please try again in a minute.'
+            : mlData.message || mlData.error || 'Failed to parse CV';
+
+          res.status(isRetryable ? 503 : (mlResponse.ok ? 502 : mlResponse.status)).json({
+            success: false,
+            message,
+            error: mlData.error,
+          });
+          return;
+        }
+
+        console.warn(` ML service overloaded (attempt ${attempt + 1}), will retry...`);
       }
 
       // Extract parsed data from ML response

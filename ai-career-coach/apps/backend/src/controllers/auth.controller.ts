@@ -103,6 +103,13 @@ export const login = async (req: Request, res: Response) => {
           message: 'Invalid email or password',
         });
       }
+      if (error.message.includes('Account is disabled')) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is disabled. Please contact support.',
+          code: 'ACCOUNT_DISABLED',
+        });
+      }
     }
 
     // Generic error

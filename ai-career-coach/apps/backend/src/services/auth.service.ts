@@ -31,6 +31,7 @@ interface LoginResponse {
     firstName: string | null;
     lastName: string | null;
     isEmailVerified: boolean;
+    role: string;
   };
 }
 
@@ -112,6 +113,17 @@ export class AuthService {
       throw new Error('Invalid credentials');
     }
 
+    // Check if account is disabled
+    if (user.isDisabled) {
+      throw new Error('Account is disabled');
+    }
+
+    // Update last login timestamp
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
     // Generate tokens
     const tokenPayload = { userId: user.id, email: user.email };
     const accessToken = generateAccessToken(tokenPayload);
@@ -126,6 +138,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         isEmailVerified: user.isEmailVerified,
+        role: user.role,
       },
     };
   }

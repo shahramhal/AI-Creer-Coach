@@ -47,6 +47,11 @@ interface JobDocument {
   salary_max?: number;
   source_url: string;
   posted_date?: string;
+  job_type?: string;
+  remote_type?: string;
+  experience_level?: string;
+  country?: string;
+  expiration_date?: string;
 }
 
 interface CVDocument {
@@ -468,19 +473,53 @@ async function fetchJobs(db: mongoose.mongo.Db, limit: number = 1000): Promise<J
     salary_min: 1,
     salary_max: 1,
     source_url: 1,
-    posted_date: 1
+    posted_date: 1,
+    job_type: 1,
+    remote_type: 1,
+    experience_level: 1,
+    country: 1,
+  };
+
+  // Filter out stale jobs: only fetch jobs posted within the last 14 days
+  // posted_date is stored as ISO string — string comparison works for ISO dates
+  const maxAgeDays = 14;
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+  const cutoffISO = cutoffDate.toISOString();
+
+  // Also exclude jobs with an expiration_date in the past (Reed provides this)
+  const nowISO = new Date().toISOString();
+
+  const freshJobsFilter = {
+    $and: [
+      // Must have a posted_date and be recent, OR have a recent scraped_at
+      {
+        $or: [
+          { posted_date: { $gte: cutoffISO } },
+          { posted_date: { $in: ['', null] }, scraped_at: { $gte: cutoffDate } },
+        ],
+      },
+      // Exclude expired Reed jobs
+      {
+        $or: [
+          { expiration_date: { $exists: false } },
+          { expiration_date: { $in: ['', null] } },
+          { expiration_date: { $gte: nowISO } },
+        ],
+      },
+    ],
   };
 
   // Sort by posted_date descending to get most recent jobs first
   const jobs = await jobsCollection
-    .find({}, { projection })
+    .find(freshJobsFilter, { projection })
     .sort({ posted_date: -1 })
     .limit(limit)
     .toArray();
 
   // Cache for 30 minutes
   await cache.set(cacheKey, jobs, 1800);
-  console.log(`📦 [Matching] Jobs cached (${jobs.length} jobs, TTL: 30min)`);
+  console.log(`📦 [Matching] Jobs cached (${jobs.length} fresh jobs, TTL: 30min)`);
 
   return jobs;
 }
@@ -526,7 +565,11 @@ async function getMLMatches(
           salary_min: job.salary_min,
           salary_max: job.salary_max,
           source_url: job.source_url,
-          posted_date: job.posted_date
+          posted_date: job.posted_date,
+          job_type: job.job_type,
+          remote_type: job.remote_type,
+          experience_level: job.experience_level,
+          country: job.country,
         })),
         top_k: topK,
         filters

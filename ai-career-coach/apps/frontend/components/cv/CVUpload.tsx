@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Upload } from 'lucide-react';
 import type { ParsedCVData } from '../../types/cv.types';
+import { extractErrorMessage } from '../../utils/error.util';
 
 interface CVUploadProps {
   onUploadSuccess: (cvId: string, parsedData: ParsedCVData) => void;
@@ -115,10 +116,10 @@ export default function CVUpload({ onUploadSuccess, onUploadError }: CVUploadPro
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to upload CV';
+    } catch (err: unknown) {
+      const errorMessage = extractErrorMessage(err, 'Failed to upload CV');
       setError(errorMessage);
-      
+
       if (onUploadError) {
         onUploadError(errorMessage);
       }

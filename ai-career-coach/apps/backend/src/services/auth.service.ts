@@ -10,6 +10,7 @@ import {
   verifyRefreshToken,
 } from '../utils/jwt.util.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/email.util.js';
+import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 
 const prisma = new PrismaClient();
 
@@ -49,7 +50,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new Error('User already exists with this email');
+      throw new AppError('User already exists with this email', 409, ErrorCodes.EMAIL_ALREADY_EXISTS);
     }
 
     // Hash password (10 salt rounds - good balance of security and speed)
@@ -103,19 +104,19 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new Error('Invalid credentials');
+      throw new AppError('No account found with that email address.', 401, ErrorCodes.EMAIL_NOT_FOUND);
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new Error('Invalid credentials');
+      throw new AppError('Incorrect password. Please try again.', 401, ErrorCodes.INVALID_CREDENTIALS);
     }
 
     // Check if account is disabled
     if (user.isDisabled) {
-      throw new Error('Account is disabled');
+      throw new AppError('Account is disabled. Please contact support.', 403, ErrorCodes.ACCOUNT_DISABLED);
     }
 
     // Update last login timestamp
@@ -153,7 +154,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new Error('Invalid or expired verification token');
+      throw new AppError('Invalid or expired verification token', 401, ErrorCodes.TOKEN_INVALID);
     }
 
     // Update user
@@ -217,7 +218,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new Error('Invalid or expired reset token');
+      throw new AppError('Invalid or expired reset token', 401, ErrorCodes.TOKEN_INVALID);
     }
 
     // Hash new password
@@ -249,7 +250,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
     }
 
     // Generate new access token

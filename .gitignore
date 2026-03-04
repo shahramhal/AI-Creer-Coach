@@ -182,3 +182,6 @@ cython_debug/
 
 .claude
 !src/lib/
+.xlsx
+.csv
+.pdf

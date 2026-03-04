@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../context/authContext';
+import { extractErrorMessage, extractErrorCode } from '../../utils/error.util';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -60,9 +61,17 @@ export default function LoginForm() {
     try {
       await login(formData.email, formData.password);
       router.push('/dashboard');
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Login failed. Please try again.';
-      setErrors({ submit: message });
+    } catch (error: unknown) {
+      const errorCode = extractErrorCode(error);
+      let errorMessage: string;
+
+      if (errorCode === 'ACCOUNT_DISABLED') {
+        errorMessage = 'Your account has been disabled. Please contact support.';
+      } else {
+        errorMessage = extractErrorMessage(error, 'Login failed. Please try again.');
+      }
+
+      setErrors({ submit: errorMessage });
     } finally {
       setIsLoading(false);
     }

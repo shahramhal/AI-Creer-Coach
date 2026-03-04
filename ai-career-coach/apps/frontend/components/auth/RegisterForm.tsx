@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../context/authContext';
+import { extractErrorMessage } from '../../utils/error.util';
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -79,8 +80,8 @@ export default function RegisterForm() {
         lastName: formData.lastName || undefined,
       });
       setSuccess(true);
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Registration failed. Please try again.';
+    } catch (error: unknown) {
+      const message = extractErrorMessage(error, 'Registration failed. Please try again.');
       setErrors({ submit: message });
     } finally {
       setIsLoading(false);

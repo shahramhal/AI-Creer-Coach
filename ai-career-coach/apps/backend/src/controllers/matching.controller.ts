@@ -9,18 +9,14 @@
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { cache } from '../config/database.js';
+import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 
 // Configuration
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
 
-// Error codes for frontend handling
-export enum MatchingErrorCode {
-  NO_CV = 'NO_CV',
-  NO_JOBS = 'NO_JOBS',
-  DB_CONNECTION_ERROR = 'DB_CONNECTION_ERROR',
-  ML_SERVICE_ERROR = 'ML_SERVICE_ERROR',
-  AUTH_ERROR = 'AUTH_ERROR',
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR'
+/** Escape special regex characters in user input to prevent ReDoS / injection. */
+function escapeRegex(rawInput: string): string {
+  return rawInput.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Type definitions
@@ -28,6 +24,11 @@ interface JobMatchRequest {
   cv_id?: string;
   filters?: {
     location?: string;
+    country?: string;
+    city?: string;
+    job_type?: string;
+    experience_level?: string;
+    title_keywords?: string;
     min_salary?: number;
     remote_type?: string;
   };
@@ -79,20 +80,7 @@ interface CVDocument {
   created_at?: Date;
 }
 
-/**
- * Custom error class for matching operations
- */
-class MatchingError extends Error {
-  constructor(
-    public code: MatchingErrorCode,
-    public statusCode: number,
-    message: string,
-    public details?: Record<string, any>
-  ) {
-    super(message);
-    this.name = 'MatchingError';
-  }
-}
+// MatchingError is now replaced by AppError from the shared utility.
 
 /**
  * Get personalized job matches for user
@@ -107,11 +95,10 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     // Step 1: Validate authentication
     const userId = req.user?.id;
     if (!userId) {
-      throw new MatchingError(
-        MatchingErrorCode.AUTH_ERROR,
-        401,
+      throw new AppError(
         'User not authenticated. Please log in to access job matches.',
-        { action: 'redirect_to_login' }
+        401,
+        ErrorCodes.INVALID_CREDENTIALS,
       );
     }
 
@@ -126,21 +113,19 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     // Step 3: Validate database connection
     if (mongoose.connection.readyState !== 1) {
       console.error(`❌ [Matching] MongoDB not connected. State: ${mongoose.connection.readyState}`);
-      throw new MatchingError(
-        MatchingErrorCode.DB_CONNECTION_ERROR,
-        503,
+      throw new AppError(
         'Database is temporarily unavailable. Please try again in a moment.',
-        { mongoState: mongoose.connection.readyState }
+        503,
+        ErrorCodes.INTERNAL_ERROR,
       );
     }
 
     const db = mongoose.connection.db;
     if (!db) {
-      throw new MatchingError(
-        MatchingErrorCode.DB_CONNECTION_ERROR,
-        503,
+      throw new AppError(
         'Database connection not established. Please try again.',
-        { dbAvailable: false }
+        503,
+        ErrorCodes.INTERNAL_ERROR,
       );
     }
 
@@ -149,34 +134,25 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     const userCV = await fetchUserCV(db, userId, cv_id);
     if (!userCV) {
       console.log(`⚠️ [Matching] No CV found for user: ${userId}`);
-      throw new MatchingError(
-        MatchingErrorCode.NO_CV,
-        404,
+      throw new AppError(
         'No CV found for your account. Please upload your CV first to get personalized job matches.',
-        {
-          action: 'upload_cv',
-          redirect: '/cvs',
-          userId
-        }
+        404,
+        ErrorCodes.NOT_FOUND,
       );
     }
 
     console.log(`✅ [Matching] Found CV for user: ${userId}`);
 
-    // Step 5: Fetch available jobs (limited for performance)
-    const jobs = await fetchJobs(db, effectiveJobLimit);
+    // Step 5: Fetch available jobs (limited for performance, pre-filtered)
+    const jobs = await fetchJobs(db, effectiveJobLimit, filters);
     const jobCount = jobs.length;
 
     if (jobCount === 0) {
       console.log(`⚠️ [Matching] No jobs in database`);
-      throw new MatchingError(
-        MatchingErrorCode.NO_JOBS,
-        404,
+      throw new AppError(
         'No jobs are currently available in our database. Our job fetching service updates regularly - please check back soon.',
-        {
-          action: 'retry_later',
-          jobCount: 0
-        }
+        404,
+        ErrorCodes.NOT_FOUND,
       );
     }
 
@@ -224,11 +200,10 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     // If still no text, we can't match
     if (!cvRawText || cvRawText.length < 10) {
       console.error(`❌ [Matching] CV found but no usable text content`);
-      throw new MatchingError(
-        MatchingErrorCode.NO_CV,
-        404,
+      throw new AppError(
         'Your CV was found but has no usable content for matching. Please re-upload your CV.',
-        { action: 'upload_cv', redirect: '/cvs' }
+        404,
+        ErrorCodes.NOT_FOUND,
       );
     }
 
@@ -290,16 +265,13 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    // Handle known matching errors
-    if (error instanceof MatchingError) {
+    // Handle known AppErrors
+    if (error instanceof AppError) {
       console.error(`❌ [Matching] ${error.code}: ${error.message}`);
       res.status(error.statusCode).json({
         success: false,
-        error: {
-          code: error.code,
-          message: error.message,
-          details: process.env.NODE_ENV === 'development' ? error.details : undefined
-        },
+        message: error.message,
+        code: error.code,
         meta: { duration_ms: duration }
       });
       return;
@@ -308,15 +280,10 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     // Handle unknown errors
     console.error('❌ [Matching] Unexpected error:', error);
 
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-
     res.status(500).json({
       success: false,
-      error: {
-        code: MatchingErrorCode.UNKNOWN_ERROR,
-        message: 'An unexpected error occurred while matching jobs. Please try again.',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-      },
+      message: 'An unexpected error occurred while matching jobs. Please try again.',
+      code: ErrorCodes.INTERNAL_ERROR,
       meta: { duration_ms: duration }
     });
   }
@@ -443,14 +410,26 @@ async function fetchUserCV(
 }
 
 /**
- * Fetch jobs from MongoDB with optimization
+ * Fetch jobs from MongoDB with optimization and user-supplied pre-filters.
+ *
+ * Filters are applied at the DB query level so only relevant jobs are sent to
+ * the ML service, reducing both transfer size and matching latency.
  *
  * @param db - MongoDB database instance
  * @param limit - Maximum number of jobs to fetch (default: 1000)
+ * @param userFilters - Optional user-supplied filter criteria
  * @returns Array of job documents
  */
-async function fetchJobs(db: mongoose.mongo.Db, limit: number = 1000): Promise<JobDocument[]> {
-  const cacheKey = `jobs:list:${limit}`;
+async function fetchJobs(
+  db: mongoose.mongo.Db,
+  limit: number = 1000,
+  userFilters?: JobMatchRequest['filters'],
+): Promise<JobDocument[]> {
+  // Include user filters in cache key so different filter combos are cached separately
+  const filterHash = userFilters
+    ? Buffer.from(JSON.stringify(userFilters)).toString('base64url')
+    : 'none';
+  const cacheKey = `jobs:list:${limit}:f:${filterHash}`;
 
   // Try cache first (jobs change infrequently)
   const cachedJobs = await cache.get<JobDocument[]>(cacheKey);
@@ -490,25 +469,50 @@ async function fetchJobs(db: mongoose.mongo.Db, limit: number = 1000): Promise<J
   // Also exclude jobs with an expiration_date in the past (Reed provides this)
   const nowISO = new Date().toISOString();
 
-  const freshJobsFilter = {
-    $and: [
-      // Must have a posted_date and be recent, OR have a recent scraped_at
-      {
-        $or: [
-          { posted_date: { $gte: cutoffISO } },
-          { posted_date: { $in: ['', null] }, scraped_at: { $gte: cutoffDate } },
-        ],
-      },
-      // Exclude expired Reed jobs
-      {
-        $or: [
-          { expiration_date: { $exists: false } },
-          { expiration_date: { $in: ['', null] } },
-          { expiration_date: { $gte: nowISO } },
-        ],
-      },
-    ],
-  };
+  const andConditions: Record<string, any>[] = [
+    // Must have a posted_date and be recent, OR have a recent scraped_at
+    {
+      $or: [
+        { posted_date: { $gte: cutoffISO } },
+        { posted_date: { $in: ['', null] }, scraped_at: { $gte: cutoffDate } },
+      ],
+    },
+    // Exclude expired Reed jobs
+    {
+      $or: [
+        { expiration_date: { $exists: false } },
+        { expiration_date: { $in: ['', null] } },
+        { expiration_date: { $gte: nowISO } },
+      ],
+    },
+  ];
+
+  // Apply user-supplied pre-filters
+  if (userFilters) {
+    if (userFilters.country) {
+      andConditions.push({ country: { $regex: `^${escapeRegex(userFilters.country)}$`, $options: 'i' } });
+    }
+    if (userFilters.city) {
+      andConditions.push({ location: { $regex: escapeRegex(userFilters.city), $options: 'i' } });
+    }
+    if (userFilters.job_type) {
+      andConditions.push({ job_type: { $regex: escapeRegex(userFilters.job_type), $options: 'i' } });
+    }
+    if (userFilters.experience_level) {
+      andConditions.push({ experience_level: userFilters.experience_level });
+    }
+    if (userFilters.title_keywords) {
+      andConditions.push({ title: { $regex: escapeRegex(userFilters.title_keywords), $options: 'i' } });
+    }
+    if (userFilters.min_salary !== undefined && userFilters.min_salary !== null) {
+      andConditions.push({ salary_min: { $gte: userFilters.min_salary } });
+    }
+    if (userFilters.remote_type) {
+      andConditions.push({ remote_type: userFilters.remote_type });
+    }
+  }
+
+  const freshJobsFilter = { $and: andConditions };
 
   // Sort by posted_date descending to get most recent jobs first
   const jobs = await jobsCollection
@@ -582,14 +586,10 @@ async function getMLMatches(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error(`❌ [ML] Service returned error: ${response.status}`, errorData);
-      throw new MatchingError(
-        MatchingErrorCode.ML_SERVICE_ERROR,
-        502,
+      throw new AppError(
         'The ML matching service encountered an error. Please try again.',
-        {
-          mlStatus: response.status,
-          mlError: errorData.message || errorData.detail
-        }
+        502,
+        ErrorCodes.ML_SERVICE_ERROR,
       );
     }
 
@@ -603,29 +603,24 @@ async function getMLMatches(
     // Handle abort/timeout
     if (error instanceof Error && error.name === 'AbortError') {
       console.error('❌ [ML] Request timed out after 120 seconds');
-      throw new MatchingError(
-        MatchingErrorCode.ML_SERVICE_ERROR,
-        504,
+      throw new AppError(
         'The ML service took too long to respond. Please try again later.',
-        { timeout: true }
+        504,
+        ErrorCodes.ML_SERVICE_ERROR,
       );
     }
 
-    // Re-throw MatchingError as-is
-    if (error instanceof MatchingError) {
+    // Re-throw AppError as-is
+    if (error instanceof AppError) {
       throw error;
     }
 
     // Handle connection errors
     console.error('❌ [ML] Connection error:', error);
-    throw new MatchingError(
-      MatchingErrorCode.ML_SERVICE_ERROR,
-      503,
+    throw new AppError(
       'Unable to connect to the ML matching service. Please ensure the service is running.',
-      {
-        mlServiceUrl: ML_SERVICE_URL,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
+      503,
+      ErrorCodes.ML_SERVICE_ERROR,
     );
   }
 }

@@ -1,6 +1,6 @@
 // apps/backend/src/routes/ml.routes.ts
 import { Router } from 'express';
-import type { Request, Response, RequestHandler } from 'express';
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
@@ -106,8 +106,8 @@ async function fetchParsedDataFromMongo(mongoDocId: string): Promise<Record<stri
 router.post(
   '/parse-cv', 
   authenticate as RequestHandler,
-  upload.single('file') as RequestHandler, 
-  async (req: Request, res: Response): Promise<void> => {
+  upload.single('file') as RequestHandler,
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // Validate file upload
       if (!req.file) {
@@ -277,12 +277,7 @@ router.post(
       });
 
     } catch (error) {
-      console.error(' Error parsing CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to parse CV',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 
@@ -293,7 +288,7 @@ router.post(
 router.get(
   '/cvs',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
 
@@ -353,12 +348,7 @@ router.get(
       res.json(responseData);
 
     } catch (error) {
-      console.error('Error fetching CVs:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch CVs',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 
@@ -368,7 +358,7 @@ router.get(
 router.get(
   '/cvs/:cvId',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
       const cvId = req.params.cvId;
@@ -416,12 +406,7 @@ router.get(
       });
 
     } catch (error) {
-      console.error('Error fetching CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch CV',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 
@@ -431,7 +416,7 @@ router.get(
 router.delete(
   '/cvs/:cvId',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
       const cvId = req.params.cvId;
@@ -488,12 +473,7 @@ router.delete(
       });
 
     } catch (error) {
-      console.error('Error deleting CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to delete CV',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 
@@ -503,7 +483,7 @@ router.delete(
 router.patch(
   '/cvs/:cvId/primary',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
       const cvId = req.params.cvId;
@@ -564,16 +544,11 @@ router.patch(
       });
 
     } catch (error) {
-      console.error('Error setting primary CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to set primary CV',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 router.get('/cvs/:cvId/download', authenticate as RequestHandler,
-   async (req: Request, res: Response): Promise<void> => {
+   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
   const { cvId } = req.params;
   const userId = req.user!.id;
@@ -626,17 +601,11 @@ router.get('/cvs/:cvId/download', authenticate as RequestHandler,
       fileStream.on('end', () => {
         console.log(` Download complete`);
       });
-    }catch (error) {
-      console.error(' Download error:', error);
+    } catch (error) {
       if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          message: 'Failed to download CV',
-        });
+        next(error);
       }
     }
-
-    
 });
 /**
  * Analyze CV — triggers ML analysis and stores results
@@ -645,7 +614,7 @@ router.get('/cvs/:cvId/download', authenticate as RequestHandler,
 router.post(
   '/cvs/:cvId/analyze',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
       const cvId = req.params.cvId;
@@ -774,12 +743,7 @@ router.post(
       });
 
     } catch (error) {
-      console.error('Error analyzing CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to analyze CV',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      next(error);
     }
   }
 );

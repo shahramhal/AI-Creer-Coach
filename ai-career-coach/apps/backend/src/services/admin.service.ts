@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import mongoose from 'mongoose';
 import { redis, queues, checkDatabaseHealth } from '../config/database.js';
 import crypto from 'crypto';
+import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 
 const prisma = new PrismaClient();
 
@@ -200,7 +201,7 @@ export class AdminService {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
     }
 
     return user;
@@ -208,7 +209,7 @@ export class AdminService {
 
   async toggleUserDisabled(userId: string, disabled: boolean) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new Error('User not found');
+    if (!user) throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
 
     await prisma.user.update({
       where: { id: userId },
@@ -220,8 +221,8 @@ export class AdminService {
 
   async promoteUser(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new Error('User not found');
-    if (user.role === 'ADMIN') throw new Error('User is already an admin');
+    if (!user) throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
+    if (user.role === 'ADMIN') throw new AppError('User is already an admin', 400, ErrorCodes.VALIDATION_ERROR);
 
     await prisma.user.update({
       where: { id: userId },
@@ -233,17 +234,17 @@ export class AdminService {
 
   async demoteUser(userId: string, requestingAdminId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new Error('User not found');
-    if (user.role !== 'ADMIN') throw new Error('User is not an admin');
+    if (!user) throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
+    if (user.role !== 'ADMIN') throw new AppError('User is not an admin', 400, ErrorCodes.VALIDATION_ERROR);
 
     if (userId === requestingAdminId) {
-      throw new Error('Cannot demote yourself');
+      throw new AppError('Cannot demote yourself', 400, ErrorCodes.FORBIDDEN);
     }
 
     // Ensure at least one admin remains
     const adminCount = await prisma.user.count({ where: { role: 'ADMIN' } });
     if (adminCount <= 1) {
-      throw new Error('Cannot demote the last admin');
+      throw new AppError('Cannot demote the last admin', 400, ErrorCodes.FORBIDDEN);
     }
 
     await prisma.user.update({
@@ -256,7 +257,7 @@ export class AdminService {
 
   async forcePasswordReset(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new Error('User not found');
+    if (!user) throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
 
     const resetToken = crypto.randomBytes(32).toString('hex');
 
@@ -273,11 +274,11 @@ export class AdminService {
 
   async deleteUser(userId: string, requestingAdminId: string) {
     if (userId === requestingAdminId) {
-      throw new Error('Cannot delete yourself');
+      throw new AppError('Cannot delete yourself', 400, ErrorCodes.FORBIDDEN);
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new Error('User not found');
+    if (!user) throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
 
     // Delete from MongoDB (parsed CVs)
     try {
@@ -312,7 +313,7 @@ export class AdminService {
     const skip = (page - 1) * limit;
 
     const mongoDb = mongoose.connection.db;
-    if (!mongoDb) throw new Error('MongoDB not connected');
+    if (!mongoDb) throw new AppError('MongoDB not connected', 503, ErrorCodes.INTERNAL_ERROR);
 
     const filter: any = {};
     if (source) filter.source = source;
@@ -342,7 +343,7 @@ export class AdminService {
 
   async getJobStats() {
     const mongoDb = mongoose.connection.db;
-    if (!mongoDb) throw new Error('MongoDB not connected');
+    if (!mongoDb) throw new AppError('MongoDB not connected', 503, ErrorCodes.INTERNAL_ERROR);
 
     const jobsCollection = mongoDb.collection('jobs');
 
@@ -376,7 +377,7 @@ export class AdminService {
     });
 
     if (!response.ok) {
-      throw new Error(`Job fetch failed: ${response.statusText}`);
+      throw new AppError(`Job fetch failed: ${response.statusText}`, 502, ErrorCodes.ML_SERVICE_ERROR);
     }
 
     return await response.json();
@@ -389,7 +390,7 @@ export class AdminService {
     });
 
     if (!response.ok) {
-      throw new Error(`Job cleanup failed: ${response.statusText}`);
+      throw new AppError(`Job cleanup failed: ${response.statusText}`, 502, ErrorCodes.ML_SERVICE_ERROR);
     }
 
     return await response.json();
@@ -397,7 +398,7 @@ export class AdminService {
 
   async deleteJob(jobId: string) {
     const mongoDb = mongoose.connection.db;
-    if (!mongoDb) throw new Error('MongoDB not connected');
+    if (!mongoDb) throw new AppError('MongoDB not connected', 503, ErrorCodes.INTERNAL_ERROR);
 
     const { ObjectId } = mongoose.Types;
     let filter: any;
@@ -410,7 +411,7 @@ export class AdminService {
     const result = await mongoDb.collection('jobs').deleteOne(filter);
 
     if (result.deletedCount === 0) {
-      throw new Error('Job not found');
+      throw new AppError('Job not found', 404, ErrorCodes.NOT_FOUND);
     }
 
     return { message: 'Job deleted' };

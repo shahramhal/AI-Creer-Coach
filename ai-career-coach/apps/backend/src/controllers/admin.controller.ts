@@ -1,6 +1,6 @@
 // apps/backend/src/controllers/admin.controller.ts
 
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { AdminService } from '../services/admin.service.js';
 import { logAdminAction } from '../utils/audit.util.js';
 
@@ -8,30 +8,28 @@ const adminService = new AdminService();
 
 // ─── Dashboard ──────────────────────────────────────────────
 
-export const getDashboardStats = async (req: Request, res: Response) => {
+export const getDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const stats = await adminService.getDashboardStats();
     return res.json({ success: true, data: stats });
   } catch (error) {
-    console.error('Admin dashboard stats error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch dashboard stats' });
+    next(error);
   }
 };
 
-export const getUserGrowthTrend = async (req: Request, res: Response) => {
+export const getUserGrowthTrend = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const days = parseInt(req.query.days as string) || 30;
     const trend = await adminService.getUserGrowthTrend(days);
     return res.json({ success: true, data: trend });
   } catch (error) {
-    console.error('User growth trend error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch user growth trend' });
+    next(error);
   }
 };
 
 // ─── User Management ───────────────────────────────────────
 
-export const listUsers = async (req: Request, res: Response) => {
+export const listUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
@@ -43,25 +41,20 @@ export const listUsers = async (req: Request, res: Response) => {
     const result = await adminService.listUsers({ page, limit, search, role, sortBy, sortOrder });
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('List users error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to list users' });
+    next(error);
   }
 };
 
-export const getUserDetail = async (req: Request, res: Response) => {
+export const getUserDetail = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await adminService.getUserDetail(req.params.userId);
     return res.json({ success: true, data: user });
   } catch (error) {
-    console.error('Get user detail error:', error);
-    if (error instanceof Error && error.message === 'User not found') {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-    return res.status(500).json({ success: false, message: 'Failed to get user details' });
+    next(error);
   }
 };
 
-export const toggleUserStatus = async (req: Request, res: Response) => {
+export const toggleUserStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = req.params;
     const { disabled } = req.body;
@@ -84,15 +77,11 @@ export const toggleUserStatus = async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Toggle user status error:', error);
-    if (error instanceof Error && error.message === 'User not found') {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-    return res.status(500).json({ success: false, message: 'Failed to update user status' });
+    next(error);
   }
 };
 
-export const promoteUser = async (req: Request, res: Response) => {
+export const promoteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = req.params;
     const result = await adminService.promoteUser(userId);
@@ -105,20 +94,11 @@ export const promoteUser = async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Promote user error:', error);
-    if (error instanceof Error) {
-      if (error.message === 'User not found') {
-        return res.status(404).json({ success: false, message: error.message });
-      }
-      if (error.message === 'User is already an admin') {
-        return res.status(400).json({ success: false, message: error.message });
-      }
-    }
-    return res.status(500).json({ success: false, message: 'Failed to promote user' });
+    next(error);
   }
 };
 
-export const demoteUser = async (req: Request, res: Response) => {
+export const demoteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = req.params;
     const result = await adminService.demoteUser(userId, req.user!.id);
@@ -131,18 +111,11 @@ export const demoteUser = async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Demote user error:', error);
-    if (error instanceof Error) {
-      const clientErrors = ['User not found', 'User is not an admin', 'Cannot demote yourself', 'Cannot demote the last admin'];
-      if (clientErrors.includes(error.message)) {
-        return res.status(400).json({ success: false, message: error.message });
-      }
-    }
-    return res.status(500).json({ success: false, message: 'Failed to demote user' });
+    next(error);
   }
 };
 
-export const forceResetPassword = async (req: Request, res: Response) => {
+export const forceResetPassword = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = req.params;
     const result = await adminService.forcePasswordReset(userId);
@@ -155,15 +128,11 @@ export const forceResetPassword = async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Force reset password error:', error);
-    if (error instanceof Error && error.message === 'User not found') {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-    return res.status(500).json({ success: false, message: 'Failed to reset password' });
+    next(error);
   }
 };
 
-export const deleteUser = async (req: Request, res: Response) => {
+export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = req.params;
     const result = await adminService.deleteUser(userId, req.user!.id);
@@ -176,22 +145,13 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Delete user error:', error);
-    if (error instanceof Error) {
-      if (error.message === 'User not found') {
-        return res.status(404).json({ success: false, message: error.message });
-      }
-      if (error.message === 'Cannot delete yourself') {
-        return res.status(400).json({ success: false, message: error.message });
-      }
-    }
-    return res.status(500).json({ success: false, message: 'Failed to delete user' });
+    next(error);
   }
 };
 
 // ─── Job Management ────────────────────────────────────────
 
-export const listJobs = async (req: Request, res: Response) => {
+export const listJobs = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
@@ -201,22 +161,20 @@ export const listJobs = async (req: Request, res: Response) => {
     const result = await adminService.listJobs({ page, limit, source, country });
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('List jobs error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to list jobs' });
+    next(error);
   }
 };
 
-export const getJobStats = async (req: Request, res: Response) => {
+export const getJobStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const stats = await adminService.getJobStats();
     return res.json({ success: true, data: stats });
   } catch (error) {
-    console.error('Job stats error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch job stats' });
+    next(error);
   }
 };
 
-export const triggerJobFetch = async (req: Request, res: Response) => {
+export const triggerJobFetch = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { keywords, country, location } = req.body;
 
@@ -234,12 +192,11 @@ export const triggerJobFetch = async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Trigger job fetch error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to trigger job fetch' });
+    next(error);
   }
 };
 
-export const triggerJobCleanup = async (req: Request, res: Response) => {
+export const triggerJobCleanup = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await adminService.triggerJobCleanup();
 
@@ -250,12 +207,11 @@ export const triggerJobCleanup = async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Trigger job cleanup error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to trigger job cleanup' });
+    next(error);
   }
 };
 
-export const deleteJob = async (req: Request, res: Response) => {
+export const deleteJob = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { jobId } = req.params;
     const result = await adminService.deleteJob(jobId);
@@ -268,59 +224,51 @@ export const deleteJob = async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Delete job error:', error);
-    if (error instanceof Error && error.message === 'Job not found') {
-      return res.status(404).json({ success: false, message: 'Job not found' });
-    }
-    return res.status(500).json({ success: false, message: 'Failed to delete job' });
+    next(error);
   }
 };
 
 // ─── System Monitoring ─────────────────────────────────────
 
-export const getServiceHealth = async (req: Request, res: Response) => {
+export const getServiceHealth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const health = await adminService.getServiceHealth();
     return res.json({ success: true, data: health });
   } catch (error) {
-    console.error('Service health error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to check service health' });
+    next(error);
   }
 };
 
-export const getCacheStats = async (req: Request, res: Response) => {
+export const getCacheStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const stats = await adminService.getCacheStats();
     return res.json({ success: true, data: stats });
   } catch (error) {
-    console.error('Cache stats error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch cache stats' });
+    next(error);
   }
 };
 
-export const getQueueStatus = async (req: Request, res: Response) => {
+export const getQueueStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const queues = await adminService.getQueueStatus();
     return res.json({ success: true, data: queues });
   } catch (error) {
-    console.error('Queue status error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch queue status' });
+    next(error);
   }
 };
 
-export const getDatabaseStats = async (req: Request, res: Response) => {
+export const getDatabaseStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const stats = await adminService.getDatabaseStats();
     return res.json({ success: true, data: stats });
   } catch (error) {
-    console.error('Database stats error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch database stats' });
+    next(error);
   }
 };
 
 // ─── Audit Logs ──────────────────────────────────────────────
 
-export const getAuditLogs = async (req: Request, res: Response) => {
+export const getAuditLogs = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
@@ -329,7 +277,6 @@ export const getAuditLogs = async (req: Request, res: Response) => {
     const result = await adminService.getAuditLogs({ page, limit, action });
     return res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Audit logs error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch audit logs' });
+    next(error);
   }
 };

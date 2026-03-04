@@ -1,9 +1,10 @@
 // apps/backend/src/controllers/auth.controller.ts
 
 // apps/backend/src/controllers/auth.controller.ts
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import { AuthService } from '../services/auth.service.js';
+import { ErrorCodes } from '../utils/app-error.util.js';
 
 const authService = new AuthService();
 
@@ -11,17 +12,19 @@ const authService = new AuthService();
  * Handle user registration
  * POST /api/auth/register
  */
-export const register = async (req: Request, res: Response) => {
-  try {
-    // Validate request
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
+export const register = async (req: Request, res: Response, next: NextFunction) => {
+  // Validate request
+  const validationErrors = validationResult(req);
+  if (!validationErrors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      code: ErrorCodes.VALIDATION_ERROR,
+      errors: validationErrors.array(),
+    });
+  }
 
+  try {
     const { email, password, firstName, lastName } = req.body;
 
     // Call service
@@ -37,23 +40,7 @@ export const register = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    console.error('Registration error:', error);
-
-    // Handle known errors
-    if (error instanceof Error) {
-      if (error.message.includes('already exists')) {
-        return res.status(409).json({
-          success: false,
-          message: error.message,
-        });
-      }
-    }
-
-    // Generic error
-    return res.status(500).json({
-      success: false,
-      message: 'Registration failed. Please try again.',
-    });
+    next(error);
   }
 };
 
@@ -61,17 +48,19 @@ export const register = async (req: Request, res: Response) => {
  * Handle user login
  * POST /api/auth/login
  */
-export const login = async (req: Request, res: Response) => {
-  try {
-    // Validate request
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
+export const login = async (req: Request, res: Response, next: NextFunction) => {
+  // Validate request
+  const validationErrors = validationResult(req);
+  if (!validationErrors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      code: ErrorCodes.VALIDATION_ERROR,
+      errors: validationErrors.array(),
+    });
+  }
 
+  try {
     const { email, password } = req.body;
 
     // Call service
@@ -93,30 +82,7 @@ export const login = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-
-    // Handle known errors
-    if (error instanceof Error) {
-      if (error.message.includes('Invalid credentials')) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid email or password',
-        });
-      }
-      if (error.message.includes('Account is disabled')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Account is disabled. Please contact support.',
-          code: 'ACCOUNT_DISABLED',
-        });
-      }
-    }
-
-    // Generic error
-    return res.status(500).json({
-      success: false,
-      message: 'Login failed. Please try again.',
-    });
+    next(error);
   }
 };
 
@@ -124,7 +90,7 @@ export const login = async (req: Request, res: Response) => {
  * Verify email with token
  * GET /api/auth/verify-email?token=xxx
  */
-export const verifyEmail = async (req: Request, res: Response) => {
+export const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { token } = req.query;
 
@@ -132,6 +98,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: 'Verification token is required',
+        code: ErrorCodes.VALIDATION_ERROR,
       });
     }
 
@@ -142,12 +109,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    console.error('Email verification error:', error);
-
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid or expired verification token',
-    });
+    next(error);
   }
 };
 
@@ -155,16 +117,18 @@ export const verifyEmail = async (req: Request, res: Response) => {
  * Request password reset
  * POST /api/auth/forgot-password
  */
-export const forgotPassword = async (req: Request, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
+export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+  const validationErrors = validationResult(req);
+  if (!validationErrors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      code: ErrorCodes.VALIDATION_ERROR,
+      errors: validationErrors.array(),
+    });
+  }
 
+  try {
     const { email } = req.body;
 
     const result = await authService.requestPasswordReset(email);
@@ -174,12 +138,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    console.error('Forgot password error:', error);
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to process request. Please try again.',
-    });
+    next(error);
   }
 };
 
@@ -187,16 +146,18 @@ export const forgotPassword = async (req: Request, res: Response) => {
  * Reset password with token
  * POST /api/auth/reset-password
  */
-export const resetPassword = async (req: Request, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+  const validationErrors = validationResult(req);
+  if (!validationErrors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      code: ErrorCodes.VALIDATION_ERROR,
+      errors: validationErrors.array(),
+    });
+  }
 
+  try {
     const { token, password } = req.body;
 
     const result = await authService.resetPassword(token, password);
@@ -206,12 +167,7 @@ export const resetPassword = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    console.error('Reset password error:', error);
-
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid or expired reset token',
-    });
+    next(error);
   }
 };
 
@@ -219,7 +175,7 @@ export const resetPassword = async (req: Request, res: Response) => {
  * Refresh access token
  * POST /api/auth/refresh
  */
-export const refreshToken = async (req: Request, res: Response) => {
+export const refreshToken = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Get refresh token from cookie
     const refreshToken = req.cookies.refreshToken;
@@ -228,6 +184,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(401).json({
         success: false,
         message: 'Refresh token not found',
+        code: ErrorCodes.TOKEN_INVALID,
       });
     }
 
@@ -238,12 +195,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    console.error('Refresh token error:', error);
-
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid or expired refresh token',
-    });
+    next(error);
   }
 };
 
@@ -251,7 +203,7 @@ export const refreshToken = async (req: Request, res: Response) => {
  * Logout user
  * POST /api/auth/logout
  */
-export const logout = async (req: Request, res: Response) => {
+export const logout = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Clear refresh token cookie
     res.clearCookie('refreshToken', {
@@ -265,12 +217,7 @@ export const logout = async (req: Request, res: Response) => {
       message: 'Logged out successfully',
     });
   } catch (error) {
-    console.error('Logout error:', error);
-
-    return res.status(500).json({
-      success: false,
-      message: 'Logout failed',
-    });
+    next(error);
   }
 };
 
@@ -279,7 +226,7 @@ export const logout = async (req: Request, res: Response) => {
  * GET /api/auth/me
  * (Requires authentication middleware)
  */
-export const getCurrentUser = async (req: Request, res: Response) => {
+export const getCurrentUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // User info is attached by auth middleware
     const user = (req as any).user;
@@ -289,11 +236,6 @@ export const getCurrentUser = async (req: Request, res: Response) => {
       data: { user },
     });
   } catch (error) {
-    console.error('Get current user error:', error);
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to get user info',
-    });
+    next(error);
   }
 };

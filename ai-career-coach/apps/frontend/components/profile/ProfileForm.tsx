@@ -1,8 +1,9 @@
 // apps/frontend/components/profile/ProfileForm.tsx
 
 'use client';
-import { API_BASE_URL } from '../../library/config';
 import { Profile } from '../../types/profile';
+import api from '../../library/api';
+import { extractErrorMessage } from '../../utils/error.util';
 
 import { useState, ChangeEvent, FormEvent } from 'react';
 
@@ -11,7 +12,7 @@ interface ProfileFormProps {
   onUpdate: () => void;
 }
 
-interface FormData {
+interface ProfileFormData {
   phoneNumber: string;
   location: string;
   linkedinUrl: string;
@@ -21,7 +22,7 @@ interface FormData {
 }
 
 export default function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<ProfileFormData>({
     phoneNumber: profile?.phoneNumber || '',
     location: profile?.location || '',
     linkedinUrl: profile?.linkedinUrl || '',
@@ -43,24 +44,12 @@ export default function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
     setMessage('');
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_BASE_URL}/api/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        setMessage('Profile updated successfully!');
-        onUpdate();
-      } else {
-        setMessage('Failed to update profile');
-      }
-    } catch (error) {
-      setMessage('Error updating profile');
+      await api.put('/api/profile', formData);
+      setMessage('Profile updated successfully!');
+      onUpdate();
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(error, 'Error updating profile');
+      setMessage(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -4,12 +4,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/authContext';
 import { salaryService } from '../../services/salary.service';
+import dynamic from 'next/dynamic';
 import { AppLayout } from '../../components/layout/AppLayout';
 import SalaryPredictionCard from '../../components/salary/SalaryPredictionCard';
-import SalaryFactorBreakdown from '../../components/salary/SalaryFactorBreakdown';
-import MarketSalaryTrend from '../../components/salary/MarketSalaryTrend';
-import SkillROITable from '../../components/salary/SkillROITable';
-import SalaryByLocation from '../../components/salary/SalaryByLocation';
+
+// Lazy-load chart-heavy salary components
+const SalaryFactorBreakdown = dynamic(() => import('../../components/salary/SalaryFactorBreakdown'), { ssr: false });
+const MarketSalaryTrend = dynamic(() => import('../../components/salary/MarketSalaryTrend'), { ssr: false });
+const SkillROITable = dynamic(() => import('../../components/salary/SkillROITable'), { ssr: false });
+const SalaryByLocation = dynamic(() => import('../../components/salary/SalaryByLocation'), { ssr: false });
 import type { SalaryInsightsData } from '../../types/salary.types';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';

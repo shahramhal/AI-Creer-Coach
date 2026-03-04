@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { 
-  Building2, 
-  MapPin, 
-  Clock, 
-  ExternalLink, 
-  ChevronDown, 
-  ChevronUp, 
-  CheckCircle2, 
+import {
+  Building2,
+  MapPin,
+  Clock,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
   XCircle,
-  Briefcase
+  Briefcase,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,24 +24,25 @@ interface JobMatchCardProps {
 export function JobMatchCard({ job }: JobMatchCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Helper for color coding based on score
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-600 dark:text-green-400";
     if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
     return "text-red-600 dark:text-red-400";
   };
 
-  const getScoreBg = (score: number) => {
-    if (score >= 80) return "bg-green-600 dark:bg-green-400";
-    if (score >= 60) return "bg-yellow-600 dark:bg-yellow-400";
-    return "bg-red-600 dark:bg-red-400";
+  const getProgressColor = (score: number) => {
+    if (score >= 70) return "[&>div]:bg-green-500";
+    if (score >= 40) return "[&>div]:bg-yellow-500";
+    return "[&>div]:bg-red-400";
   };
+
+  const breakdown = job.match_breakdown;
 
   return (
     <Card className="group transition-all hover:shadow-md border-border">
       <CardHeader className="p-5">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-start">
-          
+
           {/* Left: Job Info */}
           <div className="flex-1 space-y-2">
             <div className="flex items-start justify-between md:justify-start gap-3">
@@ -68,11 +69,12 @@ export function JobMatchCard({ job }: JobMatchCardProps) {
               {job.salary_min && (
                 <span className="flex items-center gap-1.5 font-medium text-foreground/80">
                   <Briefcase className="h-4 w-4" />
-                  £{job.salary_min.toLocaleString()} - £{job.salary_max?.toLocaleString()}
+                  £{job.salary_min.toLocaleString()}
+                  {job.salary_max ? ` - £${job.salary_max.toLocaleString()}` : '+'}
                 </span>
               )}
             </div>
-            
+
             <div className="flex gap-2 pt-1">
               <Badge variant="outline" className="text-xs uppercase tracking-wider opacity-70">
                 {job.source}
@@ -94,9 +96,9 @@ export function JobMatchCard({ job }: JobMatchCardProps) {
                 {Math.round(job.match_score)}%
               </span>
             </div>
-            <Progress 
-              value={job.match_score} 
-              className={`h-2 w-full ${getScoreBg(job.match_score)}`}
+            <Progress
+              value={job.match_score}
+              className={`h-2 w-full ${getProgressColor(job.match_score)}`}
             />
           </div>
         </div>
@@ -104,19 +106,19 @@ export function JobMatchCard({ job }: JobMatchCardProps) {
 
       <CardContent className="px-5 pb-5 pt-0">
         <div className="mt-4 flex flex-wrap gap-2">
-           {/* Primary Actions */}
-           <Button 
-            variant="default" 
-            size="sm" 
+          {/* Primary Actions */}
+          <Button
+            variant="default"
+            size="sm"
             onClick={() => window.open(job.source_url, '_blank')}
             className="gap-2"
           >
             Apply Now <ExternalLink className="h-3 w-3" />
           </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
+
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
             className="gap-2"
           >
@@ -129,7 +131,35 @@ export function JobMatchCard({ job }: JobMatchCardProps) {
         {isExpanded && (
           <div className="mt-6 animate-in fade-in slide-in-from-top-2 duration-300">
             <Separator className="mb-4" />
-            
+
+            {/* Summary Sentence */}
+            {breakdown.summary && (
+              <p className="text-sm text-muted-foreground italic mb-5 leading-relaxed">
+                {breakdown.summary}
+              </p>
+            )}
+
+            {/* Score Breakdown Bars */}
+            <div className="space-y-3 mb-6">
+              <ScoreBar
+                label="Overall Match"
+                value={job.match_score}
+                colorClass={getProgressColor(job.match_score)}
+              />
+              <ScoreBar
+                label="Skill Coverage"
+                value={breakdown.skill_coverage}
+                colorClass={getProgressColor(breakdown.skill_coverage)}
+              />
+              {breakdown.title_relevance !== undefined && (
+                <ScoreBar
+                  label="Title Relevance"
+                  value={breakdown.title_relevance}
+                  colorClass={getProgressColor(breakdown.title_relevance)}
+                />
+              )}
+            </div>
+
             <div className="grid md:grid-cols-2 gap-6">
               {/* Matched Skills */}
               <div className="space-y-3">
@@ -138,10 +168,10 @@ export function JobMatchCard({ job }: JobMatchCardProps) {
                   Matched Skills
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {job.match_breakdown.matched_skills.length > 0 ? (
-                    job.match_breakdown.matched_skills.map((skill) => (
-                      <Badge 
-                        key={skill} 
+                  {breakdown.matched_skills.length > 0 ? (
+                    breakdown.matched_skills.map((skill) => (
+                      <Badge
+                        key={skill}
                         variant="secondary"
                         className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-transparent"
                       >
@@ -158,13 +188,13 @@ export function JobMatchCard({ job }: JobMatchCardProps) {
               <div className="space-y-3">
                 <h4 className="text-sm font-medium flex items-center gap-2 text-amber-600 dark:text-amber-400">
                   <XCircle className="h-4 w-4" />
-                  Missing / To Learn
+                  Skills to Develop
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {job.match_breakdown.missing_skills.length > 0 ? (
-                    job.match_breakdown.missing_skills.map((skill) => (
-                      <Badge 
-                        key={skill} 
+                  {breakdown.missing_skills.length > 0 ? (
+                    breakdown.missing_skills.map((skill) => (
+                      <Badge
+                        key={skill}
                         variant="outline"
                         className="border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-400"
                       >
@@ -179,14 +209,34 @@ export function JobMatchCard({ job }: JobMatchCardProps) {
             </div>
 
             <div className="mt-4 pt-4 border-t border-border/50">
-               <h4 className="text-sm font-medium mb-2">Job Description Snippet</h4>
-               <p className="text-sm text-muted-foreground leading-relaxed">
-                 {job.description}
-               </p>
+              <h4 className="text-sm font-medium mb-2">Job Description Snippet</h4>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {job.description}
+              </p>
             </div>
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Small labelled progress bar used in the breakdown section. */
+function ScoreBar({
+  label,
+  value,
+  colorClass,
+}: {
+  label: string;
+  value: number;
+  colorClass: string;
+}) {
+  const roundedValue = Math.round(value);
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-muted-foreground w-28 shrink-0">{label}</span>
+      <Progress value={roundedValue} className={`h-2 flex-1 ${colorClass}`} />
+      <span className="text-xs font-medium w-10 text-right">{roundedValue}%</span>
+    </div>
   );
 }

@@ -158,7 +158,10 @@ export const listJobs = async (req: Request, res: Response, next: NextFunction) 
     const source = req.query.source as string | undefined;
     const country = req.query.country as string | undefined;
 
-    const result = await adminService.listJobs({ page, limit, source, country });
+    const sortBy = req.query.sortBy as string | undefined;
+    const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || undefined;
+
+    const result = await adminService.listJobs({ page, limit, source, country, sortBy, sortOrder });
     return res.json({ success: true, data: result });
   } catch (error) {
     next(error);

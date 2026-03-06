@@ -25,7 +25,94 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Briefcase, Download, Trash2, RefreshCw } from 'lucide-react';
+import { Briefcase, Download, Trash2, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+
+const COUNTRY_LABELS: Record<string, string> = {
+  gb: 'UK',
+  us: 'US',
+  de: 'Germany',
+  fr: 'France',
+  ca: 'Canada',
+  au: 'Australia',
+  nl: 'Netherlands',
+  ie: 'Ireland',
+  sg: 'Singapore',
+  in: 'India',
+  nz: 'New Zealand',
+  at: 'Austria',
+  ch: 'Switzerland',
+  it: 'Italy',
+  es: 'Spain',
+  pl: 'Poland',
+  br: 'Brazil',
+  za: 'South Africa',
+};
+
+// Map source_url TLD to country code for jobs missing a country field
+const DOMAIN_TO_COUNTRY: Record<string, string> = {
+  'co.uk': 'gb',
+  'com.au': 'au',
+  'co.nz': 'nz',
+  'co.za': 'za',
+  'co.in': 'in',
+  'com': 'us',
+  'ca': 'ca',
+  'de': 'de',
+  'fr': 'fr',
+  'nl': 'nl',
+  'it': 'it',
+  'es': 'es',
+  'pl': 'pl',
+  'at': 'at',
+  'ch': 'ch',
+  'ie': 'ie',
+  'sg': 'sg',
+  'br': 'br',
+};
+
+function inferCountryFromUrl(sourceUrl?: string): string | undefined {
+  if (!sourceUrl) return undefined;
+  try {
+    const hostname = new URL(sourceUrl).hostname;
+    // Check compound TLDs first (co.uk, com.au, etc.)
+    for (const [tld, countryCode] of Object.entries(DOMAIN_TO_COUNTRY)) {
+      if (hostname.endsWith(`.${tld}`)) return countryCode;
+    }
+  } catch {
+    // invalid URL
+  }
+  return undefined;
+}
+
+function getCountryLabel(code?: string, sourceUrl?: string): string {
+  const effectiveCode = code || inferCountryFromUrl(sourceUrl);
+  if (!effectiveCode) return '-';
+  const normalized = effectiveCode.toLowerCase();
+  return COUNTRY_LABELS[normalized] || effectiveCode.toUpperCase();
+}
+
+/**
+ * Parse posted_date handling both DD/MM/YYYY (Reed) and ISO 8601 (Adzuna) formats.
+ */
+function parsePostedDate(dateStr?: string): string {
+  if (!dateStr) return '-';
+
+  // DD/MM/YYYY format (Reed)
+  const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const [, day, month, year] = ddmmyyyyMatch;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    if (!isNaN(date.getTime())) return date.toLocaleDateString();
+  }
+
+  // ISO 8601 or other standard format (Adzuna)
+  const date = new Date(dateStr);
+  if (!isNaN(date.getTime())) return date.toLocaleDateString();
+
+  return '-';
+}
+
+type SortField = 'title' | 'company' | 'source' | 'country' | 'posted_date';
 
 export default function AdminJobsPage() {
   const [jobs, setJobs] = useState<AdminJobListItem[]>([]);
@@ -33,6 +120,10 @@ export default function AdminJobsPage() {
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+
+  // Sort
+  const [sortBy, setSortBy] = useState<SortField | undefined>(undefined);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Fetch form
   const [fetchCountry, setFetchCountry] = useState('us');
@@ -47,7 +138,7 @@ export default function AdminJobsPage() {
     setLoading(true);
     try {
       const [jobsRes, statsRes] = await Promise.all([
-        adminService.listJobs({ page, limit: 20 }),
+        adminService.listJobs({ page, limit: 20, sortBy, sortOrder }),
         adminService.getJobStats(),
       ]);
       setJobs(jobsRes.data.data.jobs);
@@ -58,7 +149,7 @@ export default function AdminJobsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, sortBy, sortOrder]);
 
   useEffect(() => {
     loadJobs();
@@ -87,6 +178,23 @@ export default function AdminJobsPage() {
     } finally {
       setCleanupLoading(false);
     }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+    setPage(1);
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortBy !== field) return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />;
+    return sortOrder === 'asc'
+      ? <ArrowUp className="ml-1 h-3 w-3" />
+      : <ArrowDown className="ml-1 h-3 w-3" />;
   };
 
   const handleDeleteJob = async () => {
@@ -135,7 +243,7 @@ export default function AdminJobsPage() {
               <div className="flex flex-wrap gap-1">
                 {jobStats.byCountry.slice(0, 5).map((c) => (
                   <Badge key={c.country} variant="outline">
-                    {c.country}: {c.count}
+                    {getCountryLabel(c.country)}: {c.count}
                   </Badge>
                 ))}
               </div>
@@ -186,11 +294,21 @@ export default function AdminJobsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Country</TableHead>
-              <TableHead>Posted</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('title')}>
+                <span className="inline-flex items-center">Title{renderSortIcon('title')}</span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('company')}>
+                <span className="inline-flex items-center">Company{renderSortIcon('company')}</span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('source')}>
+                <span className="inline-flex items-center">Source{renderSortIcon('source')}</span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('country')}>
+                <span className="inline-flex items-center">Country{renderSortIcon('country')}</span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('posted_date')}>
+                <span className="inline-flex items-center">Posted{renderSortIcon('posted_date')}</span>
+              </TableHead>
               <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
@@ -204,10 +322,8 @@ export default function AdminJobsPage() {
                 <TableCell>
                   <Badge variant="secondary">{job.source || '-'}</Badge>
                 </TableCell>
-                <TableCell>{job.country || '-'}</TableCell>
-                <TableCell>
-                  {job.created_at ? new Date(job.created_at).toLocaleDateString() : '-'}
-                </TableCell>
+                <TableCell>{getCountryLabel(job.country, job.source_url as string | undefined)}</TableCell>
+                <TableCell>{parsePostedDate(job.posted_date)}</TableCell>
                 <TableCell>
                   <Button
                     variant="ghost"

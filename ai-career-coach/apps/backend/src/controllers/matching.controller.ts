@@ -148,12 +148,23 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     const jobCount = jobs.length;
 
     if (jobCount === 0) {
-      console.log(`⚠️ [Matching] No jobs in database`);
-      throw new AppError(
-        'No jobs are currently available in our database. Our job fetching service updates regularly - please check back soon.',
-        404,
-        ErrorCodes.NOT_FOUND,
-      );
+      // Build a descriptive message based on active filters
+      const activeFilterParts: string[] = [];
+      if (filters?.title_keywords) activeFilterParts.push(`title "${filters.title_keywords}"`);
+      if (filters?.country) activeFilterParts.push(`country "${filters.country}"`);
+      if (filters?.city) activeFilterParts.push(`location "${filters.city}"`);
+      if (filters?.job_type) activeFilterParts.push(`type "${filters.job_type}"`);
+      if (filters?.experience_level) activeFilterParts.push(`level "${filters.experience_level}"`);
+      if (filters?.remote_type) activeFilterParts.push(`remote "${filters.remote_type}"`);
+      if (filters?.min_salary) activeFilterParts.push(`min salary ${filters.min_salary}`);
+
+      const filterDesc = activeFilterParts.length > 0
+        ? `matching ${activeFilterParts.join(', ')}`
+        : 'in our database';
+
+      const message = `No jobs found ${filterDesc}. Try broadening your filters or check back later as new listings are added regularly.`;
+      console.log(`⚠️ [Matching] ${message}`);
+      throw new AppError(message, 404, ErrorCodes.NO_JOBS);
     }
 
     console.log(`📊 [Matching] Found ${jobCount} jobs in database`);
@@ -431,9 +442,9 @@ async function fetchJobs(
     : 'none';
   const cacheKey = `jobs:list:${limit}:f:${filterHash}`;
 
-  // Try cache first (jobs change infrequently)
+  // Try cache first (jobs change infrequently) — skip empty cached results
   const cachedJobs = await cache.get<JobDocument[]>(cacheKey);
-  if (cachedJobs) {
+  if (cachedJobs && cachedJobs.length > 0) {
     console.log(`📦 [Matching] Jobs cache HIT (${cachedJobs.length} jobs)`);
     return cachedJobs;
   }
@@ -470,11 +481,21 @@ async function fetchJobs(
   const nowISO = new Date().toISOString();
 
   const andConditions: Record<string, any>[] = [
-    // Must have a posted_date and be recent, OR have a recent scraped_at
+    // Must be recent: ISO posted_date within 14 days, OR scraped recently.
+    // Reed uses DD/MM/YYYY dates which fail ISO string comparison, so for
+    // non-ISO dates we fall back to scraped_at as the freshness indicator.
+    // NOTE: $regex and $gte cannot be combined on the same field in MongoDB,
+    // so we use $and to separate the checks.
     {
       $or: [
-        { posted_date: { $gte: cutoffISO } },
+        // ISO dates (Adzuna: "2026-02-18T09:18:22Z") — both conditions must match
+        { $and: [{ posted_date: { $regex: /^\d{4}-/ } }, { posted_date: { $gte: cutoffISO } }] },
+        // Non-ISO dates (Reed: "23/12/2025") — fall back to scraped_at
+        { $and: [{ posted_date: { $exists: true, $nin: [null, ''] } }, { posted_date: { $not: { $regex: /^\d{4}-/ } } }, { scraped_at: { $gte: cutoffDate } }] },
+        // Missing posted_date — use scraped_at
         { posted_date: { $in: ['', null] }, scraped_at: { $gte: cutoffDate } },
+        // No posted_date field at all — use scraped_at
+        { posted_date: { $exists: false }, scraped_at: { $gte: cutoffDate } },
       ],
     },
     // Exclude expired Reed jobs
@@ -514,6 +535,14 @@ async function fetchJobs(
 
   const freshJobsFilter = { $and: andConditions };
 
+  // Diagnostic: log total vs filtered count to identify filter issues
+  const totalJobCount = await jobsCollection.countDocuments();
+  const filteredCount = await jobsCollection.countDocuments(freshJobsFilter);
+  console.log(`🔎 [Matching] Jobs in DB: ${totalJobCount} total, ${filteredCount} after freshness/expiry filter`);
+  if (userFilters) {
+    console.log(`🔎 [Matching] Active user filters: ${JSON.stringify(userFilters)}`);
+  }
+
   // Sort by posted_date descending to get most recent jobs first
   const jobs = await jobsCollection
     .find(freshJobsFilter, { projection })
@@ -521,9 +550,13 @@ async function fetchJobs(
     .limit(limit)
     .toArray();
 
-  // Cache for 30 minutes
-  await cache.set(cacheKey, jobs, 1800);
-  console.log(`📦 [Matching] Jobs cached (${jobs.length} fresh jobs, TTL: 30min)`);
+  // Only cache non-empty results — never poison the cache with 0 jobs
+  if (jobs.length > 0) {
+    await cache.set(cacheKey, jobs, 1800);
+    console.log(`📦 [Matching] Jobs cached (${jobs.length} fresh jobs, TTL: 30min)`);
+  } else {
+    console.log(`⚠️ [Matching] 0 jobs found — skipping cache to allow retry`);
+  }
 
   return jobs;
 }

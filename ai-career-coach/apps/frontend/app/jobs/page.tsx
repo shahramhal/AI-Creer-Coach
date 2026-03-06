@@ -10,7 +10,7 @@ import { matchingService } from '@/services/matching.service';
 import { cvService } from '@/services/cv.service';
 import type { MatchedJob, MatchFilters } from '@/types/matching.types';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Briefcase, AlertCircle, Upload, Clock } from 'lucide-react';
+import { Loader2, RefreshCw, Briefcase, AlertCircle, Upload, Clock, SearchX } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent } from "@/components/ui/card";
 import axios from 'axios';
@@ -138,6 +138,7 @@ export default function JobMatchesPage() {
 
       const codeMap: Record<string, MatchingErrorCode> = {
         NOT_FOUND: 'NO_CV',
+        NO_JOBS: 'NO_JOBS',
         ML_SERVICE_ERROR: 'ML_SERVICE_ERROR',
         INTERNAL_ERROR: 'DB_CONNECTION_ERROR',
       };
@@ -197,15 +198,27 @@ export default function JobMatchesPage() {
         );
       case 'NO_JOBS':
         return (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={() => fetchMatches()}
-          >
-            <Clock className="mr-2 h-4 w-4" />
-            Check Again
-          </Button>
+          <div className="flex gap-2 mt-3">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                setFilters({});
+                fetchMatches({});
+              }}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Clear Filters & Retry
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchMatches()}
+            >
+              <Clock className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          </div>
         );
       case 'ML_SERVICE_ERROR':
       case 'DB_CONNECTION_ERROR':
@@ -265,13 +278,13 @@ export default function JobMatchesPage() {
         {/* Error State */}
         {error && (
           <Alert
-            variant={error.code === 'NO_CV' ? 'default' : 'destructive'}
+            variant={error.code === 'NO_CV' ? 'default' : error.code === 'NO_JOBS' ? 'warning' : 'destructive'}
             className="animate-in fade-in slide-in-from-top-2"
           >
-            <AlertCircle className="h-4 w-4" />
+            {error.code === 'NO_JOBS' ? <SearchX className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
             <AlertTitle>
               {error.code === 'NO_CV' ? 'CV Required' :
-               error.code === 'NO_JOBS' ? 'No Jobs Available' :
+               error.code === 'NO_JOBS' ? 'No Matching Jobs Found' :
                error.code === 'ML_SERVICE_ERROR' ? 'Matching Service Unavailable' :
                error.code === 'DB_CONNECTION_ERROR' ? 'Database Error' :
                error.code === 'AUTH_ERROR' ? 'Session Expired' :

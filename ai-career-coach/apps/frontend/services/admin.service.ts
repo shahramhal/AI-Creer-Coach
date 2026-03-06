@@ -61,12 +61,16 @@ class AdminService {
     limit?: number;
     source?: string;
     country?: string;
+    sortBy?: string;
+    sortOrder?: string;
   } = {}) {
     const searchParams = new URLSearchParams();
     if (params.page) searchParams.set('page', String(params.page));
     if (params.limit) searchParams.set('limit', String(params.limit));
     if (params.source) searchParams.set('source', params.source);
     if (params.country) searchParams.set('country', params.country);
+    if (params.sortBy) searchParams.set('sortBy', params.sortBy);
+    if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
     return api.get(`/api/admin/jobs?${searchParams.toString()}`);
   }
 

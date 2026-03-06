@@ -16,6 +16,8 @@ export interface ServiceHealthStatus {
   redis: boolean;
   mlService: boolean;
   jobApiService: boolean;
+  mlServiceResponseMs?: number | null;
+  jobApiResponseMs?: number | null;
   timestamp?: string;
 }
 
@@ -145,6 +147,8 @@ export interface AdminJobListItem {
   country?: string;
   job_type?: string;
   created_at?: string;
+  posted_date?: string;
+  source_url?: string;
   [key: string]: unknown;
 }
 

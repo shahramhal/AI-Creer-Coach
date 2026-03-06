@@ -9,6 +9,7 @@ export const ErrorCodes = {
   EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
   // Resources
   NOT_FOUND: 'NOT_FOUND',
+  NO_JOBS: 'NO_JOBS',
   FORBIDDEN: 'FORBIDDEN',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   // External services

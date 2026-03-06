@@ -1,0 +1,16 @@
+{
+  "model_version": "3.0_multi_region",
+  "description": "Multi-region salary predictor (US + UK)",
+  "countries": [
+    "US",
+    "UK"
+  ],
+  "metrics": {
+    "overall_r2": 0.5114072618449459,
+    "overall_rmse": 29882.89177388433
+  },
+  "training_samples": {
+    "us": 270923,
+    "uk": 9663
+  }
+}

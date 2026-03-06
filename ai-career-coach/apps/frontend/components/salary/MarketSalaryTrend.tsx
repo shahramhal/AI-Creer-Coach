@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import {
   AreaChart,
   Area,
@@ -19,7 +20,6 @@ interface MarketSalaryTrendProps {
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function formatMonthLabel(monthKey: string): string {
-  // Input format: "2025-03"
   const parts = monthKey.split('-');
   if (parts.length !== 2) return monthKey;
   const monthIndex = parseInt(parts[1], 10) - 1;
@@ -32,7 +32,20 @@ function formatAxisTick(value: number, currency: string): string {
   return `${currency}${value}`;
 }
 
+function getAvailableYears(trend: MarketTrendPoint[]): string[] {
+  const yearsSet = new Set<string>();
+  for (const point of trend) {
+    const year = point.year.split('-')[0];
+    if (year) yearsSet.add(year);
+  }
+  return Array.from(yearsSet).sort();
+}
+
 export default function MarketSalaryTrend({ trend, currency }: MarketSalaryTrendProps) {
+  const availableYears = useMemo(() => getAvailableYears(trend), [trend]);
+  const currentYear = new Date().getFullYear().toString();
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+
   if (trend.length === 0) {
     return (
       <div className="bg-card border border-border rounded-xl p-6 shadow-card">
@@ -44,16 +57,33 @@ export default function MarketSalaryTrend({ trend, currency }: MarketSalaryTrend
     );
   }
 
-  // Format data for display
-  const chartData = trend.map(point => ({
+  const filteredTrend = selectedYear === 'all'
+    ? trend
+    : trend.filter(point => point.year.startsWith(selectedYear));
+
+  const chartData = filteredTrend.map(point => ({
     ...point,
     label: formatMonthLabel(point.year),
   }));
 
+  const selectClassName = "rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";
+
   return (
     <div className="bg-card border border-border rounded-xl p-6 shadow-card">
-      <h3 className="text-base font-semibold text-foreground mb-1">Market Salary Trend</h3>
-      <p className="text-xs text-muted-foreground mb-4">Last 12 months average salary</p>
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-base font-semibold text-foreground">Market Salary Trend</h3>
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          className={selectClassName}
+        >
+          <option value="all">All years</option>
+          {availableYears.map(year => (
+            <option key={year} value={year}>{year}</option>
+          ))}
+        </select>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4">Historical salary trend</p>
       <div className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
@@ -69,7 +99,7 @@ export default function MarketSalaryTrend({ trend, currency }: MarketSalaryTrend
               tick={{ fill: '#94a3b8', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
-              interval={1}
+              interval={selectedYear === 'all' ? 2 : 0}
             />
             <YAxis
               tickFormatter={(value) => formatAxisTick(value, currency)}

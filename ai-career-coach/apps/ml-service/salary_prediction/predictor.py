@@ -1,8 +1,14 @@
 """
-Salary Predictor - Production Inference 
+Multi-Region Salary Predictor (v3.0)
 
-Loads XGBoost model trained with SOC-filtered IT data.
-Skills are loaded dynamically from training metadata.
+XGBoost-based salary prediction supporting UK and US markets.
+Returns predictions with ranges, confidence scores, and explanatory factors.
+
+Key features:
+- Single model for both UK and US
+- Country-aware predictions
+- Automatic currency handling (GBP for UK, USD for US)
+- Skill gap analysis
 """
 
 import json
@@ -14,71 +20,93 @@ from typing import Dict, List, Optional
 import numpy as np
 import xgboost as xgb
 
+from .feature_builder import MultiRegionFeatureBuilder
+
 logger = logging.getLogger(__name__)
 
 
-class SalaryPredictor:
+class MultiRegionSalaryPredictor:
     """
-    Production salary prediction for IT careers.
+    Production salary predictor for UK and US markets.
     
-    v2 Changes:
-    - Skills loaded from model metadata (not hardcoded)
-    - Better role detection (analyst, architect, scientist)
-    - Trained on SOC-filtered IT jobs only
+    Uses XGBoost model trained on:
+    - US: H1B visa data (270,923 records)
+    - UK: Adzuna job postings (9,663 records)
     
     Usage:
-        predictor = SalaryPredictor.load("models/")
+        predictor = MultiRegionSalaryPredictor.load("models/")
+        
+        # UK prediction
         result = predictor.predict(
             job_title="Senior Software Engineer",
-            location="California",
-            skills=["Python", "AWS"],
-            years_experience=5
+            country="UK",
+            location="London",
+            skills=["Python", "AWS"]
         )
+        # Returns: £75,000 (range: £65k-£85k)
+        
+        # US prediction
+        result = predictor.predict(
+            job_title="Senior Software Engineer",
+            country="US",
+            location="CA",
+            skills=["Python", "AWS"]
+        )
+        # Returns: $150,000 (range: $130k-$170k)
     """
     
-    # Seniority labels for display
     SENIORITY_LABELS = {
         0: 'Intern', 1: 'Junior', 2: 'Associate', 3: 'Mid-level',
         4: 'Senior', 5: 'Lead', 6: 'Staff', 7: 'Principal',
         8: 'Director', 9: 'VP', 10: 'C-level'
     }
     
-    def __init__(self, model, feature_builder, metadata: Dict):
+    # Currency settings by country
+    CURRENCY_CONFIG = {
+        'US': {'code': 'USD', 'symbol': '$', 'name': 'US Dollars'},
+        'UK': {'code': 'GBP', 'symbol': '£', 'name': 'British Pounds'},
+    }
+    
+    def __init__(
+        self,
+        model: xgb.XGBRegressor,
+        feature_builder: MultiRegionFeatureBuilder,
+        metadata: Dict
+    ):
         """Initialize with loaded components."""
         self.model = model
         self.feature_builder = feature_builder
         self.metadata = metadata
-        
+    
     @classmethod
-    def load(cls, models_dir: str = "models") -> "SalaryPredictor":
+    def load(cls, models_dir: str = "models") -> "MultiRegionSalaryPredictor":
         """
         Load trained model from disk.
         
         Args:
             models_dir: Directory containing model files
             
-        Returns:
-            Initialized SalaryPredictor
+        Expected files:
+        - multi_region_salary_predictor.json (XGBoost model)
+        - multi_region_encoders.pkl (encoders + scaler)
+        - multi_region_metadata.json (metrics + info)
         """
-        # Import here to avoid circular imports
-        from .feature_builder import FeatureBuilder
-        
         models_path = Path(models_dir)
         
         # Load XGBoost model
-        model_file = models_path / "salary_predictor.json"
+        model_file = models_path / "multi_region_salary_predictor.json"
         if not model_file.exists():
             raise FileNotFoundError(
                 f"Model not found: {model_file}. "
-                "Train in Colab first and copy files here."
+                "Train model in Colab and copy files."
             )
         
         model = xgb.XGBRegressor()
         model.load_model(str(model_file))
-        logger.info(f"Loaded model from {model_file}")
+        logger.info(f"Loaded XGBoost model from {model_file}")
         
         # Load encoders
-        encoders_file = models_path / "feature_encoders.pkl"
+        encoders_file = models_path / "multi_region_encoders.pkl"
         if not encoders_file.exists():
             raise FileNotFoundError(f"Encoders not found: {encoders_file}")
         
@@ -86,25 +114,25 @@ class SalaryPredictor:
             encoders = pickle.load(f)
         
         # Create feature builder
-        feature_builder = FeatureBuilder(
+        feature_builder = MultiRegionFeatureBuilder(
             title_encoder=encoders['title_encoder'],
-            state_encoder=encoders['state_encoder'],
+            country_encoder=encoders['country_encoder'],
             scaler=encoders['scaler'],
             feature_names=encoders['feature_names'],
             tech_skills=encoders.get('tech_skills', [])
         )
         
         # Load metadata
-        metadata_file = models_path / "model_metadata.json"
+        metadata_file = models_path / "multi_region_metadata.json"
         metadata = {}
         if metadata_file.exists():
             with open(metadata_file) as f:
                 metadata = json.load(f)
         
         logger.info(
-            f"Model loaded. Features: {len(encoders['feature_names'])}, "
-            f"Skills: {len(encoders.get('tech_skills', []))}, "
-            f"R²: {metadata.get('metrics', {}).get('r2', 'N/A')}"
+            f"Multi-region predictor loaded. "
+            f"Countries: {metadata.get('countries', ['US', 'UK'])}, "
+            f"R²: {metadata.get('metrics', {}).get('overall_r2', 'N/A'):.3f}"
         )
         
         return cls(model, feature_builder, metadata)
@@ -112,38 +140,51 @@ class SalaryPredictor:
     def predict(
         self,
         job_title: str,
+        country: str,
         location: str,
-        skills: List[str],
-        years_experience: int = 3,
+        skills: Optional[List[str]] = None,
+        company: Optional[str] = None,
         include_factors: bool = True
     ) -> Dict:
         """
-        Predict salary for given inputs.
+        Predict salary for given job and location.
         
         Args:
             job_title: Target job title
-            location: US state (model trained on US data)
-            skills: List of user's skills
-            years_experience: Total years (for future use)
-            include_factors: Include explanation in response
+            country: "UK" or "US"
+            location: State code (US) or city name (UK)
+            skills: User's technical skills
+            company: Company name (optional)
+            include_factors: Include explanation breakdown
             
         Returns:
-            Dictionary with prediction and metadata
+            Dict with prediction, range, confidence, and factors
         """
+        skills = skills or []
+        country = country.upper()
+        
+        # Validate country
+        if country not in ['UK', 'US']:
+            raise ValueError(f"Unsupported country: {country}. Use 'UK' or 'US'.")
+        
         # Build features
-        features, feature_values = self.feature_builder.build_features(
+        features_scaled, feature_values = self.feature_builder.build_features(
             job_title=job_title,
+            country=country,
             location=location,
             skills=skills,
-            years_experience=years_experience
+            company=company
         )
         
-        # Predict
-        prediction = float(self.model.predict(features)[0])
+        # Get prediction
+        prediction = float(self.model.predict(features_scaled)[0])
         
-        # Confidence interval (±12% based on typical model error)
-        salary_min = int(prediction * 0.88)
-        salary_max = int(prediction * 1.12)
+        # Calculate range (±15% based on model accuracy)
+        salary_min = int(prediction * 0.85)
+        salary_max = int(prediction * 1.15)
+        
+        # Get currency config
+        currency = self.CURRENCY_CONFIG.get(country, self.CURRENCY_CONFIG['US'])
         
         result = {
             'predicted_salary': int(round(prediction)),
@@ -151,153 +192,250 @@ class SalaryPredictor:
                 'min': salary_min,
                 'max': salary_max
             },
-            'confidence': self._calculate_confidence(feature_values),
-            'currency': 'USD',
-            'note': 'Based on US H1B visa data for IT roles'
+            'confidence': self._calculate_confidence(feature_values, country),
+            'country': country,
+            'currency': currency['code'],
+            'currency_symbol': currency['symbol'],
+            'formatted_salary': f"{currency['symbol']}{int(prediction):,}",
+            'formatted_range': f"{currency['symbol']}{salary_min:,} - {currency['symbol']}{salary_max:,}",
+            'data_source': 'H1B Visa Data' if country == 'US' else 'Adzuna Job Postings',
+            'disclaimer': self._get_disclaimer(country)
         }
         
         if include_factors:
-            result['factors'] = self._get_factors(feature_values)
+            result['factors'] = self._build_factors(feature_values, prediction, country)
             result['skill_analysis'] = self._analyze_skills(skills, feature_values)
         
         return result
     
-    def _calculate_confidence(self, feature_values: Dict) -> int:
-        """Calculate prediction confidence (50-95%)."""
-        confidence = 65  # Base
+    def _calculate_confidence(self, features: Dict, country: str) -> int:
+        """Calculate prediction confidence (50-90%)."""
+        confidence = 55  # Base
         
         # Boost for recognized title
-        if feature_values.get('job_title_encoded', 0) > 0:
+        if features.get('job_title_encoded', 0) > 0:
             confidence += 10
         
-        # Boost for known state
-        state = feature_values.get('state', 'UNKNOWN')
-        if state != 'UNKNOWN':
-            confidence += 10
+        # Boost for tech hub location
+        if features.get('is_tech_hub', 0) == 1:
+            confidence += 8
         
         # Boost for skills
-        if feature_values.get('total_skills', 0) >= 2:
+        total_skills = features.get('total_skills', 0)
+        if total_skills >= 3:
             confidence += 10
+        elif total_skills >= 1:
+            confidence += 5
         
-        return min(95, max(50, confidence))
+        # US data is more robust (larger sample)
+        if country == 'US':
+            confidence += 7
+        
+        return min(90, max(50, confidence))
     
-    def _get_factors(self, feature_values: Dict) -> List[Dict]:
-        """Create human-readable factor breakdown."""
+    def _get_disclaimer(self, country: str) -> str:
+        """Get country-appropriate disclaimer."""
+        if country == 'UK':
+            return (
+                "Estimate based on UK job postings. "
+                "Actual salary varies by company size, experience, and negotiation."
+            )
+        else:
+            return (
+                "Estimate based on US H1B visa filings. "
+                "Actual salary varies by company tier, experience, and negotiation. "
+                "Top-tier companies (FAANG) typically pay 50-100% above these estimates."
+            )
+    
+    def _build_factors(self, features: Dict, prediction: float, country: str) -> List[Dict]:
+        """Build human-readable factor breakdown."""
         factors = []
         
-        # Base salary
-        salary_stats = self.metadata.get('salary_stats', {})
-        base = salary_stats.get('median', 110000)
-        factors.append({
-            'factor': 'IT Market Base',
-            'description': 'Median IT salary in training data',
-            'impact': 'baseline',
-            'value': f'${base:,}'
-        })
+        currency = self.CURRENCY_CONFIG[country]
         
         # Seniority
-        seniority = feature_values.get('seniority_level', 3)
-        label = self.SENIORITY_LABELS.get(seniority, 'Mid-level')
+        seniority = features.get('seniority_level', 3)
+        seniority_label = features.get('_seniority_label', 'Mid-level')
+        
         impact = 'positive' if seniority > 3 else ('negative' if seniority < 3 else 'neutral')
         factors.append({
-            'factor': 'Seniority',
-            'description': label,
+            'factor': 'Seniority Level',
+            'description': seniority_label,
             'impact': impact,
-            'value': f'Level {seniority}'
+            'value': f'Level {seniority}/10'
         })
         
         # Location
-        if feature_values.get('is_tech_hub'):
+        is_tech_hub = features.get('is_tech_hub', 0)
+        location = features.get('_location', 'Unknown')
+        
+        if is_tech_hub:
             factors.append({
                 'factor': 'Location',
-                'description': 'Tech hub state',
+                'description': f'Tech hub ({location})',
                 'impact': 'positive',
-                'value': feature_values.get('state', 'Unknown')
+                'value': f"COL: {features.get('cost_of_living', 100)}"
+            })
+        else:
+            factors.append({
+                'factor': 'Location',
+                'description': location,
+                'impact': 'neutral',
+                'value': f"COL: {features.get('cost_of_living', 100)}"
             })
         
         # Role type
-        roles = []
-        if feature_values.get('is_engineer'): roles.append('Engineer')
-        if feature_values.get('is_architect'): roles.append('Architect')
-        if feature_values.get('is_scientist'): roles.append('Scientist')
-        if feature_values.get('is_manager'): roles.append('Manager')
+        role_types = []
+        if features.get('is_scientist'): role_types.append('Scientist')
+        if features.get('is_engineer'): role_types.append('Engineer')
+        if features.get('is_analyst'): role_types.append('Analyst')
+        if features.get('is_manager'): role_types.append('Manager')
         
-        if roles:
+        if role_types:
+            high_value = {'Scientist', 'Manager'}
+            has_high = bool(set(role_types) & high_value)
             factors.append({
                 'factor': 'Role Type',
-                'description': ', '.join(roles),
-                'impact': 'positive' if 'Architect' in roles or 'Scientist' in roles else 'neutral',
-                'value': roles[0]
+                'description': ', '.join(role_types),
+                'impact': 'positive' if has_high else 'neutral',
+                'value': role_types[0]
+            })
+        
+        # Senior engineer combo
+        if features.get('senior_engineer', 0) == 1:
+            factors.append({
+                'factor': 'Senior Engineer',
+                'description': 'Senior-level engineering role',
+                'impact': 'positive',
+                'value': 'Yes'
             })
         
         # Skills
-        total = feature_values.get('total_skills', 0)
-        if total > 0:
+        total_skills = features.get('total_skills', 0)
+        if total_skills > 0:
             factors.append({
                 'factor': 'Technical Skills',
-                'description': f'{total} relevant skills detected',
-                'impact': 'positive' if total >= 3 else 'neutral',
-                'value': f'{total} skills'
+                'description': f'{total_skills} relevant skill(s) matched',
+                'impact': 'positive' if total_skills >= 3 else 'neutral',
+                'value': f'{total_skills} skills'
+            })
+        
+        # Company tier
+        tier = features.get('company_tier_encoded', 1)
+        tier_labels = {4: 'Tier 1 (FAANG)', 3: 'Tier 2 (Top Tech)', 2: 'Tier 3 (Enterprise)', 1: 'Standard', 0: 'Consulting'}
+        if tier >= 3:
+            factors.append({
+                'factor': 'Company Tier',
+                'description': tier_labels.get(tier, 'Standard'),
+                'impact': 'positive',
+                'value': f'Tier {5 - tier}'
             })
         
         return factors
     
-    def _analyze_skills(self, user_skills: List[str], feature_values: Dict) -> Dict:
+    def _analyze_skills(self, user_skills: List[str], features: Dict) -> Dict:
         """Analyze user's skills vs high-value skills."""
-        # Get skills from metadata
-        all_skills = self.metadata.get('tech_skills', self.feature_builder.tech_skills)
+        all_skills = self.feature_builder.tech_skills
         
-        # High-value skills (first 15 are typically highest impact)
-        high_value = all_skills[:15] if len(all_skills) > 15 else all_skills
+        # First 8 skills are typically highest impact
+        high_value = all_skills[:8]
         
-        user_lower = [s.lower() for s in user_skills]
-        
-        has_skills = []
-        missing_skills = []
+        matched = []
+        missing = []
         
         for skill in high_value:
             skill_key = f'has_{skill}'
-            if feature_values.get(skill_key, 0) == 1:
-                has_skills.append(skill.replace('_', ' ').title())
+            display = skill.replace('_', ' ').title()
+            
+            if features.get(skill_key, 0) == 1:
+                matched.append(display)
             else:
-                missing_skills.append(skill.replace('_', ' ').title())
+                missing.append(display)
         
         return {
-            'high_value_skills_you_have': has_skills[:5],
-            'high_value_skills_to_consider': missing_skills[:5],
-            'note': 'Skills ranked by correlation with higher IT salaries'
+            'matched_high_value_skills': matched[:5],
+            'suggested_skills_to_learn': missing[:5],
+            'total_matched': features.get('total_skills', 0),
+            'note': 'Skills ranked by salary correlation across UK and US markets'
         }
     
     def get_model_info(self) -> Dict:
         """Return model metadata."""
+        metrics = self.metadata.get('metrics', {})
+        training = self.metadata.get('training_samples', {})
+        
         return {
             'model_type': 'XGBoost Regressor',
-            'version': self.metadata.get('model_version', '2.0'),
-            'trained_on': 'US H1B Visa Data (IT jobs only)',
-            'training_date': self.metadata.get('trained_at', 'Unknown'),
-            'metrics': self.metadata.get('metrics', {}),
+            'version': self.metadata.get('model_version', '3.0_multi_region'),
+            'description': self.metadata.get('description', 'Multi-region salary predictor'),
+            'supported_countries': self.metadata.get('countries', ['US', 'UK']),
+            'metrics': {
+                'overall_r2': metrics.get('overall_r2'),
+                'overall_rmse': metrics.get('overall_rmse'),
+            },
+            'training_samples': training,
             'feature_count': len(self.feature_builder.feature_names),
             'skill_count': len(self.feature_builder.tech_skills),
-            'salary_stats': self.metadata.get('salary_stats', {}),
             'limitations': [
-                'Trained on US data only',
-                'IT/Tech roles only (filtered by SOC codes)',
-                'Reflects H1B visa salaries (may differ from general market)',
-                'Does not include stock/bonus compensation'
+                'UK data is smaller (9,663 vs 270,923 US records)',
+                'Does not include stock/equity compensation',
+                'Company-specific variations not fully captured',
+                'Individual negotiation not accounted for'
             ]
         }
+    
+    def health_check(self) -> Dict:
+        """Verify model is working."""
+        try:
+            # Test US prediction
+            us_result = self.predict(
+                job_title="Software Engineer",
+                country="US",
+                location="CA",
+                skills=["Python"],
+                include_factors=False
+            )
+            
+            # Test UK prediction
+            uk_result = self.predict(
+                job_title="Software Engineer",
+                country="UK",
+                location="London",
+                skills=["Python"],
+                include_factors=False
+            )
+            
+            return {
+                'status': 'healthy',
+                'model_loaded': True,
+                'us_test_prediction': us_result['predicted_salary'],
+                'uk_test_prediction': uk_result['predicted_salary'],
+                'feature_count': len(self.feature_builder.feature_names),
+                'skill_count': len(self.feature_builder.tech_skills)
+            }
+        except Exception as e:
+            return {
+                'status': 'unhealthy',
+                'error': str(e)
+            }
 
 
 # Singleton instance
-_predictor_instance: Optional[SalaryPredictor] = None
+_predictor_instance: Optional[MultiRegionSalaryPredictor] = None
 
 
-def get_predictor(models_dir: str = "models") -> SalaryPredictor:
+def get_predictor(models_dir: str = "models") -> MultiRegionSalaryPredictor:
     """Get or create singleton predictor instance."""
     global _predictor_instance
     
     if _predictor_instance is None:
-        _predictor_instance = SalaryPredictor.load(models_dir)
-        logger.info("Initialized salary predictor singleton")
+        _predictor_instance = MultiRegionSalaryPredictor.load(models_dir)
+        logger.info("Multi-region salary predictor initialized")
     
     return _predictor_instance
+
+
+def reset_predictor():
+    """Reset singleton (for testing/reloading)."""
+    global _predictor_instance
+    _predictor_instance = None

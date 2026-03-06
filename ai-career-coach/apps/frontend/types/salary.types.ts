@@ -6,6 +6,8 @@ export interface SalaryInsightsData {
   marketTrend: MarketTrendPoint[];
   skillROI: SkillROIEntry[];
   regionalComparison: RegionalSalary[];
+  missingSkills: MissingSkillEntry[];
+  topPayingRoles: TopPayingRole[];
 }
 
 export interface SalaryPrediction {
@@ -16,6 +18,7 @@ export interface SalaryPrediction {
   confidence: number;
   vsMarketAvg: number;
   currency: string;
+  dataSource: 'ml' | 'adzuna';
 }
 
 export interface SalaryFactor {
@@ -42,6 +45,17 @@ export interface RegionalSalary {
   salary: number;
 }
 
+export interface MissingSkillEntry {
+  skill: string;
+  importance: 'High' | 'Medium' | 'Low';
+  learnUrl: string;
+}
+
+export interface TopPayingRole {
+  role: string;
+  avgSalary: number;
+}
+
 export interface SalaryInsightsResponse {
   success: boolean;
   data: SalaryInsightsData;
@@ -50,5 +64,6 @@ export interface SalaryInsightsResponse {
     cvSkillsCount: number;
     yearsOfExperience: number;
     adzunaListings: number;
+    dataSource: 'ml' | 'adzuna';
   };
 }

@@ -23,6 +23,9 @@ from job_matcher.matcher import JobMatcher
 # Import CV analyzer
 from cv_analyzer.analyzer import CVAnalyzer
 
+# Import salary predictor router
+from salary_prediction.salary_predictor import router as salary_router
+
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Career Coach ML Service",
@@ -53,6 +56,9 @@ if hasattr(job_matcher, 'model') and job_matcher.model is not None:
     set_shared_model(job_matcher.model)
 
 cv_analyzer = CVAnalyzer()
+
+# Register salary prediction router
+app.include_router(salary_router)
 
 
 # REQUEST/RESPONSE MODELS
@@ -120,7 +126,7 @@ async def root():
     return {
         "status": "ML Service is running",
         "version": "1.0.0",
-        "features": ["cv_parsing", "job_matching"]
+        "features": ["cv_parsing", "job_matching", "salary_prediction"]
     }
 
 

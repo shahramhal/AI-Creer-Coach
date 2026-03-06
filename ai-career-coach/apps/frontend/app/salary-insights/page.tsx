@@ -6,12 +6,12 @@ import { useAuth } from '../../context/authContext';
 import { salaryService } from '../../services/salary.service';
 import dynamic from 'next/dynamic';
 import { AppLayout } from '../../components/layout/AppLayout';
-import SalaryPredictionCard from '../../components/salary/SalaryPredictionCard';
+import SalaryRangeHero from '../../components/salary/SalaryRangeHero';
 
 // Lazy-load chart-heavy salary components
-const SalaryFactorBreakdown = dynamic(() => import('../../components/salary/SalaryFactorBreakdown'), { ssr: false });
 const MarketSalaryTrend = dynamic(() => import('../../components/salary/MarketSalaryTrend'), { ssr: false });
-const SkillROITable = dynamic(() => import('../../components/salary/SkillROITable'), { ssr: false });
+const TopPayingRoles = dynamic(() => import('../../components/salary/TopPayingRoles'), { ssr: false });
+const MissingSkillsTable = dynamic(() => import('../../components/salary/MissingSkillsTable'), { ssr: false });
 const SalaryByLocation = dynamic(() => import('../../components/salary/SalaryByLocation'), { ssr: false });
 import type { SalaryInsightsData } from '../../types/salary.types';
 import { Card, CardContent } from '../../components/ui/card';
@@ -250,6 +250,11 @@ export default function SalaryInsightsPage() {
     );
   }
 
+  // Get the display label for the selected location
+  const selectedLocationLabel = location
+    ? (LOCATION_OPTIONS[country] || []).find(l => l.value === location)?.label || location
+    : '';
+
   const selectClassName = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary";
 
   return (
@@ -263,7 +268,7 @@ export default function SalaryInsightsPage() {
           </p>
         </div>
 
-        {/* Job Title / Location / Country Selectors */}
+        {/* Filters Bar */}
         <Card className="border-border bg-card shadow-card">
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -360,13 +365,16 @@ export default function SalaryInsightsPage() {
         {/* Salary Data */}
         {!isLoading && salaryData && (
           <>
-            {/* Prediction Card */}
-            <SalaryPredictionCard prediction={salaryData.prediction} />
+            {/* 1. Salary Range Hero (full width) */}
+            <SalaryRangeHero
+              prediction={salaryData.prediction}
+              location={selectedLocationLabel}
+            />
 
-            {/* Factor Breakdown + Market Trend (2-column) */}
+            {/* 2. Two-column: Top-Paying Roles + Market Trend */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SalaryFactorBreakdown
-                factors={salaryData.factorBreakdown}
+              <TopPayingRoles
+                roles={salaryData.topPayingRoles || []}
                 currency={salaryData.prediction.currency}
               />
               <MarketSalaryTrend
@@ -375,13 +383,12 @@ export default function SalaryInsightsPage() {
               />
             </div>
 
-            {/* Skill ROI Calculator */}
-            <SkillROITable
-              skills={salaryData.skillROI}
-              currency={salaryData.prediction.currency}
+            {/* 3. Missing Skills Table (full width) */}
+            <MissingSkillsTable
+              skills={salaryData.missingSkills || []}
             />
 
-            {/* Salary by Location */}
+            {/* 4. Salary by Cities (full width) */}
             <SalaryByLocation
               regions={salaryData.regionalComparison}
               currency={salaryData.prediction.currency}

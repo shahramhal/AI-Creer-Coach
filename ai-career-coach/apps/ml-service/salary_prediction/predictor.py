@@ -176,9 +176,10 @@ class MultiRegionSalaryPredictor:
             company=company
         )
         
-        # Get prediction
-        prediction = float(self.model.predict(features_scaled)[0])
-        
+        # Get prediction (model outputs log-transformed salary)
+        log_prediction = float(self.model.predict(features_scaled)[0])
+        prediction = float(np.exp(log_prediction))
+
         # Calculate range (±15% based on model accuracy)
         salary_min = int(prediction * 0.85)
         salary_max = int(prediction * 1.15)

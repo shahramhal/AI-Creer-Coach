@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { redis, queues, checkDatabaseHealth } from '../config/database.js';
 import crypto from 'crypto';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
+import { sendAccountDisabledEmail } from '../utils/email.util.js';
 
 const prisma = new PrismaClient();
 
@@ -22,6 +23,8 @@ interface ListJobsParams {
   limit: number;
   source?: string;
   country?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 interface AuditLogParams {
@@ -216,6 +219,12 @@ export class AdminService {
       data: { isDisabled: disabled },
     });
 
+    // Only notify users whose email is verified; unverified addresses may not
+    // belong to the account owner and should not receive admin action emails.
+    if (disabled && user.isEmailVerified) {
+      void sendAccountDisabledEmail(user.email, user.firstName || '');
+    }
+
     return { message: `User ${disabled ? 'disabled' : 'enabled'} successfully` };
   }
 
@@ -309,7 +318,7 @@ export class AdminService {
   // ─── Job Management ────────────────────────────────────────
 
   async listJobs(params: ListJobsParams) {
-    const { page, limit, source, country } = params;
+    const { page, limit, source, country, sortBy, sortOrder = 'desc' } = params;
     const skip = (page - 1) * limit;
 
     const mongoDb = mongoose.connection.db;
@@ -319,11 +328,15 @@ export class AdminService {
     if (source) filter.source = source;
     if (country) filter.country = { $regex: country, $options: 'i' };
 
+    const allowedSortFields = ['title', 'company', 'source', 'country', 'posted_date'];
+    const sortField = sortBy && allowedSortFields.includes(sortBy) ? sortBy : 'scraped_at';
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
     const [jobs, total] = await Promise.all([
       mongoDb
         .collection('jobs')
         .find(filter)
-        .sort({ created_at: -1 })
+        .sort({ [sortField]: sortDirection })
         .skip(skip)
         .limit(limit)
         .toArray(),
@@ -354,7 +367,35 @@ export class AdminService {
         .toArray(),
       jobsCollection
         .aggregate([
-          { $group: { _id: '$country', count: { $sum: 1 } } },
+          {
+            $addFields: {
+              effectiveCountry: {
+                $ifNull: [
+                  '$country',
+                  {
+                    $switch: {
+                      branches: [
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.co\.uk\// } }, then: 'gb' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.com\.au\// } }, then: 'au' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.co\.nz\// } }, then: 'nz' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.co\.za\// } }, then: 'za' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.ca\// } }, then: 'ca' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.de\// } }, then: 'de' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.fr\// } }, then: 'fr' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.nl\// } }, then: 'nl' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.it\// } }, then: 'it' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.es\// } }, then: 'es' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.pl\// } }, then: 'pl' },
+                        { case: { $regexMatch: { input: { $ifNull: ['$source_url', ''] }, regex: /\.com\// } }, then: 'us' },
+                      ],
+                      default: 'unknown',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          { $group: { _id: '$effectiveCountry', count: { $sum: 1 } } },
           { $sort: { count: -1 } },
           { $limit: 20 },
         ])
@@ -422,21 +463,27 @@ export class AdminService {
   async getServiceHealth() {
     const dbHealth = await checkDatabaseHealth();
 
-    // Check ML Service
+    // Check ML Service with response time
     let mlServiceHealthy = false;
+    let mlServiceResponseMs: number | null = null;
     try {
       const mlUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+      const startTime = Date.now();
       const response = await fetch(`${mlUrl}/health`, { signal: AbortSignal.timeout(5000) });
+      mlServiceResponseMs = Date.now() - startTime;
       mlServiceHealthy = response.ok;
     } catch {
       mlServiceHealthy = false;
     }
 
-    // Check Job API Service
+    // Check Job API Service with response time
     let jobApiHealthy = false;
+    let jobApiResponseMs: number | null = null;
     try {
       const jobApiUrl = process.env.JOB_API_URL || 'http://localhost:8001';
+      const startTime = Date.now();
       const response = await fetch(`${jobApiUrl}/health`, { signal: AbortSignal.timeout(5000) });
+      jobApiResponseMs = Date.now() - startTime;
       jobApiHealthy = response.ok;
     } catch {
       jobApiHealthy = false;
@@ -445,7 +492,9 @@ export class AdminService {
     return {
       ...dbHealth,
       mlService: mlServiceHealthy,
+      mlServiceResponseMs,
       jobApiService: jobApiHealthy,
+      jobApiResponseMs,
     };
   }
 

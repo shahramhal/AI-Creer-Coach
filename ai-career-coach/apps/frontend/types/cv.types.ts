@@ -11,6 +11,7 @@ export interface CV {
   fileUrl: string;
   parsedData: ParsedCVData | null;
   analysisData: AnalysisData | null;
+  overviewData: CVOverviewData | null;
   isPrimary: boolean;
   createdAt: string;
   updatedAt: string;
@@ -120,14 +121,92 @@ export interface Project {
 }
 
 /**
- * CV analysis data
- * Future feature: ATS compatibility, recommendations
+ * CV analysis data — comprehensive analysis result
  */
 export interface AnalysisData {
-  atsScore?: number;
-  recommendations?: string[];
-  keywordMatches?: string[];
-  missingKeywords?: string[];
+  overallScore: number;
+  scoreBreakdown: {
+    contentQuality: number;
+    atsCompatibility: number;
+    keywordsMatch: number;
+    formatStructure: number;
+    experienceClarity: number;
+  };
+  priorityIssues: PriorityIssue[];
+  atsAnalysis: ATSCheck[];
+  missingKeywords: MissingKeyword[];
+  recommendations: Recommendation[];
+  analyzedAt: string;
+}
+
+export interface PriorityIssue {
+  severity: 'critical' | 'warning' | 'suggestion';
+  title: string;
+  description: string;
+  impact: string;
+}
+
+export interface ATSCheck {
+  status: 'pass' | 'warning' | 'fail';
+  title: string;
+  description: string;
+}
+
+export interface MissingKeyword {
+  keyword: string;
+  jobFrequency: string;
+  section: string;
+  impact: string;
+}
+
+export interface Recommendation {
+  priority: number;
+  title: string;
+  description: string;
+  impact: 'High Impact' | 'Medium Impact' | 'Low Impact';
+  timeEstimate: string;
+  impactRate: string;
+}
+
+/**
+ * CV Overview Data — Job-agnostic quality assessment (4 categories)
+ */
+export interface CVOverviewData {
+  overallScore: number;
+  scoreBreakdown: {
+    contentQuality: number;
+    formatStructure: number;
+    experienceClarity: number;
+    atsReadability: number;
+  };
+  atsChecks: ATSCheck[];
+  priorityIssues: PriorityIssue[];
+  recommendations: Recommendation[];
+  metadata: {
+    wordCount: number;
+    sectionCount: number;
+  };
+  analyzedAt: string;
+}
+
+/**
+ * ATS Score Data — Job-specific keyword matching result
+ */
+export interface ATSScoreData {
+  atsScore: number;
+  breakdown: {
+    keywordMatch: number;
+    semanticSimilarity: number;
+    skillsCoverage: number;
+  };
+  keywordsMatched: { keyword: string; foundIn: string }[];
+  keywordsMissing: { keyword: string; importance: 'high' | 'medium' | 'low'; suggestion: string }[];
+  matchDetails: {
+    totalJobKeywords: number;
+    matchedCount: number;
+    semanticScore: number;
+  };
+  suggestions: string[];
 }
 
 /**

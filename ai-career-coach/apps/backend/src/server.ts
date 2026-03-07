@@ -10,6 +10,8 @@ import mlRoutes from "./routes/ml.routes.js";
 import { connectMongoDB } from './config/database.js';
 import jobRoutes from './routes/jobs.routes.js';
 import matchingRoutes from './routes/matching.routes.js';
+import salaryRoutes from './routes/salary.routes.js';
+import applicationRoutes from './routes/applications.routes.js';
 
 // Load environment variables
 dotenv.config();
@@ -65,6 +67,12 @@ app.use('/api/jobs', jobRoutes);
 app.use('/uploads', express.static('public/uploads'));
 
 app.use('/api/matching', matchingRoutes);
+
+// Salary insights routes
+app.use('/api/salary', salaryRoutes);
+
+// Application routes (ATS scoring)
+app.use('/api/applications', applicationRoutes);
 
 // Debug: List all registered routes
 app.get('/api/debug/routes', (req: Request, res: Response) => {

@@ -10,6 +10,8 @@ import type {
   CVUpdateResponse,
   CVUpdatePayload,
   SetPrimaryCVResponse,
+  CVOverviewData,
+  ATSScoreData,
 } from '../types/cv.types';
 
 /**
@@ -157,6 +159,51 @@ class CVService {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   }
+  /**
+   * Analyze a CV for ATS compatibility, keywords, and recommendations
+   * Runs locally via ML service (no external API calls)
+   */
+  async analyzeCV(cvId: string, targetRole?: string): Promise<{ success: boolean; data: CVOverviewData }> {
+    const response = await api.post(`/api/ml/cvs/${cvId}/analyze`, {
+      targetRole: targetRole || undefined,
+    });
+    return response.data;
+  }
+
+  /**
+   * Calculate ATS score for an application (job-specific keyword matching)
+   * Persists the result on the Application record
+   */
+  async calculateATSScore(applicationId: string, cvId?: string): Promise<{ success: boolean; data: ATSScoreData }> {
+    const response = await api.post(`/api/applications/${applicationId}/ats-score`, {
+      cvId: cvId || undefined,
+    });
+    return response.data;
+  }
+
+  /**
+   * Check ATS score with raw job description text
+   * No Job or Application record needed
+   */
+  async checkATSScore(jobDescription: string, cvId?: string): Promise<{ success: boolean; data: ATSScoreData }> {
+    const response = await api.post('/api/applications/ats-check', {
+      jobDescription,
+      cvId: cvId || undefined,
+    });
+    return response.data;
+  }
+
+  /**
+   * Preview ATS score for a job without persisting
+   * Uses the user's primary CV by default
+   */
+  async previewATSScore(jobId: string, cvId?: string): Promise<{ success: boolean; data: ATSScoreData }> {
+    const response = await api.post(`/api/applications/jobs/${jobId}/ats-preview`, {
+      cvId: cvId || undefined,
+    });
+    return response.data;
+  }
+
   validateFile(file: File): { valid: boolean; error?: string } {
     const allowedTypes = [
       'application/pdf',

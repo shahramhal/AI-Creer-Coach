@@ -36,7 +36,12 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     // If token expired and we haven't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip refresh only for credential/token endpoints that legitimately return 401
+    const skipRefreshEndpoints = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh'];
+    const shouldSkipRefresh = skipRefreshEndpoints.some((endpoint) =>
+      originalRequest.url?.includes(endpoint)
+    );
+    if (error.response?.status === 401 && !originalRequest._retry && !shouldSkipRefresh) {
       originalRequest._retry = true;
 
       try {
@@ -54,10 +59,12 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - redirect to login
+        // Refresh failed - clear storage and redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       }
     }

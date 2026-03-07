@@ -4,15 +4,19 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/authContext';
 import { salaryService } from '../../services/salary.service';
+import dynamic from 'next/dynamic';
 import { AppLayout } from '../../components/layout/AppLayout';
-import SalaryPredictionCard from '../../components/salary/SalaryPredictionCard';
-import SalaryFactorBreakdown from '../../components/salary/SalaryFactorBreakdown';
-import MarketSalaryTrend from '../../components/salary/MarketSalaryTrend';
-import SkillROITable from '../../components/salary/SkillROITable';
-import SalaryByLocation from '../../components/salary/SalaryByLocation';
+import SalaryRangeHero from '../../components/salary/SalaryRangeHero';
+
+// Lazy-load chart-heavy salary components
+const MarketSalaryTrend = dynamic(() => import('../../components/salary/MarketSalaryTrend'), { ssr: false });
+const TopPayingRoles = dynamic(() => import('../../components/salary/TopPayingRoles'), { ssr: false });
+const MissingSkillsTable = dynamic(() => import('../../components/salary/MissingSkillsTable'), { ssr: false });
+const SalaryByLocation = dynamic(() => import('../../components/salary/SalaryByLocation'), { ssr: false });
 import type { SalaryInsightsData } from '../../types/salary.types';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { DollarSign, RefreshCw, Search } from 'lucide-react';
 import api from '../../library/api';
 
@@ -116,7 +120,7 @@ export default function SalaryInsightsPage() {
   const { user, isLoading: isAuthLoading, isAuthenticated } = useAuth();
 
   const [jobTitle, setJobTitle] = useState('');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState('__all__');
   const [country, setCountry] = useState('gb');
   const [salaryData, setSalaryData] = useState<SalaryInsightsData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -132,7 +136,7 @@ export default function SalaryInsightsPage() {
 
   // Reset location when country changes
   useEffect(() => {
-    setLocation('');
+    setLocation('__all__');
   }, [country]);
 
   // Load user profile and CV to auto-populate fields
@@ -204,6 +208,9 @@ export default function SalaryInsightsPage() {
     initializeFields();
   }, [user]);
 
+  // Convert internal "__all__" sentinel to empty string for API calls
+  const resolveLocation = (loc: string) => loc === '__all__' ? '' : loc;
+
   const fetchInsights = useCallback(async (title: string, loc: string, ctry: string) => {
     if (!title.trim()) {
       setError('Please select a job title to get salary insights.');
@@ -214,7 +221,8 @@ export default function SalaryInsightsPage() {
     setError(null);
 
     try {
-      const response = await salaryService.getInsights(title.trim(), loc.trim(), ctry);
+      const apiLocation = resolveLocation(loc).trim();
+      const response = await salaryService.getInsights(title.trim(), apiLocation, ctry);
       setSalaryData(response.data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load salary insights';
@@ -226,9 +234,10 @@ export default function SalaryInsightsPage() {
   }, []);
 
   const handleSubmit = async () => {
+    const apiLocation = resolveLocation(location);
     // Save preferences
     try {
-      await salaryService.savePreferences(jobTitle, location);
+      await salaryService.savePreferences(jobTitle, apiLocation);
     } catch {
       // Non-critical, continue with fetch
     }
@@ -247,7 +256,10 @@ export default function SalaryInsightsPage() {
     );
   }
 
-  const selectClassName = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary";
+  // Get the display label for the selected location
+  const selectedLocationLabel = location
+    ? (LOCATION_OPTIONS[country] || []).find(l => l.value === location)?.label || location
+    : '';
 
   return (
     <AppLayout>
@@ -260,51 +272,53 @@ export default function SalaryInsightsPage() {
           </p>
         </div>
 
-        {/* Job Title / Location / Country Selectors */}
+        {/* Filters Bar */}
         <Card className="border-border bg-card shadow-card">
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Job Title</label>
-                <select
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                  className={selectClassName}
-                >
-                  <option value="">Select a job title</option>
-                  {JOB_TITLE_OPTIONS.map(title => (
-                    <option key={title} value={title}>{title}</option>
-                  ))}
-                </select>
+                <Select value={jobTitle} onValueChange={setJobTitle}>
+                  <SelectTrigger className="w-full rounded-lg border-border bg-background text-foreground">
+                    <SelectValue placeholder="Select a job title" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JOB_TITLE_OPTIONS.map(title => (
+                      <SelectItem key={title} value={title}>{title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex-1">
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
-                <select
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className={selectClassName}
-                >
-                  <option value="">All regions</option>
-                  {(LOCATION_OPTIONS[country] || []).map(loc => (
-                    <option key={loc.value} value={loc.value}>{loc.label}</option>
-                  ))}
-                </select>
+                <Select value={location} onValueChange={setLocation}>
+                  <SelectTrigger className="w-full rounded-lg border-border bg-background text-foreground">
+                    <SelectValue placeholder="All regions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All regions</SelectItem>
+                    {(LOCATION_OPTIONS[country] || []).map(loc => (
+                      <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="w-32">
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Country</label>
-                <select
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className={selectClassName}
-                >
-                  <option value="gb">UK</option>
-                  <option value="us">US</option>
-                  <option value="de">Germany</option>
-                  <option value="fr">France</option>
-                  <option value="nl">Netherlands</option>
-                  <option value="au">Australia</option>
-                  <option value="ca">Canada</option>
-                </select>
+                <Select value={country} onValueChange={setCountry}>
+                  <SelectTrigger className="w-full rounded-lg border-border bg-background text-foreground">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gb">UK</SelectItem>
+                    <SelectItem value="us">US</SelectItem>
+                    <SelectItem value="de">Germany</SelectItem>
+                    <SelectItem value="fr">France</SelectItem>
+                    <SelectItem value="nl">Netherlands</SelectItem>
+                    <SelectItem value="au">Australia</SelectItem>
+                    <SelectItem value="ca">Canada</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex items-end">
                 <Button
@@ -357,13 +371,16 @@ export default function SalaryInsightsPage() {
         {/* Salary Data */}
         {!isLoading && salaryData && (
           <>
-            {/* Prediction Card */}
-            <SalaryPredictionCard prediction={salaryData.prediction} />
+            {/* 1. Salary Range Hero (full width) */}
+            <SalaryRangeHero
+              prediction={salaryData.prediction}
+              location={selectedLocationLabel}
+            />
 
-            {/* Factor Breakdown + Market Trend (2-column) */}
+            {/* 2. Two-column: Top-Paying Roles + Market Trend */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SalaryFactorBreakdown
-                factors={salaryData.factorBreakdown}
+              <TopPayingRoles
+                roles={salaryData.topPayingRoles || []}
                 currency={salaryData.prediction.currency}
               />
               <MarketSalaryTrend
@@ -372,13 +389,12 @@ export default function SalaryInsightsPage() {
               />
             </div>
 
-            {/* Skill ROI Calculator */}
-            <SkillROITable
-              skills={salaryData.skillROI}
-              currency={salaryData.prediction.currency}
+            {/* 3. Missing Skills Table (full width) */}
+            <MissingSkillsTable
+              skills={salaryData.missingSkills || []}
             />
 
-            {/* Salary by Location */}
+            {/* 4. Salary by Cities (full width) */}
             <SalaryByLocation
               regions={salaryData.regionalComparison}
               currency={salaryData.prediction.currency}

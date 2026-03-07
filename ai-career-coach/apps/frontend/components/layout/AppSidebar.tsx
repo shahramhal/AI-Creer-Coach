@@ -9,7 +9,8 @@ import {
   LogOut,
   Briefcase,
   DollarSign,
-  ScanSearch
+  ScanSearch,
+  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -31,7 +32,7 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
 
   const handleLogout = async () => {
     await logout();
@@ -91,6 +92,24 @@ export function AppSidebar() {
           );
         })}
       </nav>
+
+      {/* Admin panel link */}
+      {isAdmin && (
+        <div className="px-2 mt-2">
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              pathname?.startsWith('/admin')
+                ? "bg-destructive/10 text-destructive"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <Shield className="h-5 w-5 shrink-0" />
+            {!collapsed && <span>Admin Panel</span>}
+          </Link>
+        </div>
+      )}
 
       {/* User info and logout */}
       {!collapsed && user && (

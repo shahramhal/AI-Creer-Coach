@@ -2,6 +2,8 @@ export interface MatchBreakdown {
   skill_coverage: number;
   matched_skills: string[];
   missing_skills: string[];
+  title_relevance: number;
+  summary: string;
 }
 
 export interface MatchedJob {
@@ -34,7 +36,11 @@ export interface JobMatchResponse {
 }
 
 export interface MatchFilters {
-  location?: string;
+  country?: string;
+  city?: string;
+  job_type?: string;
+  experience_level?: string;
+  title_keywords?: string;
   min_salary?: number;
   remote_type?: string;
 }

@@ -6,6 +6,15 @@ import nodemailer from 'nodemailer';
  * Email transporter configuration
  * Uses Gmail SMTP - can be replaced with SendGrid, AWS SES, etc.
  */
+function escapeHtml(unsafeText: string): string {
+  return unsafeText
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
@@ -113,9 +122,51 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
 };
 
 /**
- * Send welcome email after email verification
- * Optional - can be used for onboarding
+ * Send notification email when an admin disables a user account.
+ * Non-throwing — email failure should not block the disable action.
  */
+export const sendAccountDisabledEmail = async (email: string, firstName: string) => {
+  const transporter = createTransporter();
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: 'Your Account Has Been Disabled - AI Career Coach',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Account Disabled</h2>
+        <p>Hi ${escapeHtml(firstName || 'there')},</p>
+        <p>We're writing to let you know that your AI Career Coach account has been disabled by an administrator.</p>
+        <p>While your account is disabled, you will not be able to log in or access any services.</p>
+        <div style="margin: 30px 0; padding: 16px; background-color: #FEF2F2; border-radius: 6px; border-left: 4px solid #EF4444;">
+          <p style="margin: 0; color: #991B1B;">
+            If you believe this was done in error, please contact our support team for assistance.
+          </p>
+        </div>
+        <div style="margin: 30px 0;">
+          <a href="mailto:${process.env.SUPPORT_EMAIL || process.env.EMAIL_FROM}"
+             style="background-color: #4F46E5; color: white; padding: 12px 24px;
+                    text-decoration: none; border-radius: 6px; display: inline-block;">
+            Contact Support
+          </a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+        <p style="color: #999; font-size: 12px;">
+          This is an automated message from AI Career Coach.
+        </p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Account disabled email sent to ${email}`);
+  } catch (error) {
+    console.error('Error sending account disabled email:', error);
+    // Don't throw - notification email is not critical
+  }
+};
+
 export const sendWelcomeEmail = async (email: string, firstName: string) => {
   const transporter = createTransporter();
 

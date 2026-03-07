@@ -15,6 +15,7 @@ function formatSalaryFull(amount: number, currency: string): string {
 
 export default function SalaryRangeHero({ prediction, location }: SalaryRangeHeroProps) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showMarketTooltip, setShowMarketTooltip] = useState(false);
   const isPositive = prediction.vsMarketAvg >= 0;
   const isMLSource = prediction.dataSource === 'ml';
 
@@ -66,7 +67,7 @@ export default function SalaryRangeHero({ prediction, location }: SalaryRangeHer
 
         {/* Right: Market comparison */}
         <div className="text-right flex-shrink-0">
-          <div className="flex items-center gap-1.5 justify-end">
+          <div className="relative inline-flex items-center gap-1.5 justify-end">
             {isPositive ? (
               <TrendingUp className="h-5 w-5 text-metric-excellent" />
             ) : (
@@ -75,6 +76,18 @@ export default function SalaryRangeHero({ prediction, location }: SalaryRangeHer
             <span className={`text-2xl font-bold ${isPositive ? 'text-metric-excellent' : 'text-metric-poor'}`}>
               {isPositive ? '+' : ''}{prediction.vsMarketAvg}%
             </span>
+            <Info
+              className="h-3.5 w-3.5 text-muted-foreground cursor-help"
+              onMouseEnter={() => setShowMarketTooltip(true)}
+              onMouseLeave={() => setShowMarketTooltip(false)}
+            />
+            {showMarketTooltip && (
+              <div className="absolute right-0 top-full mt-2 w-72 p-3 rounded-lg bg-popover border border-border shadow-lg z-10 text-xs text-muted-foreground text-left">
+                {isPositive
+                  ? `Your predicted salary is ${prediction.vsMarketAvg}% above the market average for this role. This accounts for your skills, experience, education, and location.`
+                  : `Your predicted salary is ${Math.abs(prediction.vsMarketAvg)}% below the market average for this role. Gaining more experience or in-demand skills can help close this gap.`}
+              </div>
+            )}
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">vs. market avg</p>
           <p className="text-xs text-muted-foreground mt-1">

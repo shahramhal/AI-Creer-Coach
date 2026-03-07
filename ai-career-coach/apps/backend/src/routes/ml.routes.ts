@@ -4,7 +4,7 @@ import type { Request, Response, RequestHandler } from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
-import { prisma } from '../config/database.js';
+import { prisma, cache } from '../config/database.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -14,14 +14,94 @@ const upload = multer();
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
 
 /**
+ * Parse a date range string like "Nov 2024 - May 2025" into startDate/endDate.
+ * Returns { startDate, endDate } with the original substrings or undefined.
+ */
+function parseDateRange(dates?: string): { startDate: string; endDate: string } {
+  if (!dates) return { startDate: '', endDate: '' };
+  const parts = dates.split(/\s*[-–]\s*/);
+  return {
+    startDate: parts[0]?.trim() || '',
+    endDate: parts[1]?.trim() || '',
+  };
+}
+
+/**
+ * Transform raw ML/MongoDB parsed data into the shape the frontend expects.
+ * Maps contact_info -> personal, experience.dates -> startDate/endDate, etc.
+ */
+function transformParsedDataForFrontend(raw: Record<string, any>): Record<string, unknown> {
+  const contactInfo = raw.contact_info || raw.personal || {};
+
+  const experience = (raw.experience || []).map((exp: any) => {
+    const { startDate, endDate } = parseDateRange(exp.dates);
+    return {
+      company: exp.company || '',
+      title: exp.title || '',
+      location: exp.location || '',
+      startDate: exp.startDate || startDate || '',
+      endDate: exp.endDate || endDate || '',
+      duration: exp.duration || '',
+      responsibilities: exp.responsibilities || [],
+      achievements: exp.achievements || [],
+    };
+  });
+
+  const education = (raw.education || []).map((edu: any) => {
+    const { startDate, endDate } = parseDateRange(edu.dates);
+    return {
+      institution: edu.institution || '',
+      degree: edu.degree || '',
+      field: edu.field || '',
+      location: edu.location || '',
+      startDate: edu.startDate || startDate || '',
+      endDate: edu.endDate || endDate || '',
+      gpa: edu.gpa || edu.grade || '',
+      achievements: edu.achievements || [],
+    };
+  });
+
+  return {
+    personal: {
+      name: contactInfo.name || '',
+      email: contactInfo.email || '',
+      phone: contactInfo.phone || '',
+      location: contactInfo.location || '',
+      linkedin: contactInfo.linkedin || '',
+      github: contactInfo.github || '',
+      website: contactInfo.website || '',
+    },
+    summary: raw.summary || '',
+    experience,
+    education,
+    skills: raw.skills || [],
+    certifications: raw.certifications || [],
+    languages: raw.languages || [],
+    projects: raw.projects || [],
+  };
+}
+
+/** Fetch parsed CV data from MongoDB by document ID */
+async function fetchParsedDataFromMongo(mongoDocId: string): Promise<Record<string, unknown> | null> {
+  if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+    return null;
+  }
+  const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
+  const doc = await mongoCollection.findOne({ _id: new mongoose.Types.ObjectId(mongoDocId) });
+  if (!doc) return null;
+  return transformParsedDataForFrontend(doc);
+}
+
+/**
  * Upload and parse CV
  * Protected route - requires authentication
  * 
  * Flow:
  * 1. User uploads CV file
  * 2. Forward to ML service for parsing
- * 3. Save parsed data to PostgreSQL (CV table)
- * 4. Return parsed data to user
+ * 3. Save parsed data to MongoDB (primary store)
+ * 4. Save metadata + mongoDocId to PostgreSQL
+ * 5. Return parsed data to user
  */
 router.post(
   '/parse-cv', 
@@ -101,60 +181,67 @@ router.post(
         throw new Error('File save failed');
       }
 
-      // Step 3: Save to PostgreSQL
-      // Store parsed data in CV table (parsedData field as JSONB)
+      // Step 3: Save parsed data to MongoDB (primary store)
+      if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+        res.status(503).json({
+          success: false,
+          message: 'MongoDB unavailable - cannot store parsed CV data',
+        });
+        return;
+      }
+
+      const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
+
+      // Insert parsed data into MongoDB
+      const cvRawText = parsedData.raw_text || parsedData.metadata?.raw_text || parsedData.full_text || '';
+      const mongoResult = await mongoCollection.insertOne({
+        user_id: userId,
+        filename: filename,
+        raw_text: cvRawText,
+        skills: parsedData.skills || [],
+        experience: parsedData.experience || [],
+        education: parsedData.education || [],
+        contact_info: parsedData.contact_info || {},
+        summary: parsedData.summary || '',
+        metadata: { raw_text: cvRawText },
+        created_at: new Date(),
+      });
+
+      const mongoDocId = mongoResult.insertedId.toString();
+      console.log(` Saved to MongoDB with ID: ${mongoDocId}`);
+
+      // Step 4: Save metadata + mongoDocId to PostgreSQL
       const cvRecord = await prisma.cV.create({
         data: {
           userId: userId,
           filename: filename,
-          fileUrl: `/uploads/cvs/${userId}/${filename}`, // Placeholder - implement file storage
-          parsedData: parsedData, // Store entire parsed CV as JSON
-          isPrimary: false, // User can set primary CV later
+          fileUrl: `/uploads/cvs/${userId}/${filename}`,
+          mongoDocId: mongoDocId,
+          isPrimary: false,
         },
       });
 
-      console.log(` Saved to database with ID: ${cvRecord.id}`);
+      console.log(` Saved to PostgreSQL with ID: ${cvRecord.id}`);
 
-      // Step 4: Sync to MongoDB for Matching Service
-      try {
-        if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
-          const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
+      // Update MongoDB doc with the PostgreSQL cv_id back-reference
+      await mongoCollection.updateOne(
+        { _id: mongoResult.insertedId },
+        { $set: { cv_id: cvRecord.id } },
+      );
 
-          // Remove old CVs for this user
-          await mongoCollection.deleteMany({ user_id: userId });
+      // Step 5: Invalidate user caches (CV list + job matching)
+      await cache.del(`cvs:user:${userId}`);
+      await cache.delByPattern(`match:user:${userId}:*`);
+      console.log(`📦 [Cache] Invalidated CV list + matching caches for user: ${userId}`);
 
-          // Insert new CV data
-          await mongoCollection.insertOne({
-            user_id: userId,
-            cv_id: cvRecord.id,
-            filename: filename,
-            raw_text: parsedData.raw_text || parsedData.full_text || '',
-            skills: parsedData.skills || [],
-            experience: parsedData.experience || [],
-            education: parsedData.education || [],
-            contact_info: parsedData.contact_info || {},
-            summary: parsedData.summary || '',
-            metadata: { raw_text: parsedData.raw_text || parsedData.full_text },
-            created_at: new Date(),
-          });
-
-          console.log(`✅ Synced to MongoDB for matching service`);
-        } else {
-          console.warn(`⚠️ MongoDB not connected, matching may not work`);
-        }
-      } catch (mongoError) {
-        console.error(`❌ MongoDB sync failed:`, mongoError);
-        // Don't fail the request, CV is still saved to PostgreSQL
-      }
-
-      // Step 5: Return response
+      // Step 6: Return response (transform to frontend shape)
       res.status(200).json({
         success: true,
         message: 'CV parsed and saved successfully',
         data: {
           cvId: cvRecord.id,
           filename: cvRecord.filename,
-          parsedData: cvRecord.parsedData,
+          parsedData: transformParsedDataForFrontend(parsedData),
           createdAt: cvRecord.createdAt,
         }
       });
@@ -180,25 +267,60 @@ router.get(
     try {
       const userId = req.user!.id;
 
-      // Fetch all CVs for user
+      // Check cache first
+      const cacheKey = `cvs:user:${userId}`;
+      const cachedResponse = await cache.get(cacheKey);
+      if (cachedResponse) {
+        console.log(`📦 [Cache] CV list cache HIT for user: ${userId}`);
+        res.json(cachedResponse);
+        return;
+      }
+
+      // Fetch CV metadata from PostgreSQL
       const cvs = await prisma.cV.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           filename: true,
-          parsedData: true,
+          mongoDocId: true,
+          analysisData: true,
+          overviewData: true,
           isPrimary: true,
           createdAt: true,
           updatedAt: true,
         },
       });
 
-      res.json({
+      // Batch-fetch parsed data from MongoDB
+      const cvsWithParsedData = await Promise.all(
+        cvs.map(async (cv) => {
+          const parsedData = cv.mongoDocId
+            ? await fetchParsedDataFromMongo(cv.mongoDocId)
+            : null;
+          return {
+            id: cv.id,
+            filename: cv.filename,
+            parsedData,
+            analysisData: cv.analysisData,
+            overviewData: cv.overviewData,
+            isPrimary: cv.isPrimary,
+            createdAt: cv.createdAt,
+            updatedAt: cv.updatedAt,
+          };
+        }),
+      );
+
+      const responseData = {
         success: true,
-        data: cvs,
-        count: cvs.length,
-      });
+        data: cvsWithParsedData,
+        count: cvsWithParsedData.length,
+      };
+
+      // Cache for 5 minutes
+      await cache.set(cacheKey, responseData, 300);
+
+      res.json(responseData);
 
     } catch (error) {
       console.error('Error fetching CVs:', error);
@@ -230,13 +352,11 @@ router.get(
         return;
       }
 
-      // Fetch CV and verify ownership
-      // Use findUnique with where clause instead of findFirst
+      // Fetch CV metadata and verify ownership
       const cv = await prisma.cV.findUnique({
         where: { id: cvId },
       });
 
-      // Verify ownership after fetching
       if (!cv || cv.userId !== userId) {
         res.status(404).json({
           success: false,
@@ -245,9 +365,24 @@ router.get(
         return;
       }
 
+      // Fetch parsed data from MongoDB
+      const parsedData = cv.mongoDocId
+        ? await fetchParsedDataFromMongo(cv.mongoDocId)
+        : null;
+
       res.json({
         success: true,
-        data: cv,
+        data: {
+          id: cv.id,
+          filename: cv.filename,
+          fileUrl: cv.fileUrl,
+          parsedData,
+          analysisData: cv.analysisData,
+          overviewData: cv.overviewData ?? null,
+          isPrimary: cv.isPrimary,
+          createdAt: cv.createdAt,
+          updatedAt: cv.updatedAt,
+        },
       });
 
     } catch (error) {
@@ -293,20 +428,29 @@ router.delete(
         return;
       }
 
+      // Delete from MongoDB using mongoDocId
+      if (cv.mongoDocId) {
+        try {
+          if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+            await mongoose.connection.db.collection('parsed_cvs').deleteOne({
+              _id: new mongoose.Types.ObjectId(cv.mongoDocId),
+            });
+            console.log(`Deleted CV from MongoDB: ${cv.mongoDocId}`);
+          }
+        } catch (mongoError) {
+          console.warn(`MongoDB cleanup failed:`, mongoError);
+        }
+      }
+
       // Delete CV from PostgreSQL
       await prisma.cV.delete({
         where: { id: cvId },
       });
 
-      // Also delete from MongoDB
-      try {
-        if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
-          await mongoose.connection.db.collection('parsed_cvs').deleteMany({ user_id: userId });
-          console.log(`🗑️ Deleted CV from MongoDB`);
-        }
-      } catch (mongoError) {
-        console.warn(`⚠️ MongoDB cleanup failed:`, mongoError);
-      }
+      // Invalidate user caches (CV list + job matching)
+      await cache.del(`cvs:user:${userId}`);
+      await cache.delByPattern(`match:user:${userId}:*`);
+      console.log(`📦 [Cache] Invalidated CV list + matching caches for user: ${userId}`);
 
       res.json({
         success: true,
@@ -368,10 +512,25 @@ router.patch(
         data: { isPrimary: true },
       });
 
+      // Fetch parsed data from MongoDB for the response
+      const parsedData = updatedCv.mongoDocId
+        ? await fetchParsedDataFromMongo(updatedCv.mongoDocId)
+        : null;
+
       res.json({
         success: true,
         message: 'Primary CV updated',
-        data: updatedCv,
+        data: {
+          id: updatedCv.id,
+          filename: updatedCv.filename,
+          fileUrl: updatedCv.fileUrl,
+          parsedData,
+          analysisData: updatedCv.analysisData,
+          overviewData: updatedCv.overviewData ?? null,
+          isPrimary: updatedCv.isPrimary,
+          createdAt: updatedCv.createdAt,
+          updatedAt: updatedCv.updatedAt,
+        },
       });
 
     } catch (error) {
@@ -449,6 +608,152 @@ router.get('/cvs/:cvId/download', authenticate as RequestHandler,
 
     
 });
+/**
+ * Analyze CV — triggers ML analysis and stores results
+ * Returns ATS scores, keyword gaps, and recommendations
+ */
+router.post(
+  '/cvs/:cvId/analyze',
+  authenticate as RequestHandler,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const cvId = req.params.cvId;
+
+      if (!cvId) {
+        res.status(400).json({ success: false, message: 'CV ID is required' });
+        return;
+      }
+
+      // Verify ownership
+      const cv = await prisma.cV.findUnique({ where: { id: cvId } });
+      if (!cv || cv.userId !== userId) {
+        res.status(404).json({ success: false, message: 'CV not found' });
+        return;
+      }
+
+      // Return cached analysis if it exists (skip ML call entirely)
+      const cachedResult = cv.overviewData ?? cv.analysisData;
+      if (cachedResult && !req.body?.forceReanalyze) {
+        console.log(`📦 [Cache] Returning cached analysis for CV: ${cvId}`);
+        res.json({
+          success: true,
+          message: 'CV analysis loaded from cache',
+          data: cachedResult,
+        });
+        return;
+      }
+
+      // Fetch parsed data + raw text from MongoDB
+      if (!cv.mongoDocId || mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+        res.status(400).json({
+          success: false,
+          message: 'Parsed CV data not available for analysis',
+        });
+        return;
+      }
+
+      const mongoCollection = mongoose.connection.db.collection('parsed_cvs');
+      const mongoDoc = await mongoCollection.findOne({
+        _id: new mongoose.Types.ObjectId(cv.mongoDocId),
+      });
+
+      if (!mongoDoc) {
+        res.status(404).json({
+          success: false,
+          message: 'Parsed CV data not found in database',
+        });
+        return;
+      }
+
+      // Extract raw text and parsed data
+      let rawText = mongoDoc.raw_text || mongoDoc.metadata?.raw_text || '';
+      const parsedData = {
+        contact_info: mongoDoc.contact_info || {},
+        summary: mongoDoc.summary || '',
+        experience: mongoDoc.experience || [],
+        education: mongoDoc.education || [],
+        skills: mongoDoc.skills || [],
+        certifications: mongoDoc.certifications || [],
+        projects: mongoDoc.projects || [],
+      };
+
+      // If no raw_text stored, build from parsed fields
+      if (!rawText) {
+        const textParts: string[] = [];
+        if (parsedData.summary) textParts.push(parsedData.summary);
+        if (parsedData.skills?.length) textParts.push(`Skills: ${parsedData.skills.join(', ')}`);
+        for (const exp of parsedData.experience as any[]) {
+          const parts = [exp.title, exp.company, ...(exp.responsibilities || [])].filter(Boolean);
+          if (parts.length) textParts.push(parts.join(' - '));
+        }
+        for (const edu of parsedData.education as any[]) {
+          const parts = [edu.degree, edu.institution, edu.field].filter(Boolean);
+          if (parts.length) textParts.push(parts.join(' - '));
+        }
+        rawText = textParts.join('\n');
+      }
+
+      // Get target role from request body (optional, from user settings)
+      const targetRole = req.body?.targetRole || null;
+
+      console.log(`Analyzing CV: ${cv.filename} for user: ${userId} (text: ${rawText.length} chars)`);
+
+      // Call ML service for CV overview (job-agnostic analysis)
+      const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/cv-overview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cv_text: rawText,
+          parsed_data: parsedData,
+          filename: cv.filename,
+        }),
+      });
+
+      const mlData = await mlResponse.json();
+
+      if (!mlResponse.ok || !mlData.success) {
+        console.error('ML analysis error:', mlData);
+        res.status(500).json({
+          success: false,
+          message: mlData.error || 'CV analysis failed',
+        });
+        return;
+      }
+
+      const analysisData = mlData.data;
+
+      // Store in both overviewData (new) and analysisData (backward compat)
+      await prisma.cV.update({
+        where: { id: cvId },
+        data: {
+          overviewData: analysisData,
+          analysisData: analysisData,
+        },
+      });
+
+      // Invalidate CV list cache so score shows in list
+      await cache.del(`cvs:user:${userId}`);
+
+      console.log(`Analysis stored for CV: ${cvId}, score: ${analysisData.overallScore}/100`);
+
+      res.json({
+        success: true,
+        message: 'CV analyzed successfully',
+        data: analysisData,
+      });
+
+    } catch (error) {
+      console.error('Error analyzing CV:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to analyze CV',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+);
+
 /**
  * Health check for ML service
  */

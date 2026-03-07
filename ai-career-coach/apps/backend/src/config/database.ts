@@ -222,6 +222,24 @@ class CacheManager {
   }
 
   /**
+   * Delete all cache entries matching a pattern
+   * @param pattern - Redis key pattern (e.g. "match:user:123:*")
+   * @returns Number of keys deleted
+   */
+  async delByPattern(pattern: string): Promise<number> {
+    try {
+      const keys = await this.redis.keys(pattern);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+      }
+      return keys.length;
+    } catch (error) {
+      console.error(`Cache delByPattern error for ${pattern}:`, error);
+      return 0;
+    }
+  }
+
+  /**
    * Invalidate all cache entries for a user
    * @param userId - User ID
    */
@@ -229,14 +247,11 @@ class CacheManager {
     const patterns = [
       `user:*:${userId}`,
       `match:user:${userId}:*`,
-      `cv:*:${userId}`,
+      `cvs:user:${userId}`,
     ];
 
     for (const pattern of patterns) {
-      const keys = await this.redis.keys(pattern);
-      if (keys.length > 0) {
-        await this.redis.del(...keys);
-      }
+      await this.delByPattern(pattern);
     }
   }
 }

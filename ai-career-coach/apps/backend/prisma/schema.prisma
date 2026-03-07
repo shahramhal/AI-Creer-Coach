@@ -50,6 +50,7 @@ model UserProfile {
   portfolioUrl String?  @map("portfolio_url") @db.VarChar(500)
   bio          String?  @db.Text
   avatarUrl    String?  @map("avatar_url") @db.VarChar(500)
+  jobTitle     String?  @map("job_title") @db.VarChar(255)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamp()
 
@@ -65,13 +66,15 @@ model CV {
   userId       String   @map("user_id") @db.Uuid
   filename     String   @db.VarChar(255)
   fileUrl      String   @map("file_url") @db.VarChar(500)
-  parsedData   Json?    @map("parsed_data") @db.JsonB // Parsed CV content
-  analysisData Json?    @map("analysis_data") @db.JsonB // ATS score, recommendations
+  mongoDocId   String?  @map("mongo_doc_id") @db.VarChar(50) // Reference to MongoDB parsed_cvs document
+  analysisData Json?    @map("analysis_data") @db.JsonB // Legacy: full analysis (kept for backward compat)
+  overviewData Json?    @map("overview_data") @db.JsonB  // Job-agnostic CV quality scores
   isPrimary    Boolean  @default(false) @map("is_primary")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamp()
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications Application[]
 
   @@index([userId], name: "idx_cvs_user")
   @@map("cvs")
@@ -143,20 +146,27 @@ model SavedJob {
 
 
 model Application {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @map("user_id") @db.Uuid
-  jobId       String?  @map("job_id") @db.Uuid
-  company     String   @db.VarChar(255)
-  jobTitle    String   @map("job_title") @db.VarChar(255)
-  status      String   @default("applied") @db.VarChar(50) // applied, interview, offer, rejected
-  appliedDate DateTime @default(now()) @map("applied_date") @db.Timestamp()
-  notes       String?  @db.Text
-  followUpDate DateTime? @map("follow_up_date") @db.Date
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp()
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp()
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  jobId           String?   @map("job_id") @db.Uuid
+  cvId            String?   @map("cv_id") @db.Uuid
+  company         String    @db.VarChar(255)
+  jobTitle        String    @map("job_title") @db.VarChar(255)
+  status          String    @default("applied") @db.VarChar(50) // applied, interview, offer, rejected
+  appliedDate     DateTime  @default(now()) @map("applied_date") @db.Timestamp()
+  notes           String?   @db.Text
+  followUpDate    DateTime? @map("follow_up_date") @db.Date
+  atsScore        Int?      @map("ats_score")
+  atsBreakdown    Json?     @map("ats_breakdown") @db.JsonB
+  keywordsMatched Json?     @map("keywords_matched") @db.JsonB
+  keywordsMissing Json?     @map("keywords_missing") @db.JsonB
+  atsAnalyzedAt   DateTime? @map("ats_analyzed_at") @db.Timestamp()
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamp()
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  job         Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job             Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  cv              CV?       @relation(fields: [cvId], references: [id], onDelete: SetNull)
 
   @@index([userId, status], name: "idx_applications_user_status")
   @@map("applications")

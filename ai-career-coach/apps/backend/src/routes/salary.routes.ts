@@ -139,6 +139,170 @@ const CURRENCY_MAP: Record<string, string> = {
   gb: '£', us: '$', de: '€', fr: '€', nl: '€', au: 'A$', ca: 'C$',
 };
 
+// ─── ML Service Config ──────────────────────────────────────────────────────
+
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+
+// Maps Adzuna region names → ML model location format
+const ADZUNA_TO_ML_LOCATION: Record<string, Record<string, string>> = {
+  us: {
+    'California': 'CA', 'New York': 'NY', 'Texas': 'TX',
+    'Washington State': 'WA', 'Massachusetts': 'MA', 'Illinois': 'IL',
+    'Pennsylvania': 'PA', 'Colorado': 'CO', 'Georgia': 'GA', 'Florida': 'FL',
+  },
+  gb: {
+    'London': 'London', 'South East England': 'London',
+    'North West England': 'Manchester', 'West Midlands': 'Birmingham',
+    'Scotland': 'Edinburgh', 'East of England': 'Cambridge',
+    'South West England': 'Bristol', 'East Midlands': 'Nottingham',
+    'North East England': 'Newcastle', 'Yorkshire and The Humber': 'Leeds',
+    'Wales': 'Cardiff', 'Northern Ireland': 'Belfast',
+  },
+};
+
+// ─── ML Service Helper ──────────────────────────────────────────────────────
+
+interface MLPredictionResult {
+  predicted_salary: number;
+  salary_range: { min: number; max: number };
+  confidence: number;
+  currency_symbol: string;
+  factors?: Array<{ factor: string; description: string; impact: string; value?: string }>;
+  skill_analysis?: {
+    matched_high_value_skills: string[];
+    suggested_skills_to_learn: string[];
+    total_matched: number;
+    note: string;
+  };
+}
+
+async function fetchMLPrediction(
+  jobTitle: string,
+  country: string,
+  location: string,
+  cvSkills: string[]
+): Promise<MLPredictionResult | null> {
+  const mlCountryCode = country === 'gb' ? 'UK' : country === 'us' ? 'US' : null;
+  if (!mlCountryCode) return null;
+
+  const locationMapping = ADZUNA_TO_ML_LOCATION[country] || {};
+  const mlLocation = locationMapping[location] || (country === 'us' ? 'CA' : 'London');
+
+  try {
+    const response = await fetch(`${ML_SERVICE_URL}/api/ml/predict-salary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_title: jobTitle,
+        country: mlCountryCode,
+        location: mlLocation,
+        skills: cvSkills,
+        include_factors: true,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      console.error(`[Salary] ML service error: ${response.status}`);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[Salary] ML service unreachable, falling back to Adzuna:', error);
+    return null;
+  }
+}
+
+// ─── Top-Paying Roles Helper ─────────────────────────────────────────────────
+
+const ROLE_VARIANTS: Record<string, string[]> = {
+  'Software Engineer': ['Senior Software Engineer', 'Staff Engineer', 'Principal Engineer', 'Engineering Manager', 'Solutions Architect', 'DevOps Engineer', 'Cloud Architect', 'Site Reliability Engineer'],
+  'Data Scientist': ['Senior Data Scientist', 'Machine Learning Engineer', 'Data Engineering Manager', 'AI Researcher', 'Principal Data Scientist', 'MLOps Engineer', 'Analytics Manager', 'Head of Data'],
+  'Frontend Developer': ['Senior Frontend Developer', 'Lead Frontend Engineer', 'UI Architect', 'Full Stack Developer', 'Frontend Engineering Manager', 'UX Engineer', 'Design Technologist', 'Mobile Developer'],
+  'Backend Developer': ['Senior Backend Developer', 'Lead Backend Engineer', 'Platform Engineer', 'API Developer', 'Systems Engineer', 'Microservices Architect', 'Backend Engineering Manager', 'Infrastructure Engineer'],
+  'DevOps Engineer': ['Senior DevOps Engineer', 'Site Reliability Engineer', 'Platform Engineer', 'Cloud Architect', 'Infrastructure Manager', 'DevOps Lead', 'Release Engineer', 'Systems Administrator'],
+  'Product Manager': ['Senior Product Manager', 'Director of Product', 'VP of Product', 'Chief Product Officer', 'Technical Product Manager', 'Group Product Manager', 'Product Lead', 'Head of Product'],
+};
+
+async function fetchTopPayingRoles(
+  country: string,
+  jobTitle: string,
+  countryLoc0: string,
+): Promise<Array<{ role: string; avgSalary: number }>> {
+  const normalizedTitle = Object.keys(ROLE_VARIANTS).find(
+    key => jobTitle.toLowerCase().includes(key.toLowerCase())
+  );
+  const variants = normalizedTitle
+    ? ROLE_VARIANTS[normalizedTitle]
+    : ['Senior ' + jobTitle, 'Lead ' + jobTitle, 'Principal ' + jobTitle, 'Staff ' + jobTitle, jobTitle + ' Manager', 'Chief ' + jobTitle];
+
+  const results: Array<{ role: string; avgSalary: number }> = [];
+
+  for (const roleVariant of variants) {
+    if (results.length >= 6) break;
+
+    // Throttle between calls
+    if (results.length > 0) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    const histogram = await fetchAdzunaHistogram(country, roleVariant, countryLoc0);
+    const median = computeMedianFromHistogram(histogram);
+    if (median > 0) {
+      results.push({ role: roleVariant, avgSalary: median });
+    }
+  }
+
+  results.sort((a, b) => b.avgSalary - a.avgSalary);
+  return results.slice(0, 6);
+}
+
+// ─── Missing Skills Builder ─────────────────────────────────────────────────
+
+function buildMissingSkills(
+  mlSkillAnalysis: MLPredictionResult['skill_analysis'] | undefined,
+  cvSkills: string[],
+  dataSource: 'ml' | 'adzuna'
+): Array<{ skill: string; importance: 'High' | 'Medium' | 'Low'; learnUrl: string }> {
+  const buildLearnUrl = (skill: string) =>
+    `https://www.udemy.com/courses/search/?q=${encodeURIComponent(skill)}`;
+
+  if (dataSource === 'ml' && mlSkillAnalysis?.suggested_skills_to_learn) {
+    return mlSkillAnalysis.suggested_skills_to_learn.map((skill, index) => ({
+      skill,
+      importance: (index < 2 ? 'High' : index < 4 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
+      learnUrl: buildLearnUrl(skill),
+    }));
+  }
+
+  // Adzuna fallback: derive from SKILL_PREMIUMS minus user's CV skills
+  const userSkillsLower = new Set(cvSkills.map(s => s.toLowerCase().trim()));
+  const missingEntries: Array<{ skill: string; premiumRate: number; demandTrend: number }> = [];
+  const seenSkills = new Set<string>();
+
+  for (const [skillKey, premiumData] of Object.entries(SKILL_PREMIUMS)) {
+    if (!userSkillsLower.has(skillKey) && !seenSkills.has(skillKey)) {
+      seenSkills.add(skillKey);
+      missingEntries.push({ skill: skillKey, premiumRate: premiumData.premiumRate, demandTrend: premiumData.demandTrend });
+    }
+  }
+
+  missingEntries.sort((a, b) => b.premiumRate - a.premiumRate);
+
+  return missingEntries.slice(0, 8).map(entry => {
+    let importance: 'High' | 'Medium' | 'Low' = 'Low';
+    if (entry.premiumRate > 0.24 || entry.demandTrend > 45) importance = 'High';
+    else if (entry.premiumRate > 0.16 || entry.demandTrend > 30) importance = 'Medium';
+
+    return {
+      skill: entry.skill,
+      importance,
+      learnUrl: buildLearnUrl(entry.skill),
+    };
+  });
+}
+
 // ─── Adzuna API Helpers ──────────────────────────────────────────────────────
 
 async function fetchAdzunaHistogram(
@@ -547,26 +711,40 @@ router.get(
         userLocation1 = matchedRegion ? matchedRegion.location1 : location;
       }
 
+      // ── Determine if ML prediction is available for this country ──
+      const isMLCountry = country === 'gb' || country === 'us';
+      let mlPrediction: MLPredictionResult | null = null;
+      let dataSource: 'ml' | 'adzuna' = 'adzuna';
+
       // ── Phase 1: Fetch critical data (national + user location + history) ──
+      // Also attempt ML prediction in parallel for UK/US
       const hasLocationQuery = !!userLocation1;
-      const [nationalHistogram, locationHistogram, historyData] = await Promise.all([
+      const [nationalHistogram, locationHistogram, historyData, mlResult] = await Promise.all([
         fetchAdzunaHistogram(country, jobTitle, countryLoc0),
         hasLocationQuery
           ? fetchAdzunaHistogram(country, jobTitle, countryLoc0, userLocation1)
           : Promise.resolve({} as Record<string, number>),
         fetchAdzunaHistory(country, jobTitle, countryLoc0),
+        isMLCountry
+          ? fetchMLPrediction(jobTitle, country, userLocation1 || '', cvSkills)
+          : Promise.resolve(null),
       ]);
+
+      if (mlResult) {
+        mlPrediction = mlResult;
+        dataSource = 'ml';
+        console.log(`[Salary] ML prediction received: ${mlResult.currency_symbol}${mlResult.predicted_salary}`);
+      }
 
       // Calculate base salary from national histogram
       const nationalMedian = computeMedianFromHistogram(nationalHistogram);
       const locationMedian = hasLocationQuery ? computeMedianFromHistogram(locationHistogram) : 0;
 
       // National median is the base — it represents the average listing for this role.
-      // All multipliers adjust relative to this average.
       const effectiveBase = nationalMedian;
       const effectiveHistogram = (hasLocationQuery && locationMedian > 0) ? locationHistogram : nationalHistogram;
 
-      if (effectiveBase === 0) {
+      if (effectiveBase === 0 && !mlPrediction) {
         res.status(404).json({
           success: false,
           message: `No salary data found for "${jobTitle}" in ${country.toUpperCase()}. Try a different job title.`,
@@ -574,78 +752,95 @@ router.get(
         return;
       }
 
-      // ── Phase 2: Fetch regional histograms (throttled to avoid 429) ──
-      // Reuse the location histogram if the user's location matches a region
+      // ── Phase 2: Fetch regional histograms + top-paying roles (throttled) ──
       const alreadyFetched = new Map<string, Record<string, number>>();
       if (hasLocationQuery && userLocation1 && locationMedian > 0) {
         alreadyFetched.set(userLocation1, locationHistogram);
       }
 
-      const regionalHistograms = await fetchRegionalHistogramsThrottled(
-        country, jobTitle, countryLoc0, regions, alreadyFetched
-      );
+      const [regionalHistograms, topPayingRoles] = await Promise.all([
+        fetchRegionalHistogramsThrottled(country, jobTitle, countryLoc0, regions, alreadyFetched),
+        fetchTopPayingRoles(country, jobTitle, countryLoc0),
+      ]);
 
-      // ── Calculate adjustment factors ──
-      const yearsOfExperience = calculateYearsOfExperience(cvExperience);
-      const experienceMultiplier = getExperienceMultiplier(yearsOfExperience);
-      const educationMultiplier = getEducationMultiplier(cvEducation);
-      const skillsPremium = calculateSkillsPremium(cvSkills, effectiveBase);
-
-      const experienceAmount = Math.round(effectiveBase * experienceMultiplier);
-      const educationAmount = Math.round(effectiveBase * educationMultiplier);
-
-      // Location factor: difference between location-specific and national median
-      const locationAmount = (nationalMedian > 0 && locationMedian > 0)
-        ? Math.round(locationMedian - nationalMedian)
-        : 0;
-
-      // Master formula: median + adjustments relative to median
-      const predictedSalary = effectiveBase + experienceAmount + educationAmount + locationAmount + skillsPremium;
-
-      // Salary range: use histogram IQR spread centered on the predicted salary.
-      // The histogram P25/P75 tells us how wide the market is; we apply that
-      // spread around the prediction so the range always contains the prediction.
-      const percentiles = computePercentilesFromHistogram(effectiveHistogram);
+      // ── Calculate prediction values ──
+      let predictedSalary: number;
       let salaryMin: number;
       let salaryMax: number;
-      if (percentiles && percentiles.p75 > percentiles.p25) {
-        const halfSpread = Math.round((percentiles.p75 - percentiles.p25) / 2);
-        salaryMin = Math.round(predictedSalary) - halfSpread;
-        salaryMax = Math.round(predictedSalary) + halfSpread;
+      let confidence: number;
+      let vsMarketAvg: number;
+      let factorBreakdown: Array<{ factor: string; amount: number; color: string }>;
+
+      if (dataSource === 'ml' && mlPrediction) {
+        // Use ML prediction for UK/US
+        predictedSalary = mlPrediction.predicted_salary;
+        salaryMin = mlPrediction.salary_range.min;
+        salaryMax = mlPrediction.salary_range.max;
+        confidence = mlPrediction.confidence;
+        vsMarketAvg = effectiveBase > 0
+          ? Math.round(((predictedSalary - effectiveBase) / effectiveBase) * 100)
+          : 0;
+
+        // Build factor breakdown from ML factors
+        factorBreakdown = (mlPrediction.factors || []).map((factor, index) => {
+          const colors = ['#6366f1', '#22c55e', '#4ade80', '#c084fc', '#f59e0b', '#ef4444'];
+          return {
+            factor: factor.factor,
+            amount: 0, // ML factors are qualitative, not additive
+            color: colors[index % colors.length],
+          };
+        });
       } else {
-        salaryMin = Math.round(predictedSalary * 0.85);
-        salaryMax = Math.round(predictedSalary * 1.15);
+        // Adzuna formula for non-ML countries or ML fallback
+        const yearsOfExperience = calculateYearsOfExperience(cvExperience);
+        const experienceMultiplier = getExperienceMultiplier(yearsOfExperience);
+        const educationMultiplier = getEducationMultiplier(cvEducation);
+        const skillsPremium = calculateSkillsPremium(cvSkills, effectiveBase);
+
+        const experienceAmount = Math.round(effectiveBase * experienceMultiplier);
+        const educationAmount = Math.round(effectiveBase * educationMultiplier);
+        const locationAmount = (nationalMedian > 0 && locationMedian > 0)
+          ? Math.round(locationMedian - nationalMedian)
+          : 0;
+
+        predictedSalary = effectiveBase + experienceAmount + educationAmount + locationAmount + skillsPremium;
+
+        const percentiles = computePercentilesFromHistogram(effectiveHistogram);
+        if (percentiles && percentiles.p75 > percentiles.p25) {
+          const halfSpread = Math.round((percentiles.p75 - percentiles.p25) / 2);
+          salaryMin = Math.round(predictedSalary) - halfSpread;
+          salaryMax = Math.round(predictedSalary) + halfSpread;
+        } else {
+          salaryMin = Math.round(predictedSalary * 0.85);
+          salaryMax = Math.round(predictedSalary * 1.15);
+        }
+
+        confidence = computeConfidence(effectiveHistogram);
+        vsMarketAvg = effectiveBase > 0
+          ? Math.round(((predictedSalary - effectiveBase) / effectiveBase) * 100)
+          : 0;
+
+        const locationLabel = userLocation1 || 'National';
+        factorBreakdown = [
+          { factor: 'Base (Market Median)', amount: effectiveBase, color: '#6366f1' },
+          { factor: `Location (${locationLabel})`, amount: locationAmount, color: '#22c55e' },
+          { factor: `Experience (${yearsOfExperience}yr)`, amount: experienceAmount, color: '#4ade80' },
+          { factor: 'Skills Premium', amount: Math.round(skillsPremium), color: '#c084fc' },
+          { factor: 'Education', amount: educationAmount, color: '#f59e0b' },
+        ];
       }
 
-      // Confidence from real data quality metrics
       const totalListings = Object.values(effectiveHistogram).reduce((sum, count) => sum + Number(count), 0);
-      const confidence = computeConfidence(effectiveHistogram);
 
-      // vs market average (effectiveBase IS the market average)
-      const vsMarketAvg = effectiveBase > 0 ? Math.round(((predictedSalary - effectiveBase) / effectiveBase) * 100) : 0;
-
-      // Factor breakdown
-      const locationLabel = userLocation1 || 'National';
-      const factorBreakdown = [
-        { factor: 'Base (Market Median)', amount: effectiveBase, color: '#6366f1' },
-        { factor: `Location (${locationLabel})`, amount: locationAmount, color: '#22c55e' },
-        { factor: `Experience (${yearsOfExperience}yr)`, amount: experienceAmount, color: '#4ade80' },
-        { factor: 'Skills Premium', amount: Math.round(skillsPremium), color: '#c084fc' },
-        { factor: 'Education', amount: educationAmount, color: '#f59e0b' },
-      ];
-
-      // Market trend (monthly data from Adzuna history)
+      // Market trend (monthly data from Adzuna history - used for ALL countries)
       const marketTrend: { year: string; salary: number }[] = [];
-
       for (const [monthKey, salary] of Object.entries(historyData)) {
         marketTrend.push({ year: monthKey, salary: Math.round(Number(salary)) });
       }
-
-      // Sort chronologically
       marketTrend.sort((a, b) => a.year.localeCompare(b.year));
 
       // Skill ROI (using national base for currency-appropriate amounts)
-      const skillROI = buildSkillROI(cvSkills, effectiveBase);
+      const skillROI = buildSkillROI(cvSkills, effectiveBase || predictedSalary);
 
       // Regional comparison
       const regionalComparison = regions.map((region, index) => {
@@ -653,6 +848,13 @@ router.get(
         const median = computeMedianFromHistogram(histogram);
         return { location: region.label, salary: median };
       }).filter(r => r.salary > 0);
+
+      // Missing skills
+      const missingSkills = buildMissingSkills(
+        mlPrediction?.skill_analysis,
+        cvSkills,
+        dataSource
+      );
 
       const responseData = {
         success: true,
@@ -665,24 +867,28 @@ router.get(
             confidence,
             vsMarketAvg,
             currency,
+            dataSource,
           },
           factorBreakdown,
           marketTrend,
           skillROI,
           regionalComparison,
+          missingSkills,
+          topPayingRoles,
         },
         meta: {
           duration_ms: Date.now() - startTime,
           cvSkillsCount: cvSkills.length,
-          yearsOfExperience,
+          yearsOfExperience: calculateYearsOfExperience(cvExperience),
           adzunaListings: totalListings,
+          dataSource,
         },
       };
 
       // Cache for 2 hours
       await cache.set(cacheKey, responseData, 7200);
 
-      console.log(`[Salary] Insights generated in ${Date.now() - startTime}ms (predicted: ${currency}${Math.round(predictedSalary)})`);
+      console.log(`[Salary] Insights generated in ${Date.now() - startTime}ms (${dataSource}: ${currency}${Math.round(predictedSalary)})`);
 
       res.json(responseData);
 

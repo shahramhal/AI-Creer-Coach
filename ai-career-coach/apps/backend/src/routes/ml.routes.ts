@@ -1,6 +1,6 @@
 // apps/backend/src/routes/ml.routes.ts
 import { Router } from 'express';
-import type { Request, Response, RequestHandler } from 'express';
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
@@ -106,8 +106,8 @@ async function fetchParsedDataFromMongo(mongoDocId: string): Promise<Record<stri
 router.post(
   '/parse-cv', 
   authenticate as RequestHandler,
-  upload.single('file') as RequestHandler, 
-  async (req: Request, res: Response): Promise<void> => {
+  upload.single('file') as RequestHandler,
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // Validate file upload
       if (!req.file) {
@@ -124,35 +124,65 @@ router.post(
       console.log(` Processing CV: ${filename} for user: ${userId}`);
 
       // Step 1: Create FormData for ML service
-      const formData = new FormData();
-      const fileBlob = new Blob([new Uint8Array(req.file.buffer)], { 
-        type: req.file.mimetype 
+      let formData = new FormData();
+      const fileBlob = new Blob([new Uint8Array(req.file.buffer)], {
+        type: req.file.mimetype
       });
       formData.append('file', fileBlob, filename);
 
-      // Step 2: Forward to ML service for parsing
+      // Step 2: Forward to ML service for parsing (with retry for transient errors)
       console.log(` Forwarding to ML service: ${ML_SERVICE_URL}/api/ml/parse-cv`);
 
-      // Pass the Authorization header so ML service knows the user
       const authHeader = req.headers.authorization;
+      const MAX_RETRIES = 2;
+      let mlData: any = null;
+      let mlResponse: globalThis.Response | null = null;
+      let lastError: string | null = null;
 
-      const mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/parse-cv`, {
-        method: 'POST',
-        body: formData,
-        headers: authHeader ? { 'Authorization': authHeader } : {},
-      });
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        if (attempt > 0) {
+          const delayMs = attempt * 3000; // 3s, 6s
+          console.log(` Retry ${attempt}/${MAX_RETRIES} after ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
 
-      const mlData = await mlResponse.json();
+          // Rebuild FormData for retry (previous body was consumed)
+          const retryFormData = new FormData();
+          const retryBlob = new Blob([req.file!.buffer], { type: req.file!.mimetype });
+          retryFormData.append('file', retryBlob, filename);
+          formData = retryFormData;
+        }
 
-      // Handle ML service errors
-      if (!mlResponse.ok) {
-        console.error(' ML service error:', mlData);
-        res.status(mlResponse.status).json({
-          success: false,
-          message: mlData.message || 'ML service error',
-          error: mlData.error
+        mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/parse-cv`, {
+          method: 'POST',
+          body: formData,
+          headers: authHeader ? { 'Authorization': authHeader } : {},
         });
-        return;
+
+        mlData = await mlResponse.json();
+
+        // Check if this is a retryable error (overloaded / 529)
+        const isOverloaded = !mlResponse.ok || mlData.success === false || !mlData.data;
+        const isRetryable = mlData.error?.includes?.('overloaded') || mlData.error?.includes?.('529');
+
+        if (!isOverloaded) break; // Success
+        lastError = mlData.error || mlData.message || 'Unknown ML error';
+
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          console.error(` ML service error (attempt ${attempt + 1}):`, mlData);
+
+          const message = isRetryable
+            ? 'The AI parsing service is temporarily overloaded. Please try again in a minute.'
+            : mlData.message || mlData.error || 'Failed to parse CV';
+
+          res.status(isRetryable ? 503 : (mlResponse.ok ? 502 : mlResponse.status)).json({
+            success: false,
+            message,
+            error: mlData.error,
+          });
+          return;
+        }
+
+        console.warn(` ML service overloaded (attempt ${attempt + 1}), will retry...`);
       }
 
       // Extract parsed data from ML response
@@ -247,12 +277,7 @@ router.post(
       });
 
     } catch (error) {
-      console.error(' Error parsing CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to parse CV',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 
@@ -263,7 +288,7 @@ router.post(
 router.get(
   '/cvs',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
 
@@ -323,12 +348,7 @@ router.get(
       res.json(responseData);
 
     } catch (error) {
-      console.error('Error fetching CVs:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch CVs',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 
@@ -338,7 +358,7 @@ router.get(
 router.get(
   '/cvs/:cvId',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
       const cvId = req.params.cvId;
@@ -386,12 +406,7 @@ router.get(
       });
 
     } catch (error) {
-      console.error('Error fetching CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch CV',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 
@@ -401,7 +416,7 @@ router.get(
 router.delete(
   '/cvs/:cvId',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
       const cvId = req.params.cvId;
@@ -458,12 +473,7 @@ router.delete(
       });
 
     } catch (error) {
-      console.error('Error deleting CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to delete CV',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 
@@ -473,7 +483,7 @@ router.delete(
 router.patch(
   '/cvs/:cvId/primary',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
       const cvId = req.params.cvId;
@@ -534,16 +544,11 @@ router.patch(
       });
 
     } catch (error) {
-      console.error('Error setting primary CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to set primary CV',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      next(error);
     }
 });
 router.get('/cvs/:cvId/download', authenticate as RequestHandler,
-   async (req: Request, res: Response): Promise<void> => {
+   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
   const { cvId } = req.params;
   const userId = req.user!.id;
@@ -596,17 +601,11 @@ router.get('/cvs/:cvId/download', authenticate as RequestHandler,
       fileStream.on('end', () => {
         console.log(` Download complete`);
       });
-    }catch (error) {
-      console.error(' Download error:', error);
+    } catch (error) {
       if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          message: 'Failed to download CV',
-        });
+        next(error);
       }
     }
-
-    
 });
 /**
  * Analyze CV — triggers ML analysis and stores results
@@ -615,7 +614,7 @@ router.get('/cvs/:cvId/download', authenticate as RequestHandler,
 router.post(
   '/cvs/:cvId/analyze',
   authenticate as RequestHandler,
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
       const cvId = req.params.cvId;
@@ -744,12 +743,7 @@ router.post(
       });
 
     } catch (error) {
-      console.error('Error analyzing CV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to analyze CV',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      next(error);
     }
   }
 );

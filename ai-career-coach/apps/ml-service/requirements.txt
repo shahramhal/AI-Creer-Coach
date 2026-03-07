@@ -46,3 +46,4 @@ pyjwt>=2.8.0
 
 # LLM Integration
 anthropic>=0.40.0
+xgboost

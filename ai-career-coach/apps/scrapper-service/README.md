@@ -1,135 +1,203 @@
-# Job Scraper Service
+# Scraper Service
 
-## Overview
-Automated job scraping service that collects job postings from multiple platforms (Indeed, LinkedIn, Glassdoor) and stores them in MongoDB for job matching.
+Scrapy-based web scraping system that collects job postings from job boards and stores them in MongoDB. The scraped jobs feed directly into the job matching pipeline used by the ML service.
 
 ## Tech Stack
-- **Scrapy**: Web scraping framework
-- **Selenium**: For JavaScript-heavy sites (LinkedIn)
-- **MongoDB**: Job storage
-- **Redis**: Request queuing and deduplication
 
-## Project Structure
+- **Framework**: Scrapy 2.11
+- **Language**: Python 3.11
+- **Browser Automation**: Selenium 4.16 (prepared for JS-heavy sites)
+- **Database**: MongoDB (pymongo) for job storage, Redis for deduplication
+- **NLP**: NLTK for text processing
+
+## Architecture
+
 ```
-scraper-service/
-├── scrapy.cfg              # Scrapy configuration
-├── requirements.txt        # Python dependencies
-├── Dockerfile             # Container configuration
-├── job_scraper/           # Main Scrapy project
-│   ├── __init__.py
-│   ├── settings.py        # Scrapy settings
-│   ├── items.py           # Data models
-│   ├── pipelines/         # Data processing
-│   │   ├── __init__.py
-│   │   ├── cleaning_pipeline.py      # Clean and normalize data
-│   │   ├── deduplication_pipeline.py # Remove duplicates
-│   │   └── mongodb_pipeline.py       # Save to database
-│   ├── spiders/           # Site-specific scrapers
-│   │   ├── __init__.py
-│   │   ├── indeed_spider.py          # Indeed.com scraper
-│   │   ├── linkedin_spider.py        # LinkedIn scraper
-│   │   └── glassdoor_spider.py       # Glassdoor scraper
-│   └── utils/
-│       ├── __init__.py
-│       └── helpers.py     # Shared utility functions
-└── run_scrapers.py        # Script to run all spiders
-```
+run_scrapers.py                    # Entry point: runs all spiders sequentially
+test_scraper.py                    # Setup validation (imports, DB connections, spider loading)
+scrapy.cfg                         # Scrapy project config
+settings.py                        # Root settings
 
-## Installation
-
-### 1. Install Dependencies
-```bash
-cd scraper-service
-pip install -r requirements.txt
-```
-
-### 2. Environment Variables
-Create `.env` file:
-```
-MONGODB_URI=mongodb://localhost:27017/ai_career_coach
-REDIS_URL=redis://localhost:6379/0
-SCRAPING_ENABLED=true
-```
-
-### 3. Run Spider
-```bash
-# Single spider
-scrapy crawl indeed
-
-# All spiders
-python run_scrapers.py
+job_scraper/
+  __init__.py                      # Package metadata (v1.0.0)
+  settings.py                      # Scrapy settings: delays, concurrency, anti-bot config
+  items.py                         # JobItem schema definition
+  spiders/
+    indeed_spider.py               # Indeed.com scraper (fully implemented)
+    linkedin_spider.py             # LinkedIn scraper (placeholder)
+    glassdoor_spider.py            # Glassdoor scraper (placeholder)
+  pipelines/
+    cleaning_pipeline.py           # Text normalization, date parsing, validation
+    deduplication_pipeline.py      # Redis-backed duplicate detection (MD5 hashing)
+    mongodb_pipeline.py            # Database persistence with 7 strategic indexes
 ```
 
 ## How It Works
 
-### 1. **Indeed Spider** (Easiest)
-- Sends HTTP requests to Indeed search results
-- Parses HTML using CSS selectors
-- Extracts: title, company, location, salary, description
-- Follows pagination (50 pages max = ~750 jobs)
+This is a batch scraper, not an HTTP API. It runs as a standalone process (manually or on a schedule) and writes results to MongoDB.
 
-### 2. **LinkedIn Spider** (Complex - Uses Selenium)
-- Selenium simulates real browser
-- Bypasses anti-bot detection
-- Scrolls to load dynamic content
-- More realistic but slower
+### Data Flow
 
-### 3. **Data Pipeline**
 ```
-Spider → Cleaning Pipeline → Deduplication → MongoDB
+Indeed.com
+    |
+    v
+IndeedSpider (CSS selectors, pagination up to 50 pages)
+    |
+    v
+CleaningPipeline (priority 100)
+  - Validate required fields (title, company, source)
+  - Strip whitespace, HTML entities, stray URLs
+  - Standardize location names (UK -> United Kingdom)
+  - Parse relative dates ("2 days ago" -> ISO format)
+  - Set defaults for missing fields
+    |
+    v
+DeduplicationPipeline (priority 200)
+  - Generate MD5 hash from (title + company + location)
+  - Check Redis SET "job_scraper:seen_jobs"
+  - Drop item if already seen, otherwise add with 30-day TTL
+    |
+    v
+MongoDBPipeline (priority 300)
+  - Insert document into "jobs" collection
+  - Maintain indexes: job_id (unique), title+location, company,
+    posted_date, source, experience_level, description (text)
+    |
+    v
+MongoDB "jobs" collection  -->  Read by ML service for job matching
 ```
 
-### 4. **Scheduling** (Production)
+### Indeed Spider
+
+The only fully implemented spider. Scrapes `https://uk.indeed.com/jobs`.
+
+**CSS Selectors:**
+- Job cards: `div.job_seen_beacon`
+- Title: `h2.jobTitle span::attr(title)`
+- Company: `span[data-testid="company-name"]::text`
+- Location: `div[data-testid="text-location"]::text`
+- Description: `div#jobDescriptionText`
+- Salary: `div#salaryInfoAndJobType span::text`
+
+**Classification logic applied during scraping:**
+- Experience level inferred from title keywords (intern, junior, senior, lead, director, etc.)
+- Remote type detected from description (fully remote, hybrid, on-site)
+- Salary parsed with regex and split into min/max
+
+**Default search configuration** (in `run_scrapers.py`):
+- "software engineer" in United Kingdom
+- "python developer" in United Kingdom
+- "frontend developer" in United Kingdom
+
+Each search paginates up to 50 pages (~750 jobs).
+
+### JobItem Schema
+
+```python
+job_id              # MD5(title + company + location)
+source              # "indeed" / "linkedin" / "glassdoor"
+source_url          # Original posting URL
+title               # Job title
+company             # Company name
+location            # Normalized location
+description         # Full job description
+requirements        # List of extracted requirements
+salary_min          # Parsed minimum salary
+salary_max          # Parsed maximum salary
+salary_text         # Raw salary string
+experience_level    # Entry / Mid / Senior / Lead / Executive / Internship
+job_type            # Full-time / Part-time / Contract / Internship
+remote_type         # Remote / Hybrid / On-site
+posted_date         # ISO date
+scraped_at          # ISO timestamp
+is_duplicate        # Set by deduplication pipeline
+cleaned             # Set by cleaning pipeline
+```
+
+## Anti-Bot Configuration
+
+Defined in `job_scraper/settings.py`:
+
+- **Request delay**: 3 seconds base, randomized +/-20%
+- **Concurrency**: 2 per domain, 8 total
+- **Autothrottle**: enabled, adapts to server response times (2-10s range)
+- **User-agent rotation**: 4 browser signatures (Chrome, Firefox, Safari on Windows/Mac)
+- **robots.txt**: respected (`ROBOTSTXT_OBEY = True`)
+- **Cookies**: disabled to avoid tracking
+- **Retries**: 3 attempts on 500/502/503/504/408/429
+
+## Environment Variables
+
+Create a `.env` file in this directory:
+
+```
+MONGODB_URL=mongodb://admin:admin123@localhost:27017/career_coach?authSource=admin
+MONGODB_URI=mongodb://admin:admin123@localhost:27017/career_coach?authSource=admin
+MONGODB_DATABASE=career_coach
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
+REDIS_URL=redis://:your_redis_password@localhost:6379
+```
+
+## Running
+
+Prerequisites: Python 3.11+, MongoDB 7, Redis 7
+
 ```bash
-# Run daily at 2 AM using cron
-0 2 * * * cd /path/to/scraper-service && python run_scrapers.py
+cd apps/scrapper-service
+
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate        # Linux/Mac
+venv\Scripts\activate           # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Validate setup (checks imports, DB connections, spider loading)
+python test_scraper.py
+
+# Run all configured spiders
+python run_scrapers.py
+
+# Or run a single spider with custom parameters
+scrapy crawl indeed -a keywords="react developer" -a location="London"
 ```
 
-## Anti-Bot Measures
-- Random delays between requests (2-5 seconds)
-- Rotating User-Agent headers
-- Respect robots.txt
-- Request throttling
+### Docker
 
-## Expected Output
-After running scrapers, MongoDB `jobs` collection will contain:
-```json
-{
-  "_id": ObjectId("..."),
-  "job_id": "unique_hash",
-  "title": "Senior Software Engineer",
-  "company": "Google",
-  "location": "San Francisco, CA",
-  "salary_min": 150000,
-  "salary_max": 200000,
-  "description": "...",
-  "requirements": ["Python", "React", "AWS"],
-  "experience_level": "Senior",
-  "job_type": "Full-time",
-  "posted_date": "2025-01-15",
-  "source": "indeed",
-  "url": "https://...",
-  "scraped_at": "2025-01-16T10:30:00Z"
-}
+```bash
+docker build -t job-scraper .
+docker run --rm --env-file .env job-scraper
+```
+
+### Scheduling (Production)
+
+```bash
+# Daily at 2 AM via cron
+0 2 * * * cd /path/to/scrapper-service && python run_scrapers.py >> logs/scraper.log 2>&1
+
+# Or via Docker Compose
+docker-compose run scraper-service python run_scrapers.py
 ```
 
 ## Performance Targets
-- **Speed**: 100 jobs/hour per spider
-- **Accuracy**: 95%+ data extraction accuracy
-- **Database Size**: 5,000+ jobs initially
-- **Daily Updates**: 500+ new jobs added daily
+
+- ~100 jobs/hour per spider
+- 95%+ data extraction accuracy
+- Initial database population: 5,000+ jobs
+- Daily additions: 500+ new jobs
+- Duplicate rate on repeat runs: ~50% (expected, handled by dedup pipeline)
 
 ## Troubleshooting
 
-### Error: "Connection refused"
-- Check MongoDB is running: `docker ps | grep mongo`
-- Verify connection string in `.env`
+**"Connection refused"** -- Make sure MongoDB and Redis are running. Check connection strings in `.env`.
 
-### Error: "Rate limited / 429"
-- Increase delay in `settings.py`: `DOWNLOAD_DELAY = 3`
-- Check robots.txt compliance
+**"Rate limited / 429"** -- Increase `DOWNLOAD_DELAY` in `job_scraper/settings.py`. Default is 3 seconds.
 
-### Low job count
-- Check search keywords are relevant
-- Verify CSS selectors (sites change HTML structure)
-- Use Scrapy shell for debugging: `scrapy shell 'URL'`
+**Low job count** -- Indeed frequently changes their HTML structure. Check CSS selectors in `indeed_spider.py` against the live site. Use `scrapy shell 'URL'` for interactive debugging.
+
+**Redis unavailable** -- The dedup pipeline degrades gracefully. Jobs will still be scraped and saved, but duplicates won't be filtered.

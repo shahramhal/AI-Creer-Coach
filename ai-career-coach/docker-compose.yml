@@ -14,8 +14,10 @@ services:
       - "4000:4000"
     environment:
       - ML_SERVICE_URL=http://ml-service:8000
-      - REDIS_HOST=redis 
+      - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - ADZUNA_APP_ID=${ADZUNA_APP_ID}
+      - ADZUNA_APP_KEY=${ADZUNA_APP_KEY}
     depends_on: [postgres, mongodb, redis]
     networks:
       - career_coach_network

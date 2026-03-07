@@ -20,6 +20,9 @@ from cv_parser.parserV2 import CVParser
 # Import job matcher
 from job_matcher.matcher import JobMatcher
 
+# Import CV analyzer
+from cv_analyzer.analyzer import CVAnalyzer
+
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Career Coach ML Service",
@@ -36,11 +39,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Import ATS scorer model sharing
+from cv_analyzer.ats_scorer import set_shared_model
+
 # Initialize services
 cv_parser = CVParser(
     anthropic_api_key=os.environ.get('ANTHROPIC_API_KEY')
 )
 job_matcher = JobMatcher()
+
+# Share SentenceTransformer model before CVAnalyzer init (~90MB saved)
+if hasattr(job_matcher, 'model') and job_matcher.model is not None:
+    set_shared_model(job_matcher.model)
+
+cv_analyzer = CVAnalyzer()
 
 
 # REQUEST/RESPONSE MODELS
@@ -67,6 +79,36 @@ class JobMatchResponse(BaseModel):
     matched_jobs: List[Dict]
     total_analyzed: int
 
+
+class AnalyzeCVRequest(BaseModel):
+    """Request model for CV analysis"""
+    cv_text: str
+    parsed_data: Dict
+    filename: str = ""
+    target_role: Optional[str] = None
+
+
+class AnalyzeCVResponse(BaseModel):
+    """Response model for CV analysis"""
+    success: bool
+    data: Optional[Dict] = None
+    error: Optional[str] = None
+
+
+class CVOverviewRequest(BaseModel):
+    """Request model for job-agnostic CV overview analysis"""
+    cv_text: str
+    parsed_data: Dict
+    filename: str = ""
+
+
+class ATSScoreRequest(BaseModel):
+    """Request model for job-specific ATS scoring"""
+    cv_text: str
+    parsed_data: Dict
+    job_description: str
+    job_requirements: str = ""
+    job_skills: Optional[List[str]] = None
 
 
 # ENDPOINTS
@@ -172,6 +214,106 @@ async def parse_cv(file: UploadFile = File(...), authorization: str = Header(Non
         return ParseResponse(
             success=False,
             error=str(e)
+        )
+
+
+@app.post("/api/ml/analyze-cv", response_model=AnalyzeCVResponse)
+async def analyze_cv(request: AnalyzeCVRequest):
+    """
+    Analyze CV for ATS compatibility, keyword gaps, and recommendations.
+    Runs entirely locally — no external API calls.
+
+    Args:
+        request: CV text, parsed data, filename, optional target role
+
+    Returns:
+        Comprehensive analysis data (scores, ATS checks, keywords, recommendations)
+    """
+    try:
+        print(f"Analyzing CV: {request.filename}")
+
+        analysis_result = cv_analyzer.analyze(
+            cv_text=request.cv_text,
+            parsed_data=request.parsed_data,
+            filename=request.filename,
+            target_role=request.target_role,
+        )
+
+        print(f"Analysis complete: score={analysis_result['overallScore']}/100")
+
+        return AnalyzeCVResponse(
+            success=True,
+            data=analysis_result,
+        )
+
+    except Exception as e:
+        print(f"Analysis error: {e}")
+        return AnalyzeCVResponse(
+            success=False,
+            error=str(e),
+        )
+
+
+@app.post("/api/ml/cv-overview", response_model=AnalyzeCVResponse)
+async def cv_overview(request: CVOverviewRequest):
+    """
+    Job-agnostic CV quality analysis.
+    Scores CV across 4 categories without requiring a job description.
+    """
+    try:
+        print(f"CV overview analysis: {request.filename}")
+
+        overview_result = cv_analyzer.analyze_overview(
+            cv_text=request.cv_text,
+            parsed_data=request.parsed_data,
+            filename=request.filename,
+        )
+
+        print(f"Overview complete: score={overview_result['overallScore']}/100")
+
+        return AnalyzeCVResponse(
+            success=True,
+            data=overview_result,
+        )
+
+    except Exception as e:
+        print(f"Overview analysis error: {e}")
+        return AnalyzeCVResponse(
+            success=False,
+            error=str(e),
+        )
+
+
+@app.post("/api/ml/ats-score", response_model=AnalyzeCVResponse)
+async def ats_score(request: ATSScoreRequest):
+    """
+    Job-specific ATS keyword matching.
+    Compares CV against a specific job description for keyword match,
+    semantic similarity, and skills coverage.
+    """
+    try:
+        print(f"ATS scoring: CV vs job description ({len(request.job_description)} chars)")
+
+        ats_result = cv_analyzer.analyze_ats(
+            cv_text=request.cv_text,
+            parsed_data=request.parsed_data,
+            job_description=request.job_description,
+            job_requirements=request.job_requirements,
+            job_skills=request.job_skills,
+        )
+
+        print(f"ATS scoring complete: score={ats_result['atsScore']}/100")
+
+        return AnalyzeCVResponse(
+            success=True,
+            data=ats_result,
+        )
+
+    except Exception as e:
+        print(f"ATS scoring error: {e}")
+        return AnalyzeCVResponse(
+            success=False,
+            error=str(e),
         )
 
 

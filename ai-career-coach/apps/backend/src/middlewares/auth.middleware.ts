@@ -16,6 +16,7 @@ declare global {
         id: string;
         email: string;
         isEmailVerified: boolean;
+        role: string;
       };
     }
   }
@@ -50,7 +51,7 @@ export const authenticate = async (
     // Verify token
     const decoded = verifyAccessToken(token);
 
-    // Fetch user from database (ensures user still exists)
+    // Fetch user from database (ensures user still exists and checks role/status)
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -59,6 +60,8 @@ export const authenticate = async (
         isEmailVerified: true,
         firstName: true,
         lastName: true,
+        role: true,
+        isDisabled: true,
       },
     });
 
@@ -69,11 +72,21 @@ export const authenticate = async (
       });
     }
 
+    // Block disabled accounts
+    if (user.isDisabled) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is disabled',
+        code: 'ACCOUNT_DISABLED',
+      });
+    }
+
     // Attach user to request object
     req.user = {
       id: user.id,
       email: user.email,
       isEmailVerified: user.isEmailVerified,
+      role: user.role,
     };
 
     next();
@@ -155,14 +168,17 @@ export const optionalAuthenticate = async (
         id: true,
         email: true,
         isEmailVerified: true,
+        role: true,
+        isDisabled: true,
       },
     });
 
-    if (user) {
+    if (user && !user.isDisabled) {
       req.user = {
         id: user.id,
         email: user.email,
         isEmailVerified: user.isEmailVerified,
+        role: user.role,
       };
     }
 

@@ -8,11 +8,24 @@ const nextConfig = {
   // 2. Ignore TypeScript errors during build
   typescript: {
     ignoreBuildErrors: true,
-  },  // <--- You were missing this closing comma and bracket!
+  },
 
-  // 3. General Settings (Must be outside the 'typescript' block)
+  // 3. General Settings
   reactStrictMode: true,
   // output: 'standalone',
+
+  // 4. Optimize heavy package imports for faster dev compilation
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      '@radix-ui/react-alert-dialog',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
+    ],
+  },
 
   async redirects() {
     return [

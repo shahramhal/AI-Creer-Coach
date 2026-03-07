@@ -25,7 +25,7 @@ export default function SalaryByLocation({ regions, currency }: SalaryByLocation
   if (regions.length === 0) {
     return (
       <div className="bg-card border border-border rounded-xl p-6 shadow-card">
-        <h3 className="text-base font-semibold text-foreground mb-4">Salary by Location</h3>
+        <h3 className="text-base font-semibold text-foreground mb-4">Salary by Cities</h3>
         <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">
           No regional data available
         </div>
@@ -35,7 +35,7 @@ export default function SalaryByLocation({ regions, currency }: SalaryByLocation
 
   return (
     <div className="bg-card border border-border rounded-xl p-6 shadow-card">
-      <h3 className="text-base font-semibold text-foreground mb-4">Salary by Location</h3>
+      <h3 className="text-base font-semibold text-foreground mb-4">Salary by Cities</h3>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={regions} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>

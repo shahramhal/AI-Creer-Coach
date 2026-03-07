@@ -3,15 +3,18 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/authContext';
+import dynamic from 'next/dynamic';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { CVHealthScore } from "@/components/dashboard/CVHealthScore";
 import { QuickStats } from "@/components/dashboard/QuickStats";
-import { ApplicationChart } from "@/components/dashboard/ApplicationChart";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { RecommendedActions } from "@/components/dashboard/RecommendedActions";
 import { JobMatchPreview } from "@/components/dashboard/JobMatchPreview";
-import { ApplicationKanban } from "@/components/dashboard/ApplicationKanban";
-import { MarketInsights } from "@/components/dashboard/MarketInsights";
+
+// Lazy-load heavy chart components (recharts ~300KB)
+const ApplicationChart = dynamic(() => import("@/components/dashboard/ApplicationChart").then(m => m.ApplicationChart), { ssr: false });
+const ApplicationKanban = dynamic(() => import("@/components/dashboard/ApplicationKanban").then(m => m.ApplicationKanban), { ssr: false });
+const MarketInsights = dynamic(() => import("@/components/dashboard/MarketInsights").then(m => m.MarketInsights), { ssr: false });
 
 export default function DashboardPage() {
   const router = useRouter();

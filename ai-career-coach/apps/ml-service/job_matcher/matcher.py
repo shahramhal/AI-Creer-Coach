@@ -12,9 +12,86 @@ import numpy as np
 from typing import List, Dict, Optional
 import logging
 import hashlib
+import re
 import time
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Comprehensive multi-industry skill set (~200+ skills)
+# Used by _extract_keywords() for CV and job skill extraction
+# ---------------------------------------------------------------------------
+
+SKILL_CATEGORIES = {
+    'programming': {
+        'python', 'javascript', 'typescript', 'java', 'c++', 'c#', 'go',
+        'rust', 'ruby', 'php', 'swift', 'kotlin', 'scala', 'r', 'matlab',
+        'perl', 'shell', 'bash', 'powershell',
+    },
+    'frontend': {
+        'react', 'angular', 'vue', 'svelte', 'next.js', 'nextjs', 'nuxt',
+        'html', 'css', 'sass', 'tailwind', 'bootstrap', 'jquery', 'webpack',
+        'vite',
+    },
+    'backend': {
+        'node', 'nodejs', 'express', 'django', 'flask', 'fastapi', 'spring',
+        'spring boot', '.net', 'asp.net', 'rails', 'laravel', 'gin', 'fiber',
+    },
+    'database': {
+        'sql', 'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch',
+        'dynamodb', 'cassandra', 'sqlite', 'oracle', 'neo4j', 'graphql',
+    },
+    'cloud_devops': {
+        'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'terraform',
+        'ansible', 'jenkins', 'ci/cd', 'github actions', 'gitlab ci',
+        'devops', 'linux', 'nginx',
+    },
+    'data_ml': {
+        'machine learning', 'deep learning', 'data science', 'ai', 'ml',
+        'nlp', 'computer vision', 'tensorflow', 'pytorch', 'pandas', 'numpy',
+        'scikit-learn', 'spark', 'hadoop', 'data analysis',
+        'data engineering', 'etl', 'power bi', 'tableau',
+    },
+    'business': {
+        'project management', 'agile', 'scrum', 'kanban', 'jira',
+        'confluence', 'stakeholder management', 'budgeting', 'forecasting',
+        'strategy', 'business analysis', 'requirements gathering',
+        'product management',
+    },
+    'design': {
+        'figma', 'sketch', 'adobe xd', 'photoshop', 'illustrator', 'ui/ux',
+        'ux design', 'ui design', 'wireframing', 'prototyping',
+        'user research',
+    },
+    'marketing': {
+        'seo', 'sem', 'google analytics', 'social media', 'content marketing',
+        'email marketing', 'copywriting', 'crm', 'salesforce', 'hubspot',
+    },
+    'finance': {
+        'financial analysis', 'accounting', 'bookkeeping', 'excel',
+        'financial modeling', 'auditing', 'tax', 'compliance',
+        'risk management',
+    },
+    'soft_skills': {
+        'leadership', 'communication', 'teamwork', 'problem solving',
+        'critical thinking', 'time management', 'presentation', 'negotiation',
+        'mentoring',
+    },
+    'security': {
+        'cybersecurity', 'penetration testing', 'soc', 'siem', 'iso 27001',
+        'gdpr', 'encryption', 'firewall', 'vulnerability assessment',
+    },
+    'other_tech': {
+        'git', 'github', 'rest api', 'microservices', 'api design',
+        'websockets', 'grpc', 'rabbitmq', 'kafka', 'testing',
+        'unit testing', 'tdd', 'bdd',
+    },
+}
+
+ALL_SKILLS: set = set()
+for _category_skills in SKILL_CATEGORIES.values():
+    ALL_SKILLS.update(_category_skills)
+
 
 class JobMatcher:
     """
@@ -88,6 +165,13 @@ class JobMatcher:
         # Step 4: Get top K matches
         top_results = torch.topk(similarities, k=min(top_k, len(jobs)))
 
+        # Pre-compute CV snippet embedding once (used by title similarity in breakdown)
+        cv_snippet_embedding = self.model.encode(
+            cv_text[:500],
+            convert_to_tensor=True,
+            show_progress_bar=False
+        )
+
         # Step 5: Build result list with scores
         matched_jobs = []
         for idx, score in zip(top_results.indices, top_results.values):
@@ -109,7 +193,7 @@ class JobMatcher:
 
                 # Matching details
                 'match_score': float(score.item() * 100),  # Convert to percentage
-                'match_breakdown': self._calculate_breakdown(cv_text, job)
+                'match_breakdown': self._calculate_breakdown(cv_text, job, cv_snippet_embedding)
             }
             matched_jobs.append(job_match)
 
@@ -230,61 +314,130 @@ class JobMatcher:
         
         return ' '.join(parts)
     
-    def _calculate_breakdown(self, cv_text: str, job: Dict) -> Dict:
+    def _calculate_title_similarity(self, job_title: str, cv_snippet_embedding=None) -> float:
         """
-        Calculate detailed match breakdown
-        Provides explainability for match scores
-        
+        Calculate how relevant the job title is to the user's CV experience.
+
+        Uses a precomputed CV snippet embedding (first 500 chars) compared
+        against the job title via cosine similarity.
+
+        Args:
+            job_title: Job posting title
+            cv_snippet_embedding: Precomputed embedding of CV snippet
+
+        Returns:
+            Similarity percentage (0-100)
+        """
+        if cv_snippet_embedding is None or not job_title:
+            return 0.0
+
+        title_embedding = self.model.encode(job_title, convert_to_tensor=True)
+        similarity = util.cos_sim(cv_snippet_embedding, title_embedding)[0][0]
+        return float(similarity.item() * 100)
+
+    def _calculate_breakdown(self, cv_text: str, job: Dict, cv_snippet_embedding=None) -> Dict:
+        """
+        Calculate detailed match breakdown with multi-component scoring.
+
+        Returns skill coverage, title relevance, matched/missing skills,
+        and a human-readable summary sentence.
+
         Args:
             cv_text: User's CV text
             job: Job dictionary
-            
+            cv_snippet_embedding: Precomputed embedding of CV snippet (first 500 chars)
+
         Returns:
-            Breakdown dictionary
+            Breakdown dictionary with skill_coverage, title_relevance,
+            matched_skills, missing_skills, and summary
         """
         # Extract skills from CV and job
         cv_skills = self._extract_keywords(cv_text)
-        job_skills = self._extract_keywords(
-            job.get('description', '') + ' ' + 
+
+        job_text = (
+            job.get('description', '') + ' ' +
             ' '.join(job.get('requirements', []))
         )
-        
-        # Calculate skill overlap
-        skill_overlap = len(cv_skills & job_skills)
-        skill_coverage = (skill_overlap / len(job_skills) * 100) if job_skills else 0
-        
+        job_skills = self._extract_keywords(job_text)
+
+        # Also treat each requirement string as a potential skill phrase
+        for requirement in job.get('requirements', []):
+            normalized_requirement = requirement.strip().lower()
+            if normalized_requirement and len(normalized_requirement) < 60:
+                # Check if it closely matches any known skill
+                if normalized_requirement in ALL_SKILLS:
+                    job_skills.add(normalized_requirement)
+
+        matched_skills = cv_skills & job_skills
+        missing_skills = job_skills - cv_skills
+        skill_overlap = len(matched_skills)
+        total_job_skills = len(job_skills)
+        skill_coverage = (skill_overlap / total_job_skills * 100) if total_job_skills else 0
+
+        # Title relevance
+        job_title = job.get('title', '')
+        title_relevance = self._calculate_title_similarity(job_title, cv_snippet_embedding)
+
+        # Build summary sentence
+        summary_parts = []
+        if skill_coverage >= 70:
+            summary_parts.append(
+                f"Strong skill match — you have {skill_overlap} of {total_job_skills} required skills."
+            )
+        elif skill_coverage >= 40:
+            summary_parts.append(
+                f"Moderate skill match — you have {skill_overlap} of {total_job_skills} required skills."
+            )
+        elif total_job_skills > 0:
+            summary_parts.append(
+                f"You have {skill_overlap} of {total_job_skills} required skills — consider developing the missing ones."
+            )
+        else:
+            summary_parts.append("No specific skills could be extracted from this job listing.")
+
+        if title_relevance >= 70:
+            summary_parts.append(f"Your experience aligns well with this \"{job_title}\" role.")
+        elif title_relevance >= 40:
+            summary_parts.append(f"Your background has some relevance to this \"{job_title}\" role.")
+
+        summary = ' '.join(summary_parts)
+
         return {
             'skill_coverage': round(skill_coverage, 1),
-            'matched_skills': list(cv_skills & job_skills)[:10],
-            'missing_skills': list(job_skills - cv_skills)[:5]
+            'matched_skills': sorted(list(matched_skills))[:15],
+            'missing_skills': sorted(list(missing_skills))[:10],
+            'title_relevance': round(title_relevance, 1),
+            'summary': summary,
         }
-    
+
     def _extract_keywords(self, text: str) -> set:
         """
-        Extract keywords/skills from text
-        Simple implementation - can be improved with NER
-        
+        Extract skills/keywords from text using a comprehensive
+        multi-industry skill set (~200+ skills).
+
+        Uses word-boundary regex for short skills (<=3 chars) to avoid
+        false positives (e.g. 'r' matching inside 'researcher').
+        Longer / multi-word skills use substring matching.
+
         Args:
             text: Input text
-            
+
         Returns:
-            Set of keywords
+            Set of matched skill keywords
         """
         if not text:
             return set()
-        
-        # Common tech skills/keywords
-        keywords = {
-            'python', 'javascript', 'java', 'react', 'node', 'nodejs',
-            'aws', 'docker', 'kubernetes', 'sql', 'mongodb', 'postgresql',
-            'typescript', 'vue', 'angular', 'django', 'flask', 'fastapi',
-            'machine learning', 'data science', 'ai', 'ml', 'nlp',
-            'git', 'agile', 'scrum', 'ci/cd', 'devops', 'cloud'
-        }
-        
+
         text_lower = text.lower()
-        found = {kw for kw in keywords if kw in text_lower}
-        
+        found = set()
+        for skill in ALL_SKILLS:
+            if len(skill) <= 3:
+                # Short tokens need word-boundary guards
+                if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
+                    found.add(skill)
+            else:
+                if skill in text_lower:
+                    found.add(skill)
         return found
     
     def _apply_filters(self, jobs: List[Dict], filters: Dict) -> List[Dict]:

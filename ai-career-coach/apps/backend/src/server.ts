@@ -12,6 +12,8 @@ import jobRoutes from './routes/jobs.routes.js';
 import matchingRoutes from './routes/matching.routes.js';
 import salaryRoutes from './routes/salary.routes.js';
 import applicationRoutes from './routes/applications.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+import { globalErrorHandler } from './middlewares/error.middleware.js';
 
 // Load environment variables
 dotenv.config();
@@ -74,6 +76,9 @@ app.use('/api/salary', salaryRoutes);
 // Application routes (ATS scoring)
 app.use('/api/applications', applicationRoutes);
 
+// Admin routes
+app.use('/api/admin', adminRoutes);
+
 // Debug: List all registered routes
 app.get('/api/debug/routes', (req: Request, res: Response) => {
   const routes: string[] = [];
@@ -105,15 +110,7 @@ app.use((req: Request, res: Response) => {
 /**
  * Global error handler
  */
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Unhandled error:', err);
-
-  res.status(500).json({
-    success: false,
-    message: 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { error: err.message }),
-  });
-});
+app.use(globalErrorHandler);
 
 /**
  * Initialize database connections and start server

@@ -1,6 +1,7 @@
 // apps/web/src/components/auth/AuthLayout.tsx
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ReactNode } from 'react';
 
 interface AuthLayoutProps {
@@ -27,9 +28,13 @@ export default function AuthLayout({
         {showLogo && (
           <div className="text-center mb-8">
             <Link href="/" className="inline-block">
-              <h1 className="text-3xl font-bold text-[#6366FF ]">
-                AI Career Coach
-              </h1>
+              <Image
+                src="/LOGO.png"
+                alt="Build Your Career"
+                width={280}
+                height={64}
+                className="h-16 w-auto object-contain mx-auto"
+              />
             </Link>
           </div>
         )}

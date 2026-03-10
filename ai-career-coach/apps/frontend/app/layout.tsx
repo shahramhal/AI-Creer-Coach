@@ -8,8 +8,12 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'AI Career Coach - Smart Job Matching & Career Guidance',
-  description: 'AI-powered career coaching platform with CV analysis, job matching, and interview preparation',
+  title: 'Build Your Career — Smart Job Matching & Career Guidance',
+  description: 'AI-powered career platform with CV analysis, semantic job matching, salary insights, and personalized learning paths',
+  icons: {
+    icon: '/LOGO_to_circle.png',
+    apple: '/LOGO_to_circle.png',
+  },
 };
 
 export default function RootLayout({

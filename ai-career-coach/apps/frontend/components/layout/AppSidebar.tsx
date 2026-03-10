@@ -5,7 +5,6 @@ import {
   FileText,
   User,
   ChevronLeft,
-  Zap,
   LogOut,
   Briefcase,
   DollarSign,
@@ -14,6 +13,7 @@ import {
   Shield,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "../../library/utils";
 import { useState } from "react";
@@ -49,13 +49,26 @@ export function AppSidebar() {
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between border-b border-border px-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Zap className="h-4 w-4 text-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <span className="font-semibold text-foreground">AI Career Coach</span>
+      <div className="flex h-16 items-center justify-between border-b border       
+         +-border px-3">  
+
+        <div className="flex-1 min-w-0 flex items-center justify-center over flow-hidden"> 
+          {collapsed ? (
+            <Image
+              src="/LOGO_to_circle.png"
+              alt="BYC"
+              width={140}
+              height={32}
+              className="rounded-lg shrink-0"
+            />
+          ) : (
+            <Image
+              src="/LOGO.png"
+              alt="Build Your Career"
+              width={180}
+              height={32}
+              className="h-8 w-auto object-contain"
+            />
           )}
         </div>
         <Button

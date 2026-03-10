@@ -236,6 +236,7 @@ model LearningPath {
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   skill              Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, skillId])
   @@map("learning_paths")
 }
 

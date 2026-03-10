@@ -10,6 +10,7 @@ import {
   Briefcase,
   DollarSign,
   ScanSearch,
+  GraduationCap,
   Shield,
 } from "lucide-react";
 import Link from "next/link";
@@ -25,6 +26,7 @@ const navItems = [
   { title: "ATS Score", url: "/ats-score", icon: ScanSearch },
   { title: 'Job Matches', url: '/jobs', icon: Briefcase },
   { title: "Salary Insights", url: "/salary-insights", icon: DollarSign },
+  { title: 'Learning Paths', url: '/learning', icon: GraduationCap },
   { title: "Profile", url: "/profile", icon: User }
 ];
 

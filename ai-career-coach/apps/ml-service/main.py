@@ -6,7 +6,7 @@ Handles CV parsing, job matching, and ML-related endpoints
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
 from database.mongodb import get_mongodb_connection
 from utils.serializers import serialize_objectid
@@ -25,6 +25,9 @@ from cv_analyzer.analyzer import CVAnalyzer
 
 # Import salary predictor router
 from salary_prediction.salary_predictor import router as salary_router
+
+# Import skill gap analyzer
+from skill_gap.analyzer import SkillGapAnalyzer
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -56,6 +59,7 @@ if hasattr(job_matcher, 'model') and job_matcher.model is not None:
     set_shared_model(job_matcher.model)
 
 cv_analyzer = CVAnalyzer()
+skill_gap_analyzer = SkillGapAnalyzer()
 
 # Register salary prediction router
 app.include_router(salary_router)
@@ -117,6 +121,14 @@ class ATSScoreRequest(BaseModel):
     job_skills: Optional[List[str]] = None
 
 
+class SkillGapRequest(BaseModel):
+    """Request model for skill gap analysis"""
+    cv_text: str
+    parsed_data: Dict
+    target_role: Optional[str] = None
+    target_job_description: Optional[str] = Field(None, max_length=10000)
+
+
 # ENDPOINTS
 
 
@@ -126,7 +138,7 @@ async def root():
     return {
         "status": "ML Service is running",
         "version": "1.0.0",
-        "features": ["cv_parsing", "job_matching", "salary_prediction"]
+        "features": ["cv_parsing", "job_matching", "salary_prediction", "skill_gap_analysis"]
     }
 
 
@@ -320,6 +332,37 @@ async def ats_score(request: ATSScoreRequest):
         return AnalyzeCVResponse(
             success=False,
             error=str(e),
+        )
+
+
+@app.post("/api/ml/skill-gap-analysis")
+async def skill_gap_analysis(request: SkillGapRequest):
+    """
+    Analyze skill gaps between CV and target role.
+    Returns missing skills, prioritized learning path, and ROI estimates.
+    """
+    try:
+        print(f"Skill gap analysis: target_role={request.target_role}")
+
+        result = skill_gap_analyzer.analyze(
+            cv_text=request.cv_text,
+            parsed_data=request.parsed_data,
+            target_role=request.target_role,
+            target_job_description=request.target_job_description,
+        )
+
+        print(f"Skill gap analysis complete: coverage={result['skill_coverage']}%, missing={len(result['missing_skills'])} skills")
+
+        return {
+            "success": True,
+            "data": result,
+        }
+
+    except Exception as e:
+        print(f"Skill gap analysis error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Skill gap analysis failed: {str(e)}"
         )
 
 

@@ -20,6 +20,8 @@ interface JobFiltersProps {
   onChange: (filters: MatchFilters) => void;
   onApply: () => void;
   isLoading?: boolean;
+  minScore: number;
+  onMinScoreChange: (score: number) => void;
 }
 
 const COUNTRY_OPTIONS = [
@@ -66,15 +68,16 @@ const REMOTE_OPTIONS = [
 
 const EMPTY_FILTERS: MatchFilters = {};
 
-export function JobFilters({ filters, onChange, onApply, isLoading }: JobFiltersProps) {
+export function JobFilters({ filters, onChange, onApply, isLoading, minScore, onMinScoreChange }: JobFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const hasActiveFilters = Object.values(filters).some(
     (value) => value !== undefined && value !== '' && value !== null,
-  );
+  ) || minScore > 0;
 
   const handleReset = () => {
     onChange(EMPTY_FILTERS);
+    onMinScoreChange(0);
   };
 
   const updateFilter = <K extends keyof MatchFilters>(key: K, value: MatchFilters[K]) => {
@@ -231,6 +234,23 @@ export function JobFilters({ filters, onChange, onApply, isLoading }: JobFilters
                   const parsedValue = e.target.value ? Number(e.target.value) : undefined;
                   updateFilter('min_salary', parsedValue);
                 }}
+              />
+            </div>
+
+            {/* Min Match Score */}
+            <div className="space-y-1.5">
+              <Label htmlFor="filter-score" className="text-xs">
+                Min Match Score: {minScore}%
+              </Label>
+              <input
+                id="filter-score"
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={minScore}
+                onChange={(e) => onMinScoreChange(Number(e.target.value))}
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
             </div>
           </div>

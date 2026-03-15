@@ -44,3 +44,11 @@ export interface MatchFilters {
   min_salary?: number;
   remote_type?: string;
 }
+
+export type SortOption =
+  | 'score_desc'
+  | 'score_asc'
+  | 'date_desc'
+  | 'date_asc'
+  | 'salary_desc'
+  | 'salary_asc';

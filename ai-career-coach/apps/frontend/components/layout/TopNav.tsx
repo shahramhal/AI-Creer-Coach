@@ -1,13 +1,17 @@
 'use client';
 
-import { Search, Bell, User } from "lucide-react";
+import { Search, Bell, Menu } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { useAuth } from "../../context/authContext";
 import { useRouter } from "next/navigation";
 
-export function TopNav() {
+interface TopNavProps {
+  onMenuClick?: () => void;
+}
+
+export function TopNav({ onMenuClick }: TopNavProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -24,9 +28,20 @@ export function TopNav() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 md:px-6 backdrop-blur-sm gap-3">
+      {/* Hamburger menu - mobile only */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="md:hidden shrink-0"
+        onClick={onMenuClick}
+      >
+        <Menu className="h-5 w-5" />
+        <span className="sr-only">Open menu</span>
+      </Button>
+
       {/* Search */}
-      <div className="relative w-96">
+      <div className="relative flex-1 max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search jobs, skills, analysis..."
@@ -38,9 +53,9 @@ export function TopNav() {
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4 shrink-0">
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
           <Bell className="h-5 w-5 text-muted-foreground" />
           <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs">
             3

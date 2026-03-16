@@ -36,6 +36,21 @@ export default function SalaryRangeHero({ prediction, location }: SalaryRangeHer
             }`}>
               {isMLSource ? 'ML Predicted' : 'Market Estimate'}
             </span>
+            {prediction.profileMatch && (
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                prediction.profileMatch === 'strong'
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                  : prediction.profileMatch === 'partial'
+                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                  : 'bg-orange-500/15 text-orange-400 border-orange-500/30'
+              }`}>
+                {prediction.profileMatch === 'strong'
+                  ? 'Strong Profile Match'
+                  : prediction.profileMatch === 'partial'
+                  ? 'Partial Match'
+                  : 'Career Transition'}
+              </span>
+            )}
             <div className="relative">
               <span
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-metric-excellent/15 text-metric-excellent border border-metric-excellent/30 cursor-help"
@@ -84,14 +99,14 @@ export default function SalaryRangeHero({ prediction, location }: SalaryRangeHer
             {showMarketTooltip && (
               <div className="absolute right-0 top-full mt-2 w-72 p-3 rounded-lg bg-popover border border-border shadow-lg z-10 text-xs text-muted-foreground text-left">
                 {isPositive
-                  ? `Your predicted salary is ${prediction.vsMarketAvg}% above the market average for this role. This accounts for your skills, experience, education, and location.`
-                  : `Your predicted salary is ${Math.abs(prediction.vsMarketAvg)}% below the market average for this role. Gaining more experience or in-demand skills can help close this gap.`}
+                  ? `Your profile positions you ${prediction.vsMarketAvg}% above the market median for this role. This accounts for your skills, experience, education, and location.`
+                  : `Your profile positions you ${Math.abs(prediction.vsMarketAvg)}% below the market median for this role.${prediction.profileMatch === 'career_transition' ? ' This may reflect a career transition — your existing skills may not directly apply to this role.' : ' Gaining more experience or in-demand skills can help close this gap.'}`}
               </div>
             )}
           </div>
-          <p className="text-sm text-muted-foreground mt-0.5">vs. market avg</p>
+          <p className="text-sm text-muted-foreground mt-0.5">vs. market median</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Predicted: {formatSalaryFull(prediction.predictedSalary, prediction.currency)}
+            Profile-adjusted estimate: {formatSalaryFull(prediction.predictedSalary, prediction.currency)}
           </p>
         </div>
       </div>

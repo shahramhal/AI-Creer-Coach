@@ -29,6 +29,9 @@ from salary_prediction.salary_predictor import router as salary_router
 # Import skill gap analyzer
 from skill_gap.analyzer import SkillGapAnalyzer
 
+# Import skill relevance analyzer
+from skill_relevance.analyzer import compute_skill_relevance
+
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Career Coach ML Service",
@@ -121,6 +124,12 @@ class ATSScoreRequest(BaseModel):
     job_skills: Optional[List[str]] = None
 
 
+class SkillRelevanceRequest(BaseModel):
+    """Request model for skill relevance analysis"""
+    job_title: str = Field(..., max_length=200)
+    skills: List[str] = Field(..., max_length=50)
+
+
 class SkillGapRequest(BaseModel):
     """Request model for skill gap analysis"""
     cv_text: str
@@ -138,7 +147,7 @@ async def root():
     return {
         "status": "ML Service is running",
         "version": "1.0.0",
-        "features": ["cv_parsing", "job_matching", "salary_prediction", "skill_gap_analysis"]
+        "features": ["cv_parsing", "job_matching", "salary_prediction", "skill_gap_analysis", "skill_relevance"]
     }
 
 
@@ -363,6 +372,37 @@ async def skill_gap_analysis(request: SkillGapRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Skill gap analysis failed: {str(e)}"
+        )
+
+
+@app.post("/api/ml/skill-relevance")
+async def skill_relevance(request: SkillRelevanceRequest):
+    """
+    Compute how relevant each user skill is to a target job title.
+    Uses semantic similarity via sentence-transformers.
+    """
+    try:
+        print(f"Skill relevance: job_title={request.job_title}, skills={len(request.skills)}")
+
+        shared_model = job_matcher.model if hasattr(job_matcher, 'model') else None
+        result = compute_skill_relevance(
+            job_title=request.job_title,
+            skills=request.skills,
+            model=shared_model,
+        )
+
+        print(f"Skill relevance complete: overall={result['overall_relevance']}, method={result['method']}")
+
+        return {
+            "success": True,
+            "data": result,
+        }
+
+    except Exception as e:
+        print(f"Skill relevance error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Skill relevance analysis failed: {str(e)}"
         )
 
 

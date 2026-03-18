@@ -45,17 +45,100 @@ def detect_remote_type(title: str, description: str) -> str:
 
 # ── Experience level detection ───────────────────────────────────────────────
 
-def detect_experience_level(title: str, description: str) -> str:
-    """Detect experience level from title."""
-    title_lower = title.lower()
-    if re.search(r'\b(junior|jr\.?|entry[\s-]?level|graduate|grad)\b', title_lower):
+_JUNIOR_TITLE_PATTERN = re.compile(
+    r'\b(junior|jr\.?|entry[\s-]?level|graduate|grad|trainee|apprentice|intern)\b', re.I
+)
+_MID_TITLE_PATTERN = re.compile(
+    r'\b(mid[\s-]?level|intermediate|middle[\s-]?level)\b', re.I
+)
+_SENIOR_TITLE_PATTERN = re.compile(
+    r'\b(senior|sr\.?|lead|principal|staff)\b', re.I
+)
+_DIRECTOR_TITLE_PATTERN = re.compile(
+    r'\b(director|head of|vp |vice president|chief|c-level|cto|cio)\b', re.I
+)
+
+# Description-specific patterns: more cautious to avoid false positives.
+# "junior" in description can appear in "mentoring junior engineers", so we
+# require it to appear in a role-context: "junior role", "junior position",
+# "junior developer", "junior–mid", or standalone at line/sentence start.
+_JUNIOR_DESC_PATTERN = re.compile(
+    r'(?:^|[.\n])\s*junior\b'                   # start of line/sentence
+    r'|junior[\s-](?:to[\s-])?(?:mid|level|role|position|developer|engineer|analyst)'
+    r'|\bentry[\s-]?level\b'
+    r'|\bgraduate\s+(?:role|position|program|scheme)\b'
+    r'|\btrainee\b',
+    re.I,
+)
+_MID_DESC_PATTERN = re.compile(
+    r'\b(?:mid[\s-]?level|intermediate|middle[\s-]?level)\b', re.I
+)
+_SENIOR_DESC_PATTERN = re.compile(
+    r'\bsenior[\s-](?:level|role|position|developer|engineer|analyst)'
+    r'|\bsenior\s+(?:or|/)\s+(?:lead|principal|staff)\b'
+    r'|\b(?:experienced|seasoned)\s+(?:developer|engineer|professional)\b',
+    re.I,
+)
+
+# Years-of-experience pattern: captures the leading number
+# Matches: "3+ years", "5-8 years experience", "2 yrs", "minimum 7 years"
+_YEARS_PATTERN = re.compile(
+    r'(\d{1,2})\s*(?:\+|[-–]\s*\d{1,2})?\s*(?:years?|yrs?)\s*'
+    r'(?:of\s+)?(?:experience|exp\.?|professional|relevant|proven|working|hands[\s-]?on)?',
+    re.I,
+)
+
+
+def _infer_level_from_years(text: str) -> str:
+    """Infer experience level from years-of-experience mentioned in text."""
+    matches = _YEARS_PATTERN.findall(text)
+    if not matches:
+        return "Not specified"
+
+    # Take the maximum mentioned years (e.g. "3-5 years" captures "3")
+    max_years = max(int(y) for y in matches)
+
+    if max_years <= 2:
         return "Junior"
-    if re.search(r'\b(mid[\s-]?level|intermediate)\b', title_lower):
+    if max_years <= 4:
         return "Mid-level"
-    if re.search(r'\b(senior|sr\.?|lead|principal|staff)\b', title_lower):
+    # 5+ years = Senior
+    return "Senior"
+
+
+def detect_experience_level(title: str, description: str) -> str:
+    """Detect experience level from title first, then fall back to description analysis."""
+    # Priority 1: explicit level keywords in the title (most reliable)
+    title_lower = title.lower()
+    if _JUNIOR_TITLE_PATTERN.search(title_lower):
+        return "Junior"
+    if _MID_TITLE_PATTERN.search(title_lower):
+        return "Mid-level"
+    if _SENIOR_TITLE_PATTERN.search(title_lower):
         return "Senior"
-    if re.search(r'\b(director|head of|vp |vice president|chief|c-level|cto|cio)\b', title_lower):
+    if _DIRECTOR_TITLE_PATTERN.search(title_lower):
         return "Director+"
+
+    desc_lower = description.lower() if description else ""
+    if not desc_lower:
+        return "Not specified"
+
+    # Priority 2: years-of-experience in description (most objective signal)
+    years_level = _infer_level_from_years(desc_lower)
+    if years_level != "Not specified":
+        return years_level
+
+    # Priority 3: explicit level keywords in description (cautious patterns)
+    if _DIRECTOR_TITLE_PATTERN.search(desc_lower):
+        if re.search(r'\b(manager|architect|head|director|chief|vp)\b', title_lower):
+            return "Director+"
+    if _SENIOR_DESC_PATTERN.search(desc_lower):
+        return "Senior"
+    if _MID_DESC_PATTERN.search(desc_lower):
+        return "Mid-level"
+    if _JUNIOR_DESC_PATTERN.search(desc_lower):
+        return "Junior"
+
     return "Not specified"
 
 

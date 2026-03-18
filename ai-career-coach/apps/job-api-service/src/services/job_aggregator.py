@@ -15,6 +15,7 @@ from .adzuna_api import AdzunaAPI
 from .reed_api import ReedAPI
 from ..config.settings import settings
 from ..models.job import Job
+from ..utils.helpers import detect_experience_level, detect_remote_type, infer_job_type
 
 
 class JobAggregator:
@@ -125,6 +126,49 @@ class JobAggregator:
 
         logger.info(f"✅ Stored {stored_count} jobs in MongoDB")
         return stored_count
+
+    async def backfill_experience_levels(self) -> Dict:
+        """
+        Re-run experience level detection on all jobs currently marked 'Not specified'.
+        Uses the improved detect_experience_level() which scans both title and description.
+
+        Returns:
+            Dict with reclassification statistics
+        """
+        cursor = self.jobs_collection.find(
+            {"experience_level": "Not specified"},
+            {"_id": 1, "title": 1, "description": 1},
+        )
+
+        reclassified = 0
+        scanned = 0
+        level_counts: Dict[str, int] = {}
+
+        async for job in cursor:
+            scanned += 1
+            title = job.get("title", "")
+            description = job.get("description", "")
+            new_level = detect_experience_level(title, description)
+
+            if new_level != "Not specified":
+                await self.jobs_collection.update_one(
+                    {"_id": job["_id"]},
+                    {"$set": {"experience_level": new_level}},
+                )
+                reclassified += 1
+                level_counts[new_level] = level_counts.get(new_level, 0) + 1
+
+        logger.info(
+            f"✅ Backfill complete: scanned {scanned}, reclassified {reclassified} "
+            f"({level_counts})"
+        )
+
+        return {
+            "scanned": scanned,
+            "reclassified": reclassified,
+            "still_not_specified": scanned - reclassified,
+            "breakdown": level_counts,
+        }
 
     async def cleanup_expired_jobs(self, max_age_days: Optional[int] = None) -> int:
         """

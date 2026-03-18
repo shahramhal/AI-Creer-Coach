@@ -2,11 +2,15 @@
 """
 Reed.co.uk API integration
 UK's largest job board API (UK-only)
+
+Search endpoint returns truncated descriptions (~453 chars).
+Detail endpoint (/api/1.0/jobs/{jobId}) returns the full description.
+We fetch details for each job to get accurate experience level detection.
 """
 
 import requests
 import base64
-from typing import List, Dict
+from typing import List, Dict, Optional
 from loguru import logger
 
 from ..config.settings import settings
@@ -21,6 +25,7 @@ class ReedAPI:
     """
 
     BASE_URL = "https://www.reed.co.uk/api/1.0/search"
+    DETAIL_URL = "https://www.reed.co.uk/api/1.0/jobs"
 
     def __init__(self):
         self.api_key = settings.reed_api_key
@@ -28,30 +33,39 @@ class ReedAPI:
         if not self.api_key:
             logger.warning("Reed API key not configured")
 
+    def _get_auth_header(self) -> dict:
+        """Build the Basic auth header Reed requires."""
+        auth_string = f"{self.api_key}:"
+        auth_header = base64.b64encode(auth_string.encode()).decode()
+        return {'Authorization': f'Basic {auth_header}'}
+
+    def _fetch_job_detail(self, job_id: str) -> Optional[Dict]:
+        """Fetch full job details from Reed's detail endpoint."""
+        try:
+            response = requests.get(
+                f"{self.DETAIL_URL}/{job_id}",
+                headers=self._get_auth_header(),
+                timeout=10,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.debug(f"Reed detail fetch failed for {job_id}: {e}")
+            return None
+
     def fetch_jobs(self, keywords: str, location: str, max_results: int = 100) -> List[Dict]:
         """
-        Fetch jobs from Reed API.
+        Fetch jobs from Reed API with full descriptions.
 
-        Args:
-            keywords: Search terms
-            location: Location filter
-            max_results: Maximum jobs to fetch (Reed caps at 100 per request)
-
-        Returns:
-            List of normalized job dictionaries
+        1. Search endpoint to get job list (truncated descriptions)
+        2. Detail endpoint per job for full description text
         """
         if not self.api_key:
             logger.warning("Skipping Reed: No API key")
             return []
 
         try:
-            auth_string = f"{self.api_key}:"
-            auth_header = base64.b64encode(auth_string.encode()).decode()
-
-            headers = {
-                'Authorization': f'Basic {auth_header}'
-            }
-
+            headers = self._get_auth_header()
             results_to_take = min(max_results, 100)
 
             params = {
@@ -72,7 +86,19 @@ class ReedAPI:
             data = response.json()
             results = data.get('results', [])
 
-            jobs = [self._normalize_job(job, keywords, location) for job in results]
+            jobs = []
+            for raw_job in results:
+                job_id = str(raw_job.get('jobId', ''))
+
+                # Fetch full description from detail endpoint
+                full_description = None
+                if job_id:
+                    detail = self._fetch_job_detail(job_id)
+                    if detail:
+                        full_description = detail.get('jobDescription', '')
+
+                normalized = self._normalize_job(raw_job, keywords, location, full_description)
+                jobs.append(normalized)
 
             logger.info(f"✅ Reed: {len(jobs)} jobs for '{keywords}' in '{location}'")
             return jobs
@@ -81,10 +107,10 @@ class ReedAPI:
             logger.error(f"❌ Reed API error: {e}")
             return []
 
-    def _normalize_job(self, raw_job: Dict, keywords: str, location: str) -> Dict:
+    def _normalize_job(self, raw_job: Dict, keywords: str, location: str, full_description: Optional[str] = None) -> Dict:
         """Convert Reed job format to our standard format."""
         title = raw_job.get('jobTitle', 'Not specified')
-        description = raw_job.get('jobDescription', '')
+        description = full_description or raw_job.get('jobDescription', '')
 
         # Reed sometimes provides jobType, but often it's missing
         raw_job_type = raw_job.get('jobType') or ''

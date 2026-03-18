@@ -2,23 +2,35 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Briefcase, Target, BookOpen, TrendingUp } from "lucide-react";
 import { cn } from "@/library/utils";
 
+interface QuickStatsProps {
+  matchCount?: number;
+  skillsToLearn?: number;
+  inProgressSkills?: number;
+  isLoading: boolean;
+}
+
 interface StatCardProps {
   title: string;
   value: string | number;
   change?: string;
   changeType?: "positive" | "negative" | "neutral";
   icon: React.ElementType;
+  isLoading?: boolean;
 }
 
-function StatCard({ title, value, change, changeType = "neutral", icon: Icon }: StatCardProps) {
+function StatCard({ title, value, change, changeType = "neutral", icon: Icon, isLoading }: StatCardProps) {
   return (
     <Card className="border-border bg-card shadow-card transition-all hover:shadow-glow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs font-medium text-muted-foreground">{title}</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-foreground">{value}</p>
-            {change && (
+            {isLoading ? (
+              <div className="mt-1 h-8 w-16 bg-muted/50 rounded animate-pulse" />
+            ) : (
+              <p className="mt-1 font-mono text-2xl font-bold text-foreground">{value}</p>
+            )}
+            {change && !isLoading && (
               <p
                 className={cn(
                   "mt-1 text-xs font-medium",
@@ -40,43 +52,39 @@ function StatCard({ title, value, change, changeType = "neutral", icon: Icon }: 
   );
 }
 
-export function QuickStats() {
-  const stats: StatCardProps[] = [
-    {
-      title: "Active Applications",
-      value: 24,
-      change: "+3 this week",
-      changeType: "positive",
-      icon: Briefcase,
-    },
-    {
-      title: "Job Matches",
-      value: 156,
-      change: "12 new today",
-      changeType: "positive",
-      icon: Target,
-    },
-    {
-      title: "Skills to Learn",
-      value: 5,
-      change: "2 in progress",
-      changeType: "neutral",
-      icon: BookOpen,
-    },
-    {
-      title: "Response Rate",
-      value: "32%",
-      change: "+5% vs avg",
-      changeType: "positive",
-      icon: TrendingUp,
-    },
-  ];
-
+export function QuickStats({ matchCount, skillsToLearn, inProgressSkills, isLoading }: QuickStatsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat) => (
-        <StatCard key={stat.title} {...stat} />
-      ))}
+      <StatCard
+        title="Job Matches"
+        value={matchCount ?? "--"}
+        change={matchCount !== undefined ? `Top ${matchCount} matches` : undefined}
+        changeType="positive"
+        icon={Target}
+        isLoading={isLoading}
+      />
+      <StatCard
+        title="Skills to Learn"
+        value={skillsToLearn ?? "--"}
+        change={inProgressSkills !== undefined ? `${inProgressSkills} in progress` : undefined}
+        changeType="neutral"
+        icon={BookOpen}
+        isLoading={isLoading}
+      />
+      <StatCard
+        title="Active Applications"
+        value="--"
+        change="Coming soon"
+        changeType="neutral"
+        icon={Briefcase}
+      />
+      <StatCard
+        title="Response Rate"
+        value="--"
+        change="Coming soon"
+        changeType="neutral"
+        icon={TrendingUp}
+      />
     </div>
   );
 }

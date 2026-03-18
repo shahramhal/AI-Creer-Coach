@@ -14,6 +14,7 @@ import salaryRoutes from './routes/salary.routes.js';
 import applicationRoutes from './routes/applications.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import skillGapRoutes from './routes/skillGap.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 import { globalErrorHandler } from './middlewares/error.middleware.js';
 
 // Load environment variables
@@ -82,6 +83,9 @@ app.use('/api/admin', adminRoutes);
 
 // Skill gap & learning path routes
 app.use('/api/skill-gap', skillGapRoutes);
+
+// Dashboard routes
+app.use('/api/dashboard', dashboardRoutes);
 
 // Debug: List all registered routes
 app.get('/api/debug/routes', (req: Request, res: Response) => {

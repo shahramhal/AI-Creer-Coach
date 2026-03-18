@@ -56,10 +56,18 @@ model UserProfile {
   githubUrl    String?  @map("github_url") @db.VarChar(500)
   portfolioUrl String?  @map("portfolio_url") @db.VarChar(500)
   bio          String?  @db.Text
-  avatarUrl    String?  @map("avatar_url") @db.VarChar(500)
-  jobTitle     String?  @map("job_title") @db.VarChar(255)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamp()
+  avatarUrl        String?  @map("avatar_url") @db.VarChar(500)
+  jobTitle         String?  @map("job_title") @db.VarChar(255)
+  targetRole       String?  @map("target_role") @db.VarChar(255)
+  experienceLevel  String?  @map("experience_level") @db.VarChar(50)
+  targetCompanies  Json?    @map("target_companies") @db.JsonB
+  country          String?  @db.VarChar(10)
+  region           String?  @db.VarChar(255)
+  salaryMin        Int?     @map("salary_min")
+  salaryMax        Int?     @map("salary_max")
+  workArrangements Json?    @map("work_arrangements") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamp()
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

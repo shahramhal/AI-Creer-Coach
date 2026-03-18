@@ -55,7 +55,7 @@ const JOB_TYPE_OPTIONS = [
 const EXPERIENCE_OPTIONS = [
   { value: '', label: 'All Levels' },
   { value: 'Junior', label: 'Junior' },
-  { value: 'Mid', label: 'Mid' },
+  { value: 'Mid-level', label: 'Mid-Level' },
   { value: 'Senior', label: 'Senior' },
 ];
 

@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { redis, queues, checkDatabaseHealth } from '../config/database.js';
 import crypto from 'crypto';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
+import { accountService } from './account.service.js';
 import { sendAccountDisabledEmail } from '../utils/email.util.js';
 
 const prisma = new PrismaClient();
@@ -289,30 +290,7 @@ export class AdminService {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
 
-    // Delete from MongoDB (parsed CVs)
-    try {
-      const mongoDb = mongoose.connection.db;
-      if (mongoDb) {
-        await mongoDb.collection('parsed_cvs').deleteMany({ userId });
-      }
-    } catch (error) {
-      console.error('Failed to delete MongoDB data for user:', error);
-    }
-
-    // Delete from Redis cache
-    try {
-      const cacheKeys = await redis.keys(`*${userId}*`);
-      if (cacheKeys.length > 0) {
-        await redis.del(...cacheKeys);
-      }
-    } catch (error) {
-      console.error('Failed to clear Redis cache for user:', error);
-    }
-
-    // Prisma cascade handles all related Postgres records
-    await prisma.user.delete({ where: { id: userId } });
-
-    return { message: 'User and all associated data deleted' };
+    return await accountService.deleteUserAccount(userId);
   }
 
   // ─── Job Management ────────────────────────────────────────

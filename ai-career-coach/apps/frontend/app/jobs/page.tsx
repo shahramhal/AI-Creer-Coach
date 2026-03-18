@@ -9,6 +9,7 @@ import { JobFilters } from '@/components/jobs/JobFilters';
 import { JobMatchPagination } from '@/components/jobs/JobMatchPagination';
 import { matchingService } from '@/services/matching.service';
 import { cvService } from '@/services/cv.service';
+import { settingsService } from '@/services/settings.service';
 import type { MatchedJob, MatchFilters, SortOption } from '@/types/matching.types';
 import { Button } from '@/components/ui/button';
 import {
@@ -136,28 +137,60 @@ export default function JobMatchesPage() {
 
     const populateDefaultsAndFetch = async () => {
       let defaultFilters: MatchFilters = {};
+      let preferencesApplied = false;
 
+      // Try career preferences first
       try {
-        const response = await cvService.getUserCVs();
-        const cvList = response.data ?? [];
-        const primaryCV = cvList.find((cv) => cv.isPrimary) ?? cvList[0];
-
-        if (primaryCV?.parsedData) {
-          const parsedData = primaryCV.parsedData;
-
-          const cvLocation = parsedData.personal?.location;
-          const inferredCountry = inferCountryFromLocation(cvLocation);
-          if (inferredCountry) {
-            defaultFilters.country = inferredCountry;
-          }
-
-          const latestExperienceTitle = parsedData.experience?.[0]?.title;
-          if (latestExperienceTitle) {
-            defaultFilters.title_keywords = latestExperienceTitle;
-          }
+        const preferences = await settingsService.getCareerPreferences();
+        if (preferences.country) {
+          defaultFilters.country = preferences.country;
+          preferencesApplied = true;
+        }
+        if (preferences.region) {
+          defaultFilters.city = preferences.region;
+        }
+        if (preferences.targetRole) {
+          defaultFilters.title_keywords = preferences.targetRole;
+        } else if (preferences.jobTitle) {
+          defaultFilters.title_keywords = preferences.jobTitle;
+        }
+        if (preferences.experienceLevel) {
+          defaultFilters.experience_level = preferences.experienceLevel;
+        }
+        if (preferences.workArrangements && preferences.workArrangements.length > 0) {
+          defaultFilters.remote_type = preferences.workArrangements[0];
+        }
+        if (preferences.salaryMin) {
+          defaultFilters.min_salary = preferences.salaryMin;
         }
       } catch {
-        // Silently ignore — filters stay empty
+        // Preferences fetch optional
+      }
+
+      // Fall back to CV-based detection if no preferences were applied
+      if (!preferencesApplied) {
+        try {
+          const response = await cvService.getUserCVs();
+          const cvList = response.data ?? [];
+          const primaryCV = cvList.find((cv) => cv.isPrimary) ?? cvList[0];
+
+          if (primaryCV?.parsedData) {
+            const parsedData = primaryCV.parsedData;
+
+            const cvLocation = parsedData.personal?.location;
+            const inferredCountry = inferCountryFromLocation(cvLocation);
+            if (inferredCountry) {
+              defaultFilters.country = inferredCountry;
+            }
+
+            const latestExperienceTitle = parsedData.experience?.[0]?.title;
+            if (latestExperienceTitle) {
+              defaultFilters.title_keywords = latestExperienceTitle;
+            }
+          }
+        } catch {
+          // Silently ignore
+        }
       }
 
       if (Object.keys(defaultFilters).length > 0) {

@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/authContext';
 import { salaryService } from '../../services/salary.service';
+import { settingsService } from '../../services/settings.service';
 import dynamic from 'next/dynamic';
 import { AppLayout } from '../../components/layout/AppLayout';
 import SalaryRangeHero from '../../components/salary/SalaryRangeHero';
 
-// Lazy-load chart-heavy salary components
 const MarketSalaryTrend = dynamic(() => import('../../components/salary/MarketSalaryTrend'), { ssr: false });
 const TopPayingRoles = dynamic(() => import('../../components/salary/TopPayingRoles'), { ssr: false });
 const MissingSkillsTable = dynamic(() => import('../../components/salary/MissingSkillsTable'), { ssr: false });
@@ -19,101 +19,7 @@ import { Button } from '../../components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { DollarSign, RefreshCw, Search } from 'lucide-react';
 import api from '../../library/api';
-
-// Adzuna-compatible location options per country (location1 values)
-const LOCATION_OPTIONS: Record<string, Array<{ label: string; value: string }>> = {
-  gb: [
-    { label: 'London', value: 'London' },
-    { label: 'South East England', value: 'South East England' },
-    { label: 'North West England', value: 'North West England' },
-    { label: 'West Midlands', value: 'West Midlands' },
-    { label: 'Scotland', value: 'Scotland' },
-    { label: 'East of England', value: 'East of England' },
-    { label: 'South West England', value: 'South West England' },
-    { label: 'East Midlands', value: 'East Midlands' },
-    { label: 'North East England', value: 'North East England' },
-    { label: 'Yorkshire', value: 'Yorkshire and The Humber' },
-    { label: 'Wales', value: 'Wales' },
-    { label: 'Northern Ireland', value: 'Northern Ireland' },
-  ],
-  us: [
-    { label: 'New York', value: 'New York' },
-    { label: 'California', value: 'California' },
-    { label: 'Texas', value: 'Texas' },
-    { label: 'Washington', value: 'Washington State' },
-    { label: 'Massachusetts', value: 'Massachusetts' },
-    { label: 'Illinois', value: 'Illinois' },
-    { label: 'Pennsylvania', value: 'Pennsylvania' },
-    { label: 'Colorado', value: 'Colorado' },
-    { label: 'Georgia', value: 'Georgia' },
-    { label: 'Florida', value: 'Florida' },
-  ],
-  de: [
-    { label: 'Berlin', value: 'Berlin' },
-    { label: 'Bayern', value: 'Bayern' },
-    { label: 'Hamburg', value: 'Hamburg' },
-    { label: 'Hessen', value: 'Hessen' },
-    { label: 'NRW', value: 'Nordrhein-Westfalen' },
-    { label: 'Baden-Württemberg', value: 'Baden-Württemberg' },
-    { label: 'Sachsen', value: 'Sachsen' },
-  ],
-  fr: [
-    { label: 'Île-de-France', value: 'Île-de-France' },
-    { label: 'Auvergne-Rhône-Alpes', value: 'Auvergne-Rhône-Alpes' },
-    { label: 'Provence-Alpes-Côte d\'Azur', value: 'Provence-Alpes-Côte d\'Azur' },
-  ],
-  nl: [
-    { label: 'Noord-Holland', value: 'Noord-Holland' },
-    { label: 'Zuid-Holland', value: 'Zuid-Holland' },
-    { label: 'Noord-Brabant', value: 'Noord-Brabant' },
-  ],
-  au: [
-    { label: 'New South Wales', value: 'New South Wales' },
-    { label: 'Victoria', value: 'Victoria' },
-    { label: 'Queensland', value: 'Queensland' },
-    { label: 'Western Australia', value: 'Western Australia' },
-  ],
-  ca: [
-    { label: 'Ontario', value: 'Ontario' },
-    { label: 'British Columbia', value: 'British Columbia' },
-    { label: 'Alberta', value: 'Alberta' },
-    { label: 'Quebec', value: 'Québec' },
-  ],
-};
-
-// Common job titles for suggestions
-const JOB_TITLE_OPTIONS = [
-  'Software Engineer',
-  'Senior Software Engineer',
-  'Frontend Developer',
-  'Backend Developer',
-  'Full Stack Developer',
-  'DevOps Engineer',
-  'Data Scientist',
-  'Data Engineer',
-  'Data Analyst',
-  'Machine Learning Engineer',
-  'Cloud Engineer',
-  'Mobile Developer',
-  'iOS Developer',
-  'Android Developer',
-  'QA Engineer',
-  'Security Engineer',
-  'Solutions Architect',
-  'Technical Lead',
-  'Engineering Manager',
-  'Product Manager',
-  'Project Manager',
-  'UX Designer',
-  'UI Developer',
-  'Business Analyst',
-  'Database Administrator',
-  'System Administrator',
-  'Network Engineer',
-  'Cyber Security Analyst',
-  'Scrum Master',
-  'IT Consultant',
-];
+import { COUNTRY_OPTIONS, LOCATION_OPTIONS, JOB_TITLE_OPTIONS } from '../../utils/locationData';
 
 export default function SalaryInsightsPage() {
   const router = useRouter();
@@ -127,7 +33,6 @@ export default function SalaryInsightsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthLoading && !isAuthenticated) {
       router.push('/auth/login');
@@ -139,66 +44,90 @@ export default function SalaryInsightsPage() {
     setLocation('__all__');
   }, [country]);
 
-  // Load user profile and CV to auto-populate fields
+  // Load career preferences, then profile/CV as fallback
   useEffect(() => {
     if (!user || isInitialized) return;
 
     const initializeFields = async () => {
       try {
-        const profileResponse = await api.get(`/api/profile/${user.id}`);
-        const profile = profileResponse.data?.data;
-
-        let detectedJobTitle = profile?.jobTitle || '';
-        let detectedLocation = profile?.location || '';
-
-        // If no job title in profile, try to detect from CV
-        if (!detectedJobTitle) {
-          try {
-            const cvsResponse = await api.get('/api/ml/cvs');
-            const cvs = cvsResponse.data?.data;
-            if (cvs && cvs.length > 0) {
-              const latestCV = cvs[0];
-              const experience = latestCV.parsedData?.experience;
-              if (experience && experience.length > 0) {
-                detectedJobTitle = experience[0].title || '';
-              }
-            }
-          } catch {
-            // CV fetch is optional
+        // Try career preferences first
+        let preferencesApplied = false;
+        try {
+          const preferences = await settingsService.getCareerPreferences();
+          if (preferences.country) {
+            setCountry(preferences.country);
+            preferencesApplied = true;
           }
+          if (preferences.region) {
+            setLocation(preferences.region);
+          }
+          if (preferences.jobTitle) {
+            setJobTitle(preferences.jobTitle);
+          } else if (preferences.targetRole) {
+            const matchedTitle = JOB_TITLE_OPTIONS.find(
+              (title) => title.toLowerCase() === preferences.targetRole!.toLowerCase()
+            );
+            if (matchedTitle) setJobTitle(matchedTitle);
+          }
+        } catch {
+          // Preferences fetch optional
         }
 
-        // Match detected job title to closest option
-        if (detectedJobTitle) {
-          const normalizedDetected = detectedJobTitle.toLowerCase();
-          const matchedTitle = JOB_TITLE_OPTIONS.find(t =>
-            t.toLowerCase() === normalizedDetected ||
-            normalizedDetected.includes(t.toLowerCase()) ||
-            t.toLowerCase().includes(normalizedDetected)
-          );
-          setJobTitle(matchedTitle || detectedJobTitle);
-        }
+        // Fall back to profile/CV if no preferences set the job title
+        if (!preferencesApplied) {
+          const profileResponse = await api.get(`/api/profile/${user.id}`);
+          const profile = profileResponse.data?.data;
 
-        // Match detected location to a valid option
-        if (detectedLocation) {
-          const normalizedLoc = detectedLocation.toLowerCase();
-          const locationOptions = LOCATION_OPTIONS[country] || [];
-          const matchedLoc = locationOptions.find(l =>
-            l.value.toLowerCase() === normalizedLoc ||
-            normalizedLoc.includes(l.label.toLowerCase()) ||
-            l.label.toLowerCase().includes(normalizedLoc)
-          );
-          if (matchedLoc) {
-            setLocation(matchedLoc.value);
+          let detectedJobTitle = profile?.jobTitle || '';
+          let detectedLocation = profile?.location || '';
+
+          if (!detectedJobTitle) {
+            try {
+              const cvsResponse = await api.get('/api/ml/cvs');
+              const cvs = cvsResponse.data?.data;
+              if (cvs && cvs.length > 0) {
+                const latestCV = cvs[0];
+                const experience = latestCV.parsedData?.experience;
+                if (experience && experience.length > 0) {
+                  detectedJobTitle = experience[0].title || '';
+                }
+              }
+            } catch {
+              // CV fetch is optional
+            }
+          }
+
+          if (detectedJobTitle) {
+            const normalizedDetected = detectedJobTitle.toLowerCase();
+            const matchedTitle = JOB_TITLE_OPTIONS.find(
+              (title) =>
+                title.toLowerCase() === normalizedDetected ||
+                normalizedDetected.includes(title.toLowerCase()) ||
+                title.toLowerCase().includes(normalizedDetected)
+            );
+            setJobTitle(matchedTitle || detectedJobTitle);
+          }
+
+          if (detectedLocation) {
+            const normalizedLoc = detectedLocation.toLowerCase();
+            const locationOptions = LOCATION_OPTIONS[country] || [];
+            const matchedLoc = locationOptions.find(
+              (locationOption) =>
+                locationOption.value.toLowerCase() === normalizedLoc ||
+                normalizedLoc.includes(locationOption.label.toLowerCase()) ||
+                locationOption.label.toLowerCase().includes(normalizedLoc)
+            );
+            if (matchedLoc) {
+              setLocation(matchedLoc.value);
+            }
           }
         }
 
         setIsInitialized(true);
 
         // Auto-fetch if we have a job title
-        const finalJobTitle = detectedJobTitle || '';
-        if (finalJobTitle) {
-          fetchInsights(finalJobTitle, location, country);
+        if (jobTitle) {
+          fetchInsights(jobTitle, location, country);
         }
       } catch {
         setIsInitialized(true);
@@ -208,8 +137,7 @@ export default function SalaryInsightsPage() {
     initializeFields();
   }, [user]);
 
-  // Convert internal "__all__" sentinel to empty string for API calls
-  const resolveLocation = (loc: string) => loc === '__all__' ? '' : loc;
+  const resolveLocation = (loc: string) => (loc === '__all__' ? '' : loc);
 
   const fetchInsights = useCallback(async (title: string, loc: string, ctry: string) => {
     if (!title.trim()) {
@@ -235,16 +163,14 @@ export default function SalaryInsightsPage() {
 
   const handleSubmit = async () => {
     const apiLocation = resolveLocation(location);
-    // Save preferences
     try {
       await salaryService.savePreferences(jobTitle, apiLocation);
     } catch {
-      // Non-critical, continue with fetch
+      // Non-critical
     }
     fetchInsights(jobTitle, location, country);
   };
 
-  // Show loading spinner while checking auth
   if (isAuthLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -256,15 +182,13 @@ export default function SalaryInsightsPage() {
     );
   }
 
-  // Get the display label for the selected location
   const selectedLocationLabel = location
-    ? (LOCATION_OPTIONS[country] || []).find(l => l.value === location)?.label || location
+    ? (LOCATION_OPTIONS[country] || []).find((locationOption) => locationOption.value === location)?.label || location
     : '';
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">Salary Insights</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -272,7 +196,6 @@ export default function SalaryInsightsPage() {
           </p>
         </div>
 
-        {/* Filters Bar */}
         <Card className="border-border bg-card shadow-card">
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -283,7 +206,7 @@ export default function SalaryInsightsPage() {
                     <SelectValue placeholder="Select a job title" />
                   </SelectTrigger>
                   <SelectContent>
-                    {JOB_TITLE_OPTIONS.map(title => (
+                    {JOB_TITLE_OPTIONS.map((title) => (
                       <SelectItem key={title} value={title}>{title}</SelectItem>
                     ))}
                   </SelectContent>
@@ -297,7 +220,7 @@ export default function SalaryInsightsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">All regions</SelectItem>
-                    {(LOCATION_OPTIONS[country] || []).map(loc => (
+                    {(LOCATION_OPTIONS[country] || []).map((loc) => (
                       <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -310,13 +233,11 @@ export default function SalaryInsightsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="gb">UK</SelectItem>
-                    <SelectItem value="us">US</SelectItem>
-                    <SelectItem value="de">Germany</SelectItem>
-                    <SelectItem value="fr">France</SelectItem>
-                    <SelectItem value="nl">Netherlands</SelectItem>
-                    <SelectItem value="au">Australia</SelectItem>
-                    <SelectItem value="ca">Canada</SelectItem>
+                    {COUNTRY_OPTIONS.map((countryOption) => (
+                      <SelectItem key={countryOption.value} value={countryOption.value}>
+                        {countryOption.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -338,7 +259,6 @@ export default function SalaryInsightsPage() {
           </CardContent>
         </Card>
 
-        {/* Error */}
         {error && (
           <Card className="border-destructive/50 bg-destructive/10">
             <CardContent className="p-4">
@@ -347,7 +267,6 @@ export default function SalaryInsightsPage() {
           </Card>
         )}
 
-        {/* Loading State */}
         {isLoading && (
           <div className="text-center py-16">
             <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
@@ -355,7 +274,6 @@ export default function SalaryInsightsPage() {
           </div>
         )}
 
-        {/* Empty State */}
         {!isLoading && !salaryData && !error && isInitialized && (
           <div className="bg-card border border-border rounded-xl p-16 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
@@ -368,16 +286,13 @@ export default function SalaryInsightsPage() {
           </div>
         )}
 
-        {/* Salary Data */}
         {!isLoading && salaryData && (
           <>
-            {/* 1. Salary Range Hero (full width) */}
             <SalaryRangeHero
               prediction={salaryData.prediction}
               location={selectedLocationLabel}
             />
 
-            {/* 2. Two-column: Top-Paying Roles + Market Trend */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TopPayingRoles
                 roles={salaryData.topPayingRoles || []}
@@ -389,12 +304,10 @@ export default function SalaryInsightsPage() {
               />
             </div>
 
-            {/* 3. Missing Skills Table (full width) */}
             <MissingSkillsTable
               skills={salaryData.missingSkills || []}
             />
 
-            {/* 4. Salary by Cities (full width) */}
             <SalaryByLocation
               regions={salaryData.regionalComparison}
               currency={salaryData.prediction.currency}

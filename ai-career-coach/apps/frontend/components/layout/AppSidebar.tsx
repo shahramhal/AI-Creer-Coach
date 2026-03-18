@@ -11,6 +11,7 @@ import {
   ScanSearch,
   GraduationCap,
   Shield,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -28,7 +29,8 @@ const navItems = [
   { title: 'Job Matches', url: '/jobs', icon: Briefcase },
   { title: "Salary Insights", url: "/salary-insights", icon: DollarSign },
   { title: 'Learning Paths', url: '/learning', icon: GraduationCap },
-  { title: "Profile", url: "/profile", icon: User }
+  { title: "Profile", url: "/profile", icon: User },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 interface SidebarContentProps {

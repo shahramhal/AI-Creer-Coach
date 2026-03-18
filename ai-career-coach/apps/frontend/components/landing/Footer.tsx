@@ -31,7 +31,7 @@ export function Footer() {
             </Link>
           </div>
 
-          <p className="text-[11px] text-muted-foreground/40">
+          <p className="text-[11px] text-muted-foreground/70">
             &copy; {new Date().getFullYear()} Build Your Career. All rights reserved.
           </p>
         </div>

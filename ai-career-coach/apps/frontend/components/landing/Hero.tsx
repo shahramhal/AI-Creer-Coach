@@ -103,7 +103,7 @@ export function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 1.0 }}
-          className="mt-16 flex items-center justify-center gap-6 text-[12px] text-muted-foreground/60"
+          className="mt-16 flex items-center justify-center gap-6 text-[12px] text-muted-foreground/80"
         >
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5" /> No credit card required

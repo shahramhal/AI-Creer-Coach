@@ -35,7 +35,7 @@ export function FinalCTA() {
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                 </Link>
               </div>
-              <p className="mt-5 text-[12px] text-muted-foreground/50">
+              <p className="mt-5 text-[12px] text-muted-foreground/70">
                 No credit card required &middot; Free tier available &middot; Cancel anytime
               </p>
             </div>

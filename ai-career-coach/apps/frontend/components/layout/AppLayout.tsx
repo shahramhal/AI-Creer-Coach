@@ -26,7 +26,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         sidebarCollapsed ? "md:pl-16" : "md:pl-60"
       )}>
         <TopNav onMenuClick={() => setMobileSidebarOpen(true)} />
-        <main className="p-4 md:p-6">{children}</main>
+        <main id="main-content" className="p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

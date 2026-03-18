@@ -20,7 +20,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           collapsed={sidebarCollapsed}
           onCollapsedChange={setSidebarCollapsed}
         />
-        <main className={cn(
+        <main id="main-content" className={cn(
           "min-h-screen transition-all duration-300",
           sidebarCollapsed ? "md:pl-16" : "md:pl-60"
         )}>

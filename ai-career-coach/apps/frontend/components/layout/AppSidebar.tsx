@@ -20,6 +20,7 @@ import { cn } from "../../library/utils";
 import { Button } from "../ui/button";
 import { useAuth } from "../../context/authContext";
 import { Sheet, SheetContent } from "../ui/sheet";
+import { ThemeToggle } from "../ui/theme-toggle";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
 const navItems = [
@@ -55,7 +56,7 @@ function SidebarContent({
   onLogout,
 }: SidebarContentProps) {
   return (
-    <>
+    <div className="flex flex-col h-full">
       <div className="flex h-16 items-center justify-between border-b border-border px-3">
         <div className="flex-1 min-w-0 flex items-center justify-center overflow-hidden">
           {isCollapsed ? (
@@ -135,28 +136,42 @@ function SidebarContent({
         </div>
       )}
 
-      {!isCollapsed && user && (
-        <div className="absolute bottom-4 left-4 right-4 space-y-2">
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-sm font-medium text-foreground truncate">
-              {user.firstName} {user.lastName}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {user.email}
-            </p>
+      <div className="mt-auto p-4 space-y-2">
+        {isCollapsed ? (
+          <div className="flex justify-center">
+            <ThemeToggle />
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-muted-foreground hover:text-foreground"
-            onClick={onLogout}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
-        </div>
-      )}
-    </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Theme</span>
+              <ThemeToggle />
+            </div>
+            {user && (
+              <>
+                <div className="rounded-lg border border-border bg-card p-3">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {user.firstName} {user.lastName}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user.email}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-muted-foreground hover:text-foreground"
+                  onClick={onLogout}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

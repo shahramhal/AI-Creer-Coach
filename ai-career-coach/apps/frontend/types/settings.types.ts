@@ -7,5 +7,6 @@ export interface CareerPreferences {
   salaryMin: number | null;
   salaryMax: number | null;
   workArrangements: string[];
+  preferredJobTypes: string[];
   jobTitle: string | null;
 }

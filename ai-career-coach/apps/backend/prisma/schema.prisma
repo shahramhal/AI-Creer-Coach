@@ -65,8 +65,9 @@ model UserProfile {
   region           String?  @db.VarChar(255)
   salaryMin        Int?     @map("salary_min")
   salaryMax        Int?     @map("salary_max")
-  workArrangements Json?    @map("work_arrangements") @db.JsonB
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp()
+  workArrangements   Json?    @map("work_arrangements") @db.JsonB
+  preferredJobTypes  Json?    @map("preferred_job_types") @db.JsonB
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp()
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamp()
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)

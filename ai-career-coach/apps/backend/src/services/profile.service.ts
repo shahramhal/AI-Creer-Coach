@@ -21,6 +21,7 @@ interface CareerPreferencesData {
   salaryMin?: number | null;
   salaryMax?: number | null;
   workArrangements?: string[] | null;
+  preferredJobTypes?: string[] | null;
   jobTitle?: string | null;
 }
 
@@ -91,6 +92,7 @@ export class ProfileService {
       salaryMin: profile.salaryMin,
       salaryMax: profile.salaryMax,
       workArrangements: profile.workArrangements,
+      preferredJobTypes: profile.preferredJobTypes,
       jobTitle: profile.jobTitle,
     };
   }
@@ -109,6 +111,7 @@ export class ProfileService {
         salaryMin: data.salaryMin,
         salaryMax: data.salaryMax,
         workArrangements: data.workArrangements ?? undefined,
+        preferredJobTypes: data.preferredJobTypes ?? undefined,
         jobTitle: data.jobTitle,
         updatedAt: new Date(),
       },

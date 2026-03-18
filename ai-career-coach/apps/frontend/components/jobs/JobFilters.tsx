@@ -71,9 +71,12 @@ const EMPTY_FILTERS: MatchFilters = {};
 export function JobFilters({ filters, onChange, onApply, isLoading, minScore, onMinScoreChange }: JobFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const hasActiveFilters = Object.values(filters).some(
-    (value) => value !== undefined && value !== '' && value !== null,
-  ) || minScore > 0;
+  const activeFilterCount = Object.values(filters).filter((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== undefined && value !== '' && value !== null;
+  }).length;
+
+  const hasActiveFilters = activeFilterCount > 0 || minScore > 0;
 
   const handleReset = () => {
     onChange(EMPTY_FILTERS);
@@ -82,12 +85,27 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
 
   const updateFilter = <K extends keyof MatchFilters>(key: K, value: MatchFilters[K]) => {
     const updatedFilters = { ...filters };
-    if (value === '' || value === undefined || value === null) {
+    if (value === '' || value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
       delete updatedFilters[key];
     } else {
       updatedFilters[key] = value;
     }
     onChange(updatedFilters);
+  };
+
+  const toggleArrayFilter = (key: 'remote_type' | 'job_type', item: string) => {
+    const currentValue = filters[key];
+    const currentArray = Array.isArray(currentValue) ? currentValue : currentValue ? [currentValue] : [];
+    const updatedArray = currentArray.includes(item)
+      ? currentArray.filter((existingItem) => existingItem !== item)
+      : [...currentArray, item];
+    updateFilter(key, updatedArray.length > 0 ? updatedArray : undefined);
+  };
+
+  const isArrayFilterChecked = (key: 'remote_type' | 'job_type', item: string): boolean => {
+    const currentValue = filters[key];
+    if (Array.isArray(currentValue)) return currentValue.includes(item);
+    return currentValue === item;
   };
 
   return (
@@ -104,7 +122,7 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
             Filters
             {hasActiveFilters && (
               <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                {Object.values(filters).filter((v) => v !== undefined && v !== '' && v !== null).length}
+                {activeFilterCount}
               </span>
             )}
           </span>
@@ -162,24 +180,22 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
               />
             </div>
 
-            {/* Job Type */}
+            {/* Job Type (multi-select checkboxes) */}
             <div className="space-y-1.5">
-              <Label htmlFor="filter-job-type" className="text-xs">Job Type</Label>
-              <Select
-                value={filters.job_type ?? ''}
-                onValueChange={(value) => updateFilter('job_type', value === '_all' ? '' : value)}
-              >
-                <SelectTrigger id="filter-job-type">
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  {JOB_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value || '_all'}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Job Type</Label>
+              <div className="flex flex-wrap gap-3 pt-1">
+                {JOB_TYPE_OPTIONS.filter((option) => option.value !== '').map((option) => (
+                  <label key={option.value} className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isArrayFilterChecked('job_type', option.value)}
+                      onChange={() => toggleArrayFilter('job_type', option.value)}
+                      className="h-3.5 w-3.5 rounded border-input bg-background text-primary focus:ring-primary"
+                    />
+                    <span className="text-xs text-foreground">{option.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* Experience Level */}
@@ -202,24 +218,22 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
               </Select>
             </div>
 
-            {/* Remote Type */}
+            {/* Work Type (multi-select checkboxes) */}
             <div className="space-y-1.5">
-              <Label htmlFor="filter-remote" className="text-xs">Work Type</Label>
-              <Select
-                value={filters.remote_type ?? ''}
-                onValueChange={(value) => updateFilter('remote_type', value === '_all' ? '' : value)}
-              >
-                <SelectTrigger id="filter-remote">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  {REMOTE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value || '_all'}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Work Type</Label>
+              <div className="flex flex-wrap gap-3 pt-1">
+                {REMOTE_OPTIONS.filter((option) => option.value !== '').map((option) => (
+                  <label key={option.value} className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isArrayFilterChecked('remote_type', option.value)}
+                      onChange={() => toggleArrayFilter('remote_type', option.value)}
+                      className="h-3.5 w-3.5 rounded border-input bg-background text-primary focus:ring-primary"
+                    />
+                    <span className="text-xs text-foreground">{option.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* Min Salary */}

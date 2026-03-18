@@ -43,6 +43,7 @@ const EXPERIENCE_LEVELS = [
 ];
 
 const WORK_ARRANGEMENTS = ['Remote', 'Hybrid', 'On-site'];
+const JOB_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship', 'Temporary'];
 
 export function CareerPreferencesTab() {
   const { showSuccessToast, showErrorToast } = useToast();
@@ -56,6 +57,7 @@ export function CareerPreferencesTab() {
   const [salaryMin, setSalaryMin] = useState('');
   const [salaryMax, setSalaryMax] = useState('');
   const [workArrangements, setWorkArrangements] = useState<string[]>([]);
+  const [preferredJobTypes, setPreferredJobTypes] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export function CareerPreferencesTab() {
         if (preferences.salaryMin) setSalaryMin(String(preferences.salaryMin));
         if (preferences.salaryMax) setSalaryMax(String(preferences.salaryMax));
         if (preferences.workArrangements) setWorkArrangements(preferences.workArrangements);
+        if (preferences.preferredJobTypes) setPreferredJobTypes(preferences.preferredJobTypes);
       } catch {
         // Silently fail - fields stay empty
       } finally {
@@ -118,6 +121,14 @@ export function CareerPreferencesTab() {
     );
   };
 
+  const toggleJobType = (jobType: string) => {
+    setPreferredJobTypes((previous) =>
+      previous.includes(jobType)
+        ? previous.filter((item) => item !== jobType)
+        : [...previous, jobType]
+    );
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -130,6 +141,7 @@ export function CareerPreferencesTab() {
         salaryMin: salaryMin ? parseInt(salaryMin, 10) : null,
         salaryMax: salaryMax ? parseInt(salaryMax, 10) : null,
         workArrangements,
+        preferredJobTypes,
       });
       showSuccessToast('Your career preferences have been updated.');
     } catch {
@@ -302,6 +314,23 @@ export function CareerPreferencesTab() {
                   className="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary"
                 />
                 <span className="text-sm text-foreground">{arrangement}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <Label>Job Type</Label>
+          <div className="flex flex-wrap gap-4">
+            {JOB_TYPES.map((jobType) => (
+              <label key={jobType} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={preferredJobTypes.includes(jobType)}
+                  onChange={() => toggleJobType(jobType)}
+                  className="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-foreground">{jobType}</span>
               </label>
             ))}
           </div>

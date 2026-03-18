@@ -158,7 +158,10 @@ export default function JobMatchesPage() {
           defaultFilters.experience_level = preferences.experienceLevel;
         }
         if (preferences.workArrangements && preferences.workArrangements.length > 0) {
-          defaultFilters.remote_type = preferences.workArrangements[0];
+          defaultFilters.remote_type = preferences.workArrangements;
+        }
+        if (preferences.preferredJobTypes && preferences.preferredJobTypes.length > 0) {
+          defaultFilters.job_type = preferences.preferredJobTypes;
         }
         if (preferences.salaryMin) {
           defaultFilters.min_salary = preferences.salaryMin;

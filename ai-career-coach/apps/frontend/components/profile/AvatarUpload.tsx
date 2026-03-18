@@ -1,8 +1,7 @@
-// apps/frontend/components/profile/AvatarUpload.tsx
-
 'use client';
 
 import { useState, useEffect, ChangeEvent } from 'react';
+import api from '../../library/api';
 import { API_BASE_URL } from '../../library/config';
 
 interface AvatarUploadProps {
@@ -58,25 +57,16 @@ export default function AvatarUpload({ currentAvatar, onUpload }: AvatarUploadPr
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_BASE_URL}/api/profile/avatar`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
+      const response = await api.post('/api/profile/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        onUpload(data.data.avatarUrl);
-      } else {
-        const data = await response.json();
-        setError(data.message || 'Failed to upload avatar');
-      }
-    } catch (error) {
-      console.error('Upload failed:', error);
-      setError('Failed to upload avatar. Please try again.');
+      onUpload(response.data.data.avatarUrl);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      setError(message || 'Failed to upload avatar. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -91,24 +81,15 @@ export default function AvatarUpload({ currentAvatar, onUpload }: AvatarUploadPr
     setError(null);
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_BASE_URL}/api/profile/avatar`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        setPreview(null);
-        onUpload('');
-      } else {
-        const data = await response.json();
-        setError(data.message || 'Failed to delete avatar');
-      }
-    } catch (error) {
-      console.error('Delete failed:', error);
-      setError('Failed to delete avatar. Please try again.');
+      await api.delete('/api/profile/avatar');
+      setPreview(null);
+      onUpload('');
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      setError(message || 'Failed to delete avatar. Please try again.');
     } finally {
       setDeleting(false);
     }

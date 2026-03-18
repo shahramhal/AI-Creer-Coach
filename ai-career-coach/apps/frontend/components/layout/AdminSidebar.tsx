@@ -47,7 +47,7 @@ function AdminSidebarContent({
   onLogout,
 }: AdminSidebarContentProps) {
   return (
-    <>
+    <div className="flex flex-col h-full">
       <div className="flex h-16 items-center justify-between border-b border-border px-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive">
@@ -100,7 +100,7 @@ function AdminSidebarContent({
         })}
       </nav>
 
-      <div className="absolute bottom-4 left-0 right-0 px-4 space-y-2">
+      <div className="mt-auto p-4 space-y-2">
         <Link
           href="/dashboard"
           onClick={onNavClick}
@@ -134,7 +134,7 @@ function AdminSidebarContent({
           </>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

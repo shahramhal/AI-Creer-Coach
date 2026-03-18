@@ -1,12 +1,4 @@
-export const COUNTRY_OPTIONS = [
-  { label: 'UK', value: 'gb' },
-  { label: 'US', value: 'us' },
-  { label: 'Germany', value: 'de' },
-  { label: 'France', value: 'fr' },
-  { label: 'Netherlands', value: 'nl' },
-  { label: 'Australia', value: 'au' },
-  { label: 'Canada', value: 'ca' },
-] as const;
+export { COUNTRY_OPTIONS } from '@/constants/options';
 
 export const LOCATION_OPTIONS: Record<string, Array<{ label: string; value: string }>> = {
   gb: [
@@ -66,6 +58,14 @@ export const LOCATION_OPTIONS: Record<string, Array<{ label: string; value: stri
     { label: 'Alberta', value: 'Alberta' },
     { label: 'Quebec', value: 'Québec' },
   ],
+  in: [],
+  sg: [],
+  at: [],
+  be: [],
+  br: [],
+  it: [],
+  pl: [],
+  za: [],
 };
 
 export const JOB_TITLE_OPTIONS = [

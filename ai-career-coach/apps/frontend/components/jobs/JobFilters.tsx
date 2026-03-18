@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, RotateCcw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -14,6 +15,12 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import type { MatchFilters } from '@/types/matching.types';
+import {
+  COUNTRY_OPTIONS,
+  JOB_TYPE_OPTIONS,
+  EXPERIENCE_LEVEL_OPTIONS,
+  WORK_ARRANGEMENT_OPTIONS,
+} from '@/constants/options';
 
 interface JobFiltersProps {
   filters: MatchFilters;
@@ -23,48 +30,6 @@ interface JobFiltersProps {
   minScore: number;
   onMinScoreChange: (score: number) => void;
 }
-
-const COUNTRY_OPTIONS = [
-  { value: '', label: 'All Countries' },
-  { value: 'gb', label: 'United Kingdom' },
-  { value: 'us', label: 'United States' },
-  { value: 'ca', label: 'Canada' },
-  { value: 'de', label: 'Germany' },
-  { value: 'fr', label: 'France' },
-  { value: 'au', label: 'Australia' },
-  { value: 'nl', label: 'Netherlands' },
-  { value: 'in', label: 'India' },
-  { value: 'sg', label: 'Singapore' },
-  { value: 'at', label: 'Austria' },
-  { value: 'be', label: 'Belgium' },
-  { value: 'br', label: 'Brazil' },
-  { value: 'it', label: 'Italy' },
-  { value: 'pl', label: 'Poland' },
-  { value: 'za', label: 'South Africa' },
-];
-
-const JOB_TYPE_OPTIONS = [
-  { value: '', label: 'All Types' },
-  { value: 'Full-time', label: 'Full-time' },
-  { value: 'Part-time', label: 'Part-time' },
-  { value: 'Contract', label: 'Contract' },
-  { value: 'Internship', label: 'Internship' },
-  { value: 'Temporary', label: 'Temporary' },
-];
-
-const EXPERIENCE_OPTIONS = [
-  { value: '', label: 'All Levels' },
-  { value: 'Junior', label: 'Junior' },
-  { value: 'Mid-level', label: 'Mid-Level' },
-  { value: 'Senior', label: 'Senior' },
-];
-
-const REMOTE_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'Remote', label: 'Remote' },
-  { value: 'On-site', label: 'On-site' },
-  { value: 'Hybrid', label: 'Hybrid' },
-];
 
 const EMPTY_FILTERS: MatchFilters = {};
 
@@ -149,8 +114,9 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
                   <SelectValue placeholder="All Countries" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="_all">All Countries</SelectItem>
                   {COUNTRY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value || '_all'}>
+                    <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
@@ -184,15 +150,15 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
             <div className="space-y-1.5">
               <Label className="text-xs">Job Type</Label>
               <div className="flex flex-wrap gap-3 pt-1">
-                {JOB_TYPE_OPTIONS.filter((option) => option.value !== '').map((option) => (
-                  <label key={option.value} className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isArrayFilterChecked('job_type', option.value)}
-                      onChange={() => toggleArrayFilter('job_type', option.value)}
-                      className="h-3.5 w-3.5 rounded border-input bg-background text-primary focus:ring-primary"
+                {JOB_TYPE_OPTIONS.map((jobType) => (
+                  <label key={jobType} htmlFor={`filter-job-type-${jobType}`} className="flex items-center gap-1.5 cursor-pointer">
+                    <Checkbox
+                      id={`filter-job-type-${jobType}`}
+                      checked={isArrayFilterChecked('job_type', jobType)}
+                      onCheckedChange={() => toggleArrayFilter('job_type', jobType)}
+                      className="h-3.5 w-3.5"
                     />
-                    <span className="text-xs text-foreground">{option.label}</span>
+                    <span className="text-xs text-foreground">{jobType}</span>
                   </label>
                 ))}
               </div>
@@ -209,8 +175,9 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
                   <SelectValue placeholder="All Levels" />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXPERIENCE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value || '_all'}>
+                  <SelectItem value="_all">All Levels</SelectItem>
+                  {EXPERIENCE_LEVEL_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
@@ -222,15 +189,15 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
             <div className="space-y-1.5">
               <Label className="text-xs">Work Type</Label>
               <div className="flex flex-wrap gap-3 pt-1">
-                {REMOTE_OPTIONS.filter((option) => option.value !== '').map((option) => (
-                  <label key={option.value} className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isArrayFilterChecked('remote_type', option.value)}
-                      onChange={() => toggleArrayFilter('remote_type', option.value)}
-                      className="h-3.5 w-3.5 rounded border-input bg-background text-primary focus:ring-primary"
+                {WORK_ARRANGEMENT_OPTIONS.map((arrangement) => (
+                  <label key={arrangement} htmlFor={`filter-work-type-${arrangement}`} className="flex items-center gap-1.5 cursor-pointer">
+                    <Checkbox
+                      id={`filter-work-type-${arrangement}`}
+                      checked={isArrayFilterChecked('remote_type', arrangement)}
+                      onCheckedChange={() => toggleArrayFilter('remote_type', arrangement)}
+                      className="h-3.5 w-3.5"
                     />
-                    <span className="text-xs text-foreground">{option.label}</span>
+                    <span className="text-xs text-foreground">{arrangement}</span>
                   </label>
                 ))}
               </div>

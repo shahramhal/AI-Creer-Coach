@@ -3,6 +3,7 @@
 import type { Request, Response } from 'express';
 import { ProfileService } from '../services/profile.service.js';
 import { accountService } from '../services/account.service.js';
+import { logUserActivity } from '../utils/activity.util.js';
 
 const profileService = new ProfileService();
 
@@ -59,6 +60,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       if (lastName !== undefined) userData.lastName = lastName;
 
       const result = await profileService.updateProfileWithUser(userId, profileUpdates, userData);
+      logUserActivity(userId, 'profile_update', 'Profile Updated', 'Account information updated');
       return res.status(200).json({
         success: true,
         data: result.profile,
@@ -67,6 +69,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     }
 
     const profile = await profileService.updateProfile(userId, profileUpdates);
+    logUserActivity(userId, 'profile_update', 'Profile Updated', 'Profile information updated');
 
     return res.status(200).json({
       success: true,
@@ -115,6 +118,8 @@ export const updateCareerPreferences = async (req: Request, res: Response) => {
 
     await profileService.updateCareerPreferences(userId, preferences);
     const updated = await profileService.getCareerPreferences(userId);
+
+    logUserActivity(userId, 'settings_update', 'Settings Updated', 'Career preferences updated');
 
     return res.status(200).json({
       success: true,
@@ -221,6 +226,8 @@ export const uploadAvatar = async (req: Request, res: Response) => {
     const avatarUrl = `/uploads/avatars/${req.file.filename}`;
     const profile = await profileService.updateAvatar(userId, avatarUrl);
 
+    logUserActivity(userId, 'profile_update', 'Avatar Updated', 'Profile avatar uploaded');
+
     return res.status(200).json({
       success: true,
       data: { avatarUrl: profile.avatarUrl },
@@ -260,6 +267,8 @@ export const deleteAvatar = async (req: Request, res: Response) => {
     }
 
     const updatedProfile = await profileService.updateAvatar(userId, null);
+
+    logUserActivity(userId, 'profile_update', 'Avatar Removed', 'Profile avatar deleted');
 
     return res.status(200).json({
       success: true,

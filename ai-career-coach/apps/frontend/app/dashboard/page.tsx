@@ -48,7 +48,7 @@ export default function DashboardPage() {
   const progressQuery = useProgressSummary(isReady);
   const preferencesQuery = useCareerPreferences(isReady);
   const activityQuery = useRecentActivity(isReady);
-  const matchesQuery = useJobMatches(3, isReady);
+  const matchesQuery = useJobMatches(100, isReady);
 
   const preferences = preferencesQuery.data;
   const salaryQuery = useSalaryInsights(
@@ -81,9 +81,11 @@ export default function DashboardPage() {
 
   const progressSummary = progressQuery.data?.data ?? null;
   const activities = activityQuery.data;
-  const matchedJobs = matchesQuery.data?.success
-    ? matchesQuery.data.data.matched_jobs.slice(0, 3)
+  const allMatchedJobs = matchesQuery.data?.success
+    ? matchesQuery.data.data.matched_jobs
     : undefined;
+  const topMatchedJobs = allMatchedJobs?.slice(0, 3);
+  const strongMatchCount = allMatchedJobs?.filter((job) => job.match_score >= 55).length;
   const salaryData = salaryQuery.data?.success ? salaryQuery.data.data : null;
 
   const isLoadingInitial =
@@ -98,12 +100,12 @@ export default function DashboardPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Here&apos;s your career command center.
-            {matchedJobs && matchedJobs.length > 0 && ` You have ${matchedJobs.length} top job matches.`}
+            {strongMatchCount !== undefined && strongMatchCount > 0 && ` You have ${strongMatchCount} strong job matches.`}
           </p>
         </div>
 
         <QuickStats
-          matchCount={matchedJobs?.length}
+          matchCount={strongMatchCount}
           skillsToLearn={progressSummary?.totalPaths}
           inProgressSkills={progressSummary?.inProgressPaths}
           isLoading={isLoadingInitial}
@@ -122,7 +124,7 @@ export default function DashboardPage() {
               cvData={primaryCv}
               skillData={progressSummary}
               preferences={preferences ?? null}
-              matchCount={matchedJobs?.length}
+              matchCount={strongMatchCount}
             />
           </div>
 
@@ -134,7 +136,7 @@ export default function DashboardPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <JobMatchPreview
-            jobs={matchedJobs}
+            jobs={topMatchedJobs}
             isLoading={matchesQuery.isLoading}
           />
           <RecentActivity

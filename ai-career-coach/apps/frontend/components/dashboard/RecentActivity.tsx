@@ -7,6 +7,11 @@ import {
   CheckCircle,
   Bookmark,
   Clock,
+  Trash2,
+  BarChart3,
+  ClipboardCheck,
+  UserCog,
+  Settings,
 } from "lucide-react";
 import { cn, formatRelativeTime } from "@/library/utils";
 import type { DashboardActivity } from "@/types/dashboard.types";
@@ -16,7 +21,7 @@ interface RecentActivityProps {
   isLoading: boolean;
 }
 
-const activityConfig = {
+const activityConfig: Record<string, { icon: React.ElementType; color: string; bgColor: string }> = {
   cv_upload: {
     icon: FileText,
     color: "text-primary",
@@ -26,6 +31,31 @@ const activityConfig = {
     icon: FileText,
     color: "text-chart-2",
     bgColor: "bg-chart-2/10",
+  },
+  cv_delete: {
+    icon: Trash2,
+    color: "text-metric-poor",
+    bgColor: "bg-metric-poor/10",
+  },
+  cv_analyze: {
+    icon: BarChart3,
+    color: "text-chart-4",
+    bgColor: "bg-chart-4/10",
+  },
+  ats_check: {
+    icon: ClipboardCheck,
+    color: "text-chart-3",
+    bgColor: "bg-chart-3/10",
+  },
+  profile_update: {
+    icon: UserCog,
+    color: "text-chart-5",
+    bgColor: "bg-chart-5/10",
+  },
+  settings_update: {
+    icon: Settings,
+    color: "text-chart-1",
+    bgColor: "bg-chart-1/10",
   },
   application: {
     icon: Briefcase,
@@ -47,6 +77,12 @@ const activityConfig = {
     color: "text-metric-excellent",
     bgColor: "bg-metric-excellent/10",
   },
+};
+
+const fallbackConfig = {
+  icon: Clock,
+  color: "text-muted-foreground",
+  bgColor: "bg-muted/10",
 };
 
 export function RecentActivity({ activities, isLoading }: RecentActivityProps) {
@@ -82,7 +118,7 @@ export function RecentActivity({ activities, isLoading }: RecentActivityProps) {
         ) : (
           <div className="space-y-4">
             {activities.map((activity, index) => {
-              const config = activityConfig[activity.type];
+              const config = activityConfig[activity.type] ?? fallbackConfig;
               const Icon = config.icon;
               return (
                 <div

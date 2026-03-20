@@ -80,7 +80,7 @@ export function JobMatchPreview({ jobs, isLoading }: JobMatchPreviewProps) {
         ) : (
           <div className="space-y-4">
             {jobs.map((job) => {
-              const matchScore = Math.round(job.match_score * 100);
+              const matchScore = Math.round(job.match_score);
               const isRemote = job.remote_type?.toLowerCase() === 'remote';
               const skills = [
                 ...job.match_breakdown.matched_skills.map(name => ({ name, matched: true })),

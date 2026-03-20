@@ -58,7 +58,7 @@ export function QuickStats({ matchCount, skillsToLearn, inProgressSkills, isLoad
       <StatCard
         title="Job Matches"
         value={matchCount ?? "--"}
-        change={matchCount !== undefined ? `Top ${matchCount} matches` : undefined}
+        change={matchCount !== undefined ? "Above 55% match" : undefined}
         changeType="positive"
         icon={Target}
         isLoading={isLoading}

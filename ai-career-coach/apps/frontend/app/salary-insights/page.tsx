@@ -18,7 +18,6 @@ import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { DollarSign, RefreshCw, Search } from 'lucide-react';
-import api from '../../library/api';
 import { COUNTRY_OPTIONS, LOCATION_OPTIONS, JOB_TITLE_OPTIONS } from '../../utils/locationData';
 
 export default function SalaryInsightsPage() {
@@ -44,93 +43,46 @@ export default function SalaryInsightsPage() {
     setLocation('__all__');
   }, [country]);
 
-  // Load career preferences, then profile/CV as fallback
+  // Load career preferences from settings
   useEffect(() => {
     if (!user || isInitialized) return;
 
     const initializeFields = async () => {
+      let resolvedJobTitle = '';
+      let resolvedCountry = country;
+      let resolvedLocation = location;
+
       try {
-        // Try career preferences first
-        let preferencesApplied = false;
-        try {
-          const preferences = await settingsService.getCareerPreferences();
-          if (preferences.country) {
-            setCountry(preferences.country);
-            preferencesApplied = true;
-          }
-          if (preferences.region) {
-            setLocation(preferences.region);
-          }
-          if (preferences.jobTitle) {
-            setJobTitle(preferences.jobTitle);
-          } else if (preferences.targetRole) {
-            const matchedTitle = JOB_TITLE_OPTIONS.find(
-              (title) => title.toLowerCase() === preferences.targetRole!.toLowerCase()
-            );
-            if (matchedTitle) setJobTitle(matchedTitle);
-          }
-        } catch {
-          // Preferences fetch optional
+        const preferences = await settingsService.getCareerPreferences();
+        if (preferences.country) {
+          resolvedCountry = preferences.country;
+          setCountry(resolvedCountry);
         }
-
-        // Fall back to profile/CV if no preferences set the job title
-        if (!preferencesApplied) {
-          const profileResponse = await api.get(`/api/profile/${user.id}`);
-          const profile = profileResponse.data?.data;
-
-          let detectedJobTitle = profile?.jobTitle || '';
-          let detectedLocation = profile?.location || '';
-
-          if (!detectedJobTitle) {
-            try {
-              const cvsResponse = await api.get('/api/ml/cvs');
-              const cvs = cvsResponse.data?.data;
-              if (cvs && cvs.length > 0) {
-                const latestCV = cvs[0];
-                const experience = latestCV.parsedData?.experience;
-                if (experience && experience.length > 0) {
-                  detectedJobTitle = experience[0].title || '';
-                }
-              }
-            } catch {
-              // CV fetch is optional
-            }
-          }
-
-          if (detectedJobTitle) {
-            const normalizedDetected = detectedJobTitle.toLowerCase();
-            const matchedTitle = JOB_TITLE_OPTIONS.find(
-              (title) =>
-                title.toLowerCase() === normalizedDetected ||
-                normalizedDetected.includes(title.toLowerCase()) ||
-                title.toLowerCase().includes(normalizedDetected)
-            );
-            setJobTitle(matchedTitle || detectedJobTitle);
-          }
-
-          if (detectedLocation) {
-            const normalizedLoc = detectedLocation.toLowerCase();
-            const locationOptions = LOCATION_OPTIONS[country] || [];
-            const matchedLoc = locationOptions.find(
-              (locationOption) =>
-                locationOption.value.toLowerCase() === normalizedLoc ||
-                normalizedLoc.includes(locationOption.label.toLowerCase()) ||
-                locationOption.label.toLowerCase().includes(normalizedLoc)
-            );
-            if (matchedLoc) {
-              setLocation(matchedLoc.value);
-            }
-          }
+        if (preferences.region) {
+          resolvedLocation = preferences.region;
+          setLocation(resolvedLocation);
         }
-
-        setIsInitialized(true);
-
-        // Auto-fetch if we have a job title
-        if (jobTitle) {
-          fetchInsights(jobTitle, location, country);
+        if (preferences.jobTitle) {
+          resolvedJobTitle = preferences.jobTitle;
+          setJobTitle(resolvedJobTitle);
+        } else if (preferences.targetRole) {
+          const matchedTitle = JOB_TITLE_OPTIONS.find(
+            (title) => title.toLowerCase() === preferences.targetRole!.toLowerCase()
+          );
+          if (matchedTitle) {
+            resolvedJobTitle = matchedTitle;
+            setJobTitle(resolvedJobTitle);
+          }
         }
       } catch {
-        setIsInitialized(true);
+        // No preferences saved — use default unfiltered mode
+      }
+
+      setIsInitialized(true);
+
+      // Auto-fetch if we have a job title
+      if (resolvedJobTitle) {
+        fetchInsights(resolvedJobTitle, resolvedLocation, resolvedCountry);
       }
     };
 

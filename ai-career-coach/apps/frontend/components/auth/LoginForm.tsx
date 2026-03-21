@@ -1,128 +1,91 @@
-// apps/web/src/components/auth/LoginForm.tsx
-
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../context/authContext';
 import { extractErrorMessage, extractErrorCode } from '../../utils/error.util';
+
+const loginSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Email is invalid'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginForm() {
   const router = useRouter();
   const { login } = useAuth();
-
-  // Form state
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
-  // Handle input change
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear error when user types
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: '' }));
-    }
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
 
-  // Validate form
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validate()) return;
-
-    setIsLoading(true);
-    setErrors({});
-
+  const onSubmit = async (formData: LoginFormData) => {
+    setSubmitError('');
     try {
       await login(formData.email, formData.password);
       router.push('/dashboard');
     } catch (error: unknown) {
       const errorCode = extractErrorCode(error);
-      let errorMessage: string;
-
       if (errorCode === 'ACCOUNT_DISABLED') {
-        errorMessage = 'Your account has been disabled. Please contact support.';
+        setSubmitError('Your account has been disabled. Please contact support.');
       } else {
-        errorMessage = extractErrorMessage(error, 'Login failed. Please try again.');
+        setSubmitError(extractErrorMessage(error, 'Login failed. Please try again.'));
       }
-
-      setErrors({ submit: errorMessage });
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Email field */}
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+        <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-2">
           Email address
         </label>
         <input
           id="email"
-          name="email"
           type="email"
           autoComplete="email"
-          value={formData.email}
-          onChange={handleChange}
-          className={`w-full px-4 py-3 rounded-lg border bg-[#1e2433] text-white placeholder-gray-500 ${
-            errors.email ? 'border-red-500' : 'border-[#2a3441]'
-          } focus:ring-2 focus:ring-[#6366f1] focus:border-transparent outline-none transition`}
+          {...register('email')}
+          className={`w-full px-4 py-3 rounded-lg border bg-muted/50 text-foreground placeholder-muted-foreground ${
+            errors.email ? 'border-destructive' : 'border-border'
+          } focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition`}
           placeholder="test1@example.com"
         />
         {errors.email && (
-          <p className="mt-1 text-sm text-red-400">{errors.email}</p>
+          <p className="mt-1 text-sm text-destructive">{errors.email.message}</p>
         )}
       </div>
 
-      {/* Password field */}
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+        <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-2">
           Password
         </label>
         <div className="relative">
           <input
             id="password"
-            name="password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
-            value={formData.password}
-            onChange={handleChange}
-            className={`w-full px-4 py-3 rounded-lg border bg-[#1e2433] text-white placeholder-gray-500 ${
-              errors.password ? 'border-red-500' : 'border-[#2a3441]'
-            } focus:ring-2 focus:ring-[#6366FF ] focus:border-transparent outline-none transition`}
+            {...register('password')}
+            className={`w-full px-4 py-3 rounded-lg border bg-muted/50 text-foreground placeholder-muted-foreground ${
+              errors.password ? 'border-destructive' : 'border-border'
+            } focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition`}
             placeholder="••••••••••••••"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
           >
             {showPassword ? (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,51 +100,47 @@ export default function LoginForm() {
           </button>
         </div>
         {errors.password && (
-          <p className="mt-1 text-sm text-red-400">{errors.password}</p>
+          <p className="mt-1 text-sm text-destructive">{errors.password.message}</p>
         )}
       </div>
 
-      {/* Forgot password link */}
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <input
             id="remember"
             name="remember"
             type="checkbox"
-            className="h-4 w-4 text-[#6366f1] focus:ring-[#6366f1] border-[#2a3441] rounded bg-[#1e2433]"
+            className="h-4 w-4 text-primary focus:ring-primary border-border rounded bg-muted/50"
           />
-          <label htmlFor="remember" className="ml-2 block text-sm text-gray-400">
+          <label htmlFor="remember" className="ml-2 block text-sm text-muted-foreground">
             Remember me
           </label>
         </div>
         <Link
           href="/forgot-password"
-          className="text-sm text-[#6366f1] hover:text-[#818cf8] transition-colors"
+          className="text-sm text-primary hover:text-primary/80 transition-colors"
         >
           Forgot password?
         </Link>
       </div>
 
-      {/* Submit error */}
-      {errors.submit && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-          <p className="text-sm text-red-400">{errors.submit}</p>
+      {submitError && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
+          <p className="text-sm text-destructive">{submitError}</p>
         </div>
       )}
 
-      {/* Submit button */}
       <button
         type="submit"
-        disabled={isLoading}
-        className="w-full bg-[#6366f1] text-white py-3 px-4 rounded-lg font-medium hover:bg-[#6366f1]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6366f1] focus:ring-offset-[#1a1f2e] transition disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={isSubmitting}
+        className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-background transition disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isLoading ? 'Signing in...' : 'Sign in'}
+        {isSubmitting ? 'Signing in...' : 'Sign in'}
       </button>
 
-      {/* Register link */}
-      <p className="text-center text-sm text-gray-400">
+      <p className="text-center text-sm text-muted-foreground">
         Don't have an account?{' '}
-        <Link href="/register" className="text-[#6366f1] hover:text-[#818cf8] font-medium transition-colors">
+        <Link href="/register" className="text-primary hover:text-primary/80 font-medium transition-colors">
           Sign up
         </Link>
       </p>

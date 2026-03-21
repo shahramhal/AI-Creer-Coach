@@ -2,11 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
 @layer base {
   :root {
-    /* Professional dark theme - Command Center aesthetic */
+    /* Light theme */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --metric-excellent: 142 76% 36%;
+    --metric-good: 173 80% 36%;
+    --metric-average: 38 92% 50%;
+    --metric-poor: 0 84% 60%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 239 84% 67%;
+
+    --radius: 0.5rem;
+
+    --chart-1: 239 84% 67%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 173 80% 36%;
+
+    --sidebar-background: 220 14% 96%;
+    --sidebar-foreground: 220 9% 46%;
+    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 92%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 239 84% 67%;
+
+    --shadow-card: 0 4px 24px -4px hsla(220, 14%, 0%, 0.08);
+    --shadow-glow: 0 0 20px -5px hsl(239 84% 67% / 0.15);
+  }
+
+  .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
@@ -16,7 +75,6 @@
     --popover: 222 47% 10%;
     --popover-foreground: 210 40% 98%;
 
-    /* Professional indigo - primary brand */
     --primary: 239 84% 67%;
     --primary-foreground: 222 47% 6%;
 
@@ -24,22 +82,20 @@
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217 33% 16%;
-    --muted-foreground: 215 20% 55%;
+    --muted-foreground: 215 20% 65%;
 
     --accent: 217 33% 17%;
     --accent-foreground: 210 40% 98%;
 
-    /* Status colors */
     --success: 142 76% 46%;
     --success-foreground: 142 76% 96%;
-    
+
     --warning: 38 92% 50%;
     --warning-foreground: 38 92% 10%;
-    
+
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Metrics colors */
     --metric-excellent: 142 76% 46%;
     --metric-good: 173 80% 40%;
     --metric-average: 38 92% 50%;
@@ -49,16 +105,12 @@
     --input: 217 33% 20%;
     --ring: 239 84% 67%;
 
-    --radius: 0.5rem;
-
-    /* Chart colors */
     --chart-1: 239 84% 67%;
     --chart-2: 142 76% 46%;
     --chart-3: 38 92% 50%;
     --chart-4: 280 65% 60%;
     --chart-5: 173 80% 40%;
 
-    /* Sidebar */
     --sidebar-background: 222 47% 9%;
     --sidebar-foreground: 215 20% 65%;
     --sidebar-primary: 239 84% 67%;
@@ -68,13 +120,8 @@
     --sidebar-border: 217 33% 18%;
     --sidebar-ring: 239 84% 67%;
 
-    /* Shadows */
     --shadow-card: 0 4px 24px -4px hsla(222, 47%, 0%, 0.5);
     --shadow-glow: 0 0 20px -5px hsl(239 84% 67% / 0.3);
-  }
-
-  .dark {
-    /* Same as root - dark by default */
   }
 }
 
@@ -83,14 +130,12 @@
     @apply border-border;
   }
 
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+  html {
+    scroll-behavior: smooth;
   }
 
-  /* Monospace for data/numbers */
-  .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
   }
 }
 

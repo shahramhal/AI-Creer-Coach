@@ -1,6 +1,5 @@
-// apps/web/src/lib/api.ts
-
 import axios from 'axios';
+import { getAccessToken, setAccessToken, clearAccessToken } from './auth';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -12,16 +11,15 @@ const api = axios.create({
   timeout: 60000, // Default 60 second timeout
 });
 
-// Request interceptor - Add auth token to requests
+// Request interceptor - Add auth token from in-memory store
 api.interceptors.request.use(
   (config) => {
-    // Get token from localStorage
-    const token = localStorage.getItem('accessToken');
-    
+    const token = getAccessToken();
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     return config;
   },
   (error) => {
@@ -29,39 +27,43 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor - Handle token refresh
+// Deduplicate concurrent refresh requests so only one hits the backend
+let refreshPromise: Promise<string> | null = null;
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // If token expired and we haven't retried yet
-    // Skip refresh only for credential/token endpoints that legitimately return 401
     const skipRefreshEndpoints = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh'];
     const shouldSkipRefresh = skipRefreshEndpoints.some((endpoint) =>
       originalRequest.url?.includes(endpoint)
     );
+
     if (error.response?.status === 401 && !originalRequest._retry && !shouldSkipRefresh) {
       originalRequest._retry = true;
 
       try {
-        // Try to refresh token
-        const { data } = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
+        if (!refreshPromise) {
+          refreshPromise = axios
+            .post(
+              `${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh`,
+              {},
+              { withCredentials: true },
+            )
+            .then((res) => res.data.data.accessToken as string)
+            .finally(() => {
+              refreshPromise = null;
+            });
+        }
 
-        // Save new token
-        localStorage.setItem('accessToken', data.data.accessToken);
+        const newToken = await refreshPromise;
+        setAccessToken(newToken);
 
-        // Retry original request with new token
-        originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - clear storage and redirect to login
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
+        clearAccessToken();
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }

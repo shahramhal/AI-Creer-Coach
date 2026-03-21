@@ -8,7 +8,11 @@ import {
   getProfile,
   updateProfile,
   uploadAvatar,
-  deleteAvatar
+  deleteAvatar,
+  getCareerPreferences,
+  updateCareerPreferences,
+  exportData,
+  deleteAccount
 } from '../controllers/profile.controller.js';
 
 const router = Router();
@@ -16,8 +20,18 @@ const router = Router();
 // All profile routes require authentication
 router.use(authenticate);
 
-// GET /api/profile/:userId - Get profile
-router.get('/:userId', getProfile);
+// Named routes MUST come before /:userId to avoid being captured as a param
+// GET /api/profile/preferences - Get career preferences
+router.get('/preferences', getCareerPreferences);
+
+// PUT /api/profile/preferences - Update career preferences
+router.put('/preferences', updateCareerPreferences);
+
+// GET /api/profile/export - Export user data
+router.get('/export', exportData);
+
+// DELETE /api/profile/account - Delete user account
+router.delete('/account', deleteAccount);
 
 // PUT /api/profile - Update profile
 router.put('/', updateProfile);
@@ -27,6 +41,9 @@ router.post('/avatar', upload.single('avatar'), uploadAvatar);
 
 // DELETE /api/profile/avatar - Delete avatar
 router.delete('/avatar', deleteAvatar);
+
+// GET /api/profile/:userId - Get profile (must be last)
+router.get('/:userId', getProfile);
 
 // Multer error handler - catches file upload errors
 router.use((err: any, req: Request, res: Response, next: NextFunction) => {
@@ -44,7 +61,6 @@ router.use((err: any, req: Request, res: Response, next: NextFunction) => {
     });
   }
 
-  // Pass other errors to global error handler
   next(err);
 });
 

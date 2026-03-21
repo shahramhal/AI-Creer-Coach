@@ -1,15 +1,39 @@
 'use client';
 
-import { Search, Bell, User } from "lucide-react";
-import { Input } from "../ui/input";
-import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
-import { useAuth } from "../../context/authContext";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from 'react';
+import { Search, Bell, Menu } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { useAuth } from '../../context/authContext';
+import { useRouter } from 'next/navigation';
+import { CommandPalette } from '../command-palette/CommandPalette';
 
-export function TopNav() {
+interface TopNavProps {
+  onMenuClick?: () => void;
+}
+
+export function TopNav({ onMenuClick }: TopNavProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [shortcutLabel, setShortcutLabel] = useState('⌘K');
+
+  useEffect(() => {
+    const isMac = /mac|iphone|ipad|ipod/i.test(navigator.platform);
+    if (!isMac) setShortcutLabel('Ctrl+K');
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault();
+        setCommandOpen((prev) => !prev);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -24,44 +48,61 @@ export function TopNav() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-sm">
-      {/* Search */}
-      <div className="relative w-96">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search jobs, skills, analysis..."
-          className="h-10 border-muted bg-muted/50 pl-10 text-sm placeholder:text-muted-foreground focus-visible:ring-primary"
-        />
-        <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-muted px-1.5 font-mono text-xs text-muted-foreground md:inline-block">
-          ⌘K
-        </kbd>
-      </div>
-
-      {/* Right side */}
-      <div className="flex items-center gap-4">
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5 text-muted-foreground" />
-          <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs">
-            3
-          </Badge>
+    <>
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 md:px-6 backdrop-blur-sm gap-3">
+        {/* Hamburger menu - mobile only */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden shrink-0"
+          onClick={onMenuClick}
+        >
+          <Menu className="h-5 w-5" />
+          <span className="sr-only">Open menu</span>
         </Button>
 
-        {/* User info */}
-        <div className="flex items-center gap-2 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-            {getInitials()}
-          </div>
-          <div className="hidden text-left md:block">
-            <p className="text-sm font-medium">
-              {user?.firstName} {user?.lastName}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {user?.email}
-            </p>
+        {/* Search trigger */}
+        <button
+          type="button"
+          aria-label="Open command palette"
+          onClick={() => setCommandOpen(true)}
+          className="relative flex h-10 flex-1 max-w-md items-center gap-2 rounded-md border border-muted bg-muted/50 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="flex-1 text-left">Search jobs, skills, analysis...</span>
+          <kbd className="hidden rounded border border-border bg-muted px-1.5 font-mono text-xs md:inline-block">
+            {shortcutLabel}
+          </kbd>
+        </button>
+
+        {/* Right side */}
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+          {/* Notifications */}
+          <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+            <Bell className="h-5 w-5 text-muted-foreground" />
+            <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs">
+              3
+            </Badge>
+          </Button>
+
+          {/* User info */}
+          <div className="flex items-center gap-2 px-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+              {getInitials()}
+            </div>
+            <div className="hidden text-left md:block">
+              <p className="text-sm font-medium">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {user?.email}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+    </>
   );
 }

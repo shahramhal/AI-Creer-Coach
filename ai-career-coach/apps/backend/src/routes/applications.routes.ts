@@ -4,6 +4,7 @@ import type { Request, Response, RequestHandler } from 'express';
 import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { prisma, cache } from '../config/database.js';
+import { logUserActivity } from '../utils/activity.util.js';
 
 const router = Router();
 
@@ -162,6 +163,8 @@ router.post(
         });
         return;
       }
+
+      logUserActivity(userId, 'ats_check', 'ATS Score Checked', `Score: ${mlData.data?.atsScore ?? 'N/A'}/100`);
 
       res.json({
         success: true,

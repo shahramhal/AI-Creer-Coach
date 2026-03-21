@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { API_BASE_URL } from '../../library/config';
+import api from '../../library/api';
 import { useAuth } from '../../context/authContext';
 import { Profile } from '../../types/profile';
 import { AppLayout } from '../../components/layout/AppLayout';
@@ -34,15 +34,8 @@ export default function ProfilePage() {
     if (!user) return;
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_BASE_URL}/api/profile/${user.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-      setProfile(data.data);
+      const response = await api.get(`/api/profile/${user.id}`);
+      setProfile(response.data.data);
     } catch (error) {
       console.error('Failed to load profile:', error);
     } finally {

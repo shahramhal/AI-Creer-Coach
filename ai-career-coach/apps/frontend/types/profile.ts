@@ -1,9 +1,5 @@
 // apps/frontend/types/profile.ts
 
-/**
- * User Profile interface matching the backend UserProfile model
- * Based on Prisma schema: apps/backend/prisma/schema.prisma
- */
 export interface Profile {
   id: string;
   userId: string;
@@ -15,6 +11,14 @@ export interface Profile {
   bio?: string | null;
   avatarUrl?: string | null;
   jobTitle?: string | null;
+  targetRole?: string | null;
+  experienceLevel?: string | null;
+  targetCompanies?: string[] | null;
+  country?: string | null;
+  region?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  workArrangements?: string[] | null;
   createdAt: string;
   updatedAt: string;
 }

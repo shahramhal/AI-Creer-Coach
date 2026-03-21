@@ -15,6 +15,8 @@ declare global {
       user?: {
         id: string;
         email: string;
+        firstName: string | null;
+        lastName: string | null;
         isEmailVerified: boolean;
         role: string;
       };
@@ -85,6 +87,8 @@ export const authenticate = async (
     req.user = {
       id: user.id,
       email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
       isEmailVerified: user.isEmailVerified,
       role: user.role,
     };
@@ -167,6 +171,8 @@ export const optionalAuthenticate = async (
       select: {
         id: true,
         email: true,
+        firstName: true,
+        lastName: true,
         isEmailVerified: true,
         role: true,
         isDisabled: true,
@@ -177,6 +183,8 @@ export const optionalAuthenticate = async (
       req.user = {
         id: user.id,
         email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
         isEmailVerified: user.isEmailVerified,
         role: user.role,
       };

@@ -250,6 +250,26 @@ async def fetch_jobs(request: JobSearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/jobs/backfill-levels")
+async def backfill_experience_levels():
+    """
+    Re-run the improved experience level detection on all 'Not specified' jobs.
+    This scans both title and description for level keywords and years-of-experience patterns.
+    """
+    try:
+        aggregator = JobAggregator(app.state.db)
+        result = await aggregator.backfill_experience_levels()
+
+        return {
+            "success": True,
+            "message": f"Backfill complete: {result['reclassified']} jobs reclassified",
+            "data": result,
+        }
+    except Exception as e:
+        logger.error(f"Error during backfill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/jobs/cleanup")
 async def cleanup_jobs():
     """Manual endpoint to trigger expired job cleanup."""

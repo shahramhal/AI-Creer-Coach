@@ -214,40 +214,6 @@ async function fetchMLPrediction(
   }
 }
 
-// ─── Skill Relevance Helper ──────────────────────────────────────────────────
-
-interface SkillRelevanceResult {
-  skill_scores: Array<{ skill: string; relevance: number }>;
-  overall_relevance: number;
-}
-
-async function fetchSkillRelevance(
-  jobTitle: string,
-  skills: string[]
-): Promise<SkillRelevanceResult | null> {
-  if (!skills || skills.length === 0) return null;
-
-  try {
-    const response = await fetch(`${ML_SERVICE_URL}/api/ml/skill-relevance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ job_title: jobTitle, skills }),
-      signal: AbortSignal.timeout(3000),
-    });
-
-    if (!response.ok) {
-      console.error(`[Salary] Skill relevance API error: ${response.status}`);
-      return null;
-    }
-
-    const result = await response.json();
-    return result.data || null;
-  } catch (error) {
-    console.error('[Salary] Skill relevance service unreachable:', error);
-    return null;
-  }
-}
-
 // ─── Top-Paying Roles Helper ─────────────────────────────────────────────────
 
 const ROLE_VARIANTS: Record<string, string[]> = {
@@ -466,28 +432,8 @@ function computeMedianFromHistogram(histogram: Record<string, number>): number {
   return buckets[buckets.length - 1]?.salary ?? 0;
 }
 
-const ROLE_RELATED_TERMS: Record<string, string[]> = {
-  frontend: ['frontend', 'front-end', 'front end', 'ui', 'ux', 'react', 'angular', 'vue', 'css', 'html', 'web developer', 'web engineer'],
-  backend: ['backend', 'back-end', 'back end', 'server', 'api', 'node', 'java', 'python', 'django', 'express', 'spring', 'microservice'],
-  devops: ['devops', 'sre', 'reliability', 'infrastructure', 'platform', 'cloud', 'aws', 'azure', 'gcp', 'kubernetes', 'docker', 'ci/cd'],
-  data: ['data scientist', 'data analyst', 'machine learning', 'ml engineer', 'data engineer', 'analytics', 'ai researcher'],
-  product: ['product manager', 'product owner', 'scrum master', 'agile coach', 'program manager'],
-  fullstack: ['full stack', 'full-stack', 'fullstack'],
-};
-
-function calculateYearsOfExperience(experience: any[], targetJobTitle?: string): number {
+function calculateYearsOfExperience(experience: any[]): number {
   if (!experience || experience.length === 0) return 0;
-
-  let targetCategory: string | null = null;
-  if (targetJobTitle) {
-    const titleLower = targetJobTitle.toLowerCase();
-    for (const [category, terms] of Object.entries(ROLE_RELATED_TERMS)) {
-      if (terms.some(term => titleLower.includes(term))) {
-        targetCategory = category;
-        break;
-      }
-    }
-  }
 
   let totalMonths = 0;
   for (const exp of experience) {
@@ -502,25 +448,7 @@ function calculateYearsOfExperience(experience: any[], targetJobTitle?: string):
       : parseInt(endDate.match(/\d{4}/)?.[0] || String(new Date().getFullYear()));
 
     if (startYear > 0) {
-      const rawMonths = Math.max(0, (endYear - startYear) * 12);
-
-      let weight = 1.0;
-      if (targetCategory) {
-        const expText = ((exp.title || '') + ' ' + (exp.description || '')).toLowerCase();
-        const terms = ROLE_RELATED_TERMS[targetCategory] || [];
-        const hasRelevantTitle = terms.some(term => expText.includes(term));
-
-        if (hasRelevantTitle) {
-          weight = 1.0;
-        } else {
-          const isLooselyRelated = Object.entries(ROLE_RELATED_TERMS).some(
-            ([cat, catTerms]) => cat !== targetCategory && catTerms.some(term => expText.includes(term))
-          );
-          weight = isLooselyRelated ? 0.3 : 0.1;
-        }
-      }
-
-      totalMonths += rawMonths * weight;
+      totalMonths += Math.max(0, (endYear - startYear) * 12);
     }
   }
 
@@ -563,13 +491,11 @@ function getEducationMultiplier(education: any[]): number {
   return 0;
 }
 
-function calculateSkillsPremium(
-  skills: string[],
-  baseSalary: number,
-  skillRelevanceMap?: Map<string, number>
-): number {
+function calculateSkillsPremium(skills: string[], baseSalary: number): number {
   if (!skills || skills.length === 0 || baseSalary <= 0) return 0;
 
+  // Collect unique matched skills, then sort by premiumRate descending
+  // so highest-value skill always gets full weight regardless of CV parse order
   const matchedEntries: { normalizedSkill: string; premiumRate: number }[] = [];
   const seenSkills = new Set<string>();
 
@@ -578,14 +504,14 @@ function calculateSkillsPremium(
     const premiumData = SKILL_PREMIUMS[normalizedSkill];
     if (premiumData && !seenSkills.has(normalizedSkill)) {
       seenSkills.add(normalizedSkill);
-      const relevanceWeight = skillRelevanceMap?.get(normalizedSkill) ?? 1.0;
-      const effectivePremiumRate = premiumData.premiumRate * relevanceWeight;
-      matchedEntries.push({ normalizedSkill, premiumRate: effectivePremiumRate });
+      matchedEntries.push({ normalizedSkill, premiumRate: premiumData.premiumRate });
     }
   }
 
   matchedEntries.sort((a, b) => b.premiumRate - a.premiumRate);
 
+  // Only the top 3 skills contribute meaningfully — beyond that, diminishing returns
+  // make additional skills negligible, and the market already prices in common skills.
   let totalPremium = 0;
   const maxContributingSkills = Math.min(matchedEntries.length, 5);
   for (let i = 0; i < maxContributingSkills; i++) {
@@ -593,6 +519,8 @@ function calculateSkillsPremium(
     totalPremium += baseSalary * matchedEntries[i].premiumRate * diminishingFactor;
   }
 
+  // Cap at 20% of base salary — this represents how much above the median
+  // a well-skilled candidate can command, not a raw addition to the base.
   return Math.min(totalPremium, baseSalary * 0.20);
 }
 
@@ -791,7 +719,7 @@ router.get(
       // ── Phase 1: Fetch critical data (national + user location + history) ──
       // Also attempt ML prediction in parallel for UK/US
       const hasLocationQuery = !!userLocation1;
-      const [nationalHistogram, locationHistogram, historyData, mlResult, skillRelevanceResult] = await Promise.all([
+      const [nationalHistogram, locationHistogram, historyData, mlResult] = await Promise.all([
         fetchAdzunaHistogram(country, jobTitle, countryLoc0),
         hasLocationQuery
           ? fetchAdzunaHistogram(country, jobTitle, countryLoc0, userLocation1)
@@ -800,21 +728,7 @@ router.get(
         isMLCountry
           ? fetchMLPrediction(jobTitle, country, userLocation1 || '', cvSkills)
           : Promise.resolve(null),
-        fetchSkillRelevance(jobTitle, cvSkills.slice(0, 50)),
       ]);
-
-      // Build skill relevance map for weighting
-      const skillRelevanceMap = new Map<string, number>();
-      let overallRelevance = 0;
-      let relevantSkillsCount = 0;
-      if (skillRelevanceResult) {
-        overallRelevance = skillRelevanceResult.overall_relevance;
-        for (const entry of skillRelevanceResult.skill_scores) {
-          skillRelevanceMap.set(entry.skill.toLowerCase().trim(), entry.relevance);
-          if (entry.relevance >= 0.5) relevantSkillsCount++;
-        }
-        console.log(`[Salary] Skill relevance: overall=${overallRelevance}, relevant=${relevantSkillsCount}/${cvSkills.length}`);
-      }
 
       if (mlResult) {
         mlPrediction = mlResult;
@@ -878,10 +792,10 @@ router.get(
         });
       } else {
         // Adzuna formula for non-ML countries or ML fallback
-        const yearsOfExperience = calculateYearsOfExperience(cvExperience, jobTitle);
+        const yearsOfExperience = calculateYearsOfExperience(cvExperience);
         const experienceMultiplier = getExperienceMultiplier(yearsOfExperience);
         const educationMultiplier = getEducationMultiplier(cvEducation);
-        const skillsPremium = calculateSkillsPremium(cvSkills, effectiveBase, skillRelevanceMap);
+        const skillsPremium = calculateSkillsPremium(cvSkills, effectiveBase);
 
         const experienceAmount = Math.round(effectiveBase * experienceMultiplier);
         const educationAmount = Math.round(effectiveBase * educationMultiplier);
@@ -889,24 +803,7 @@ router.get(
           ? Math.round(locationMedian - nationalMedian)
           : 0;
 
-        // Skill gap penalty — only when relevance data is unavailable (weight-1.0 fallback mode)
-        // When relevance weights are applied, the reduced skillsPremium already expresses the signal.
-        // This penalty acts as a coarse floor when we have no ML relevance to weight with.
-        let skillGapPenalty = 0;
-        if (cvSkills.length > 0 && !skillRelevanceResult) {
-          // No relevance data — can't weight skills, so no penalty either (preserves current behavior)
-          skillGapPenalty = 0;
-        } else if (cvSkills.length > 0 && skillRelevanceResult) {
-          // Relevance data available — penalty only for severe career transitions
-          // where relevance weighting alone may not sufficiently reduce the premium
-          if (relevantSkillsCount === 0) {
-            skillGapPenalty = Math.round(effectiveBase * -0.08);
-          } else if (relevantSkillsCount < 2 && overallRelevance < 0.2) {
-            skillGapPenalty = Math.round(effectiveBase * -0.04);
-          }
-        }
-
-        predictedSalary = effectiveBase + experienceAmount + educationAmount + locationAmount + skillsPremium + skillGapPenalty;
+        predictedSalary = effectiveBase + experienceAmount + educationAmount + locationAmount + skillsPremium;
 
         const percentiles = computePercentilesFromHistogram(effectiveHistogram);
         if (percentiles && percentiles.p75 > percentiles.p25) {
@@ -931,10 +828,6 @@ router.get(
           { factor: 'Skills Premium', amount: Math.round(skillsPremium), color: '#c084fc' },
           { factor: 'Education', amount: educationAmount, color: '#f59e0b' },
         ];
-
-        if (skillGapPenalty < 0) {
-          factorBreakdown.push({ factor: 'Skill Gap', amount: skillGapPenalty, color: '#ef4444' });
-        }
       }
 
       const totalListings = Object.values(effectiveHistogram).reduce((sum, count) => sum + Number(count), 0);
@@ -963,18 +856,6 @@ router.get(
         dataSource
       );
 
-      // Determine profile match category
-      let profileMatch: 'strong' | 'partial' | 'career_transition' | undefined;
-      if (skillRelevanceResult) {
-        if (overallRelevance >= 0.6 || relevantSkillsCount >= 4) {
-          profileMatch = 'strong';
-        } else if (overallRelevance >= 0.3 || relevantSkillsCount >= 2) {
-          profileMatch = 'partial';
-        } else {
-          profileMatch = 'career_transition';
-        }
-      }
-
       const responseData = {
         success: true,
         data: {
@@ -987,9 +868,6 @@ router.get(
             vsMarketAvg,
             currency,
             dataSource,
-            ...(profileMatch && { profileMatch }),
-            ...(skillRelevanceResult && { relevantSkillsCount }),
-            ...(skillRelevanceResult && { skillRelevanceScore: overallRelevance }),
           },
           factorBreakdown,
           marketTrend,
@@ -1001,7 +879,7 @@ router.get(
         meta: {
           duration_ms: Date.now() - startTime,
           cvSkillsCount: cvSkills.length,
-          yearsOfExperience: calculateYearsOfExperience(cvExperience, jobTitle),
+          yearsOfExperience: calculateYearsOfExperience(cvExperience),
           adzunaListings: totalListings,
           dataSource,
         },

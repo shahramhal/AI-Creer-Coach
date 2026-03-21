@@ -1,8 +1,9 @@
+// apps/frontend/app/cvs/page.tsx
+
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/authContext';
 import { cvService } from '../../services/cv.service';
 import { AppLayout } from '../../components/layout/AppLayout';
@@ -11,7 +12,6 @@ import CVList from '../../components/cv/CVList';
 import CVDetail from '../../components/cv/CVDetail';
 import CVSummaryCard from '../../components/cv/CVSummaryCard';
 import CVAnalysisTabs from '../../components/cv/CVAnalysisTabs';
-import { useUserCVs, queryKeys } from '../../hooks/queries';
 import type { CV, ParsedCVData, CVOverviewData } from '../../types/cv.types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -19,39 +19,69 @@ import { Upload, FileText } from 'lucide-react';
 
 export default function CVsPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
 
+  const [cvs, setCvs] = useState<CV[]>([]);
   const [selectedCV, setSelectedCV] = useState<CV | null>(null);
   const [detailCV, setDetailCV] = useState<CV | null>(null);
+  const [isLoadingCVs, setIsLoadingCVs] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
 
+  // Redirect if not authenticated
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       router.push('/auth/login');
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, router]);
 
-  const isReady = isAuthenticated && !authLoading;
-  const cvsQuery = useUserCVs(isReady);
-  const cvs = cvsQuery.data?.data ?? [];
-
-  // Auto-select first CV when data loads
+  // Load user CVs on mount
   useEffect(() => {
-    if (cvs.length > 0 && !selectedCV) {
-      setSelectedCV(cvs[0]);
+    if (user) {
+      loadCVs();
     }
-  }, [cvs, selectedCV]);
+  }, [user]);
 
-  const handleUploadSuccess = async (_cvId: string, _parsedData: ParsedCVData) => {
-    setShowUpload(false);
+  const loadCVs = async () => {
+    setIsLoadingCVs(true);
     setError(null);
-    await queryClient.refetchQueries({ queryKey: queryKeys.cvs });
-    const freshData = queryClient.getQueryData<{ data: CV[] }>(queryKeys.cvs);
-    if (freshData && freshData.data.length > 0) {
-      setSelectedCV(freshData.data[0]);
+
+    try {
+      const response = await cvService.getUserCVs();
+      const loadedCvs = response.data;
+      setCvs(loadedCvs);
+
+      // Auto-select the latest CV (first in the list)
+      if (loadedCvs.length > 0 && !selectedCV) {
+        setSelectedCV(loadedCvs[0]);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load CVs';
+      setError(errorMessage);
+    } finally {
+      setIsLoadingCVs(false);
+    }
+  };
+
+  const handleUploadSuccess = async (cvId: string, parsedData: ParsedCVData) => {
+    setShowUpload(false);
+    setIsLoadingCVs(true);
+    setError(null);
+
+    try {
+      const response = await cvService.getUserCVs();
+      const loadedCvs = response.data;
+      setCvs(loadedCvs);
+      // Auto-select the newly uploaded CV (first in list)
+      if (loadedCvs.length > 0) {
+        setSelectedCV(loadedCvs[0]);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load CVs';
+      setError(errorMessage);
+    } finally {
+      setIsLoadingCVs(false);
     }
   };
 
@@ -72,10 +102,8 @@ export default function CVsPage() {
   };
 
   const handleCVUpdate = (updatedCV: CV) => {
-    queryClient.setQueryData<{ data: CV[] }>(queryKeys.cvs, (old) => {
-      if (!old) return old;
-      return { ...old, data: old.data.map((cv) => (cv.id === updatedCV.id ? updatedCV : cv)) };
-    });
+    const updatedCvs = cvs.map(cv => cv.id === updatedCV.id ? updatedCV : cv);
+    setCvs(updatedCvs);
     if (selectedCV?.id === updatedCV.id) {
       setSelectedCV(updatedCV);
     }
@@ -84,11 +112,13 @@ export default function CVsPage() {
     }
   };
 
+  // Called by CVList (which already calls cvService.deleteCV internally)
   const handleCVDeleteFromList = (cvId: string) => {
     removeCVFromState(cvId);
   };
 
-  const handleCVDeleteFromSummary = async (cvId: string, _filename: string) => {
+  // Called by CVSummaryCard (needs to call the API)
+  const handleCVDeleteFromSummary = async (cvId: string, filename: string) => {
     try {
       await cvService.deleteCV(cvId);
       removeCVFromState(cvId);
@@ -99,14 +129,11 @@ export default function CVsPage() {
   };
 
   const removeCVFromState = (cvId: string) => {
-    queryClient.setQueryData<{ data: CV[] }>(queryKeys.cvs, (old) => {
-      if (!old) return old;
-      return { ...old, data: old.data.filter((cv) => cv.id !== cvId) };
-    });
-    const updatedCache = queryClient.getQueryData<{ data: CV[] }>(queryKeys.cvs);
-    const remaining = updatedCache?.data ?? [];
+    const updatedCvs = cvs.filter(cv => cv.id !== cvId);
+    setCvs(updatedCvs);
+
     if (selectedCV?.id === cvId) {
-      setSelectedCV(remaining.length > 0 ? remaining[0] : null);
+      setSelectedCV(updatedCvs.length > 0 ? updatedCvs[0] : null);
     }
     if (detailCV?.id === cvId) {
       setDetailCV(null);
@@ -129,19 +156,17 @@ export default function CVsPage() {
 
       const updatedCV: CV = { ...selectedCV, analysisData: null, overviewData };
       setSelectedCV(updatedCV);
-      queryClient.setQueryData<{ data: CV[] }>(queryKeys.cvs, (old) => {
-        if (!old) return old;
-        return { ...old, data: old.data.map((cv) => (cv.id === updatedCV.id ? updatedCV : cv)) };
-      });
+      setCvs(prev => prev.map(cv => cv.id === updatedCV.id ? updatedCV : cv));
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to analyze CV';
       setError(errorMessage);
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedCV, queryClient]);
+  }, [selectedCV]);
 
-  if (authLoading || !isAuthenticated) {
+  // Show loading spinner while checking auth
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -170,7 +195,7 @@ export default function CVsPage() {
         </div>
 
         {/* Error display */}
-        {(error || cvsQuery.isError) && (
+        {error && (
           <Card className="border-destructive/50 bg-destructive/10">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -181,9 +206,7 @@ export default function CVsPage() {
                     clipRule="evenodd"
                   />
                 </svg>
-                <p className="text-sm text-destructive font-medium">
-                  {error || 'Failed to load CVs'}
-                </p>
+                <p className="text-sm text-destructive font-medium">{error}</p>
                 <button
                   onClick={() => setError(null)}
                   className="ml-auto text-destructive/60 hover:text-destructive transition-colors"
@@ -223,7 +246,7 @@ export default function CVsPage() {
         )}
 
         {/* Main Content */}
-        {cvsQuery.isLoading ? (
+        {isLoadingCVs ? (
           <div className="text-center py-16">
             <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
             <p className="mt-3 text-sm text-muted-foreground">Loading your CVs...</p>

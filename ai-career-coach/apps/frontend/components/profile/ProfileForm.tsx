@@ -1,61 +1,62 @@
-'use client';
+// apps/frontend/components/profile/ProfileForm.tsx
 
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+'use client';
 import { Profile } from '../../types/profile';
 import api from '../../library/api';
 import { extractErrorMessage } from '../../utils/error.util';
 
-const profileSchema = z.object({
-  phoneNumber: z.string(),
-  location: z.string(),
-  linkedinUrl: z.string().url('Invalid LinkedIn URL').or(z.literal('')),
-  githubUrl: z.string().url('Invalid GitHub URL').or(z.literal('')),
-  portfolioUrl: z.string().url('Invalid portfolio URL').or(z.literal('')),
-  bio: z.string().max(500, 'Bio must be under 500 characters'),
-});
-
-type ProfileFormData = z.infer<typeof profileSchema>;
+import { useState, ChangeEvent, FormEvent } from 'react';
 
 interface ProfileFormProps {
   profile: Profile | null;
   onUpdate: () => void;
 }
 
+interface ProfileFormData {
+  phoneNumber: string;
+  location: string;
+  linkedinUrl: string;
+  githubUrl: string;
+  portfolioUrl: string;
+  bio: string;
+}
+
 export default function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
-  const [message, setMessage] = useState('');
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      phoneNumber: profile?.phoneNumber || '',
-      location: profile?.location || '',
-      linkedinUrl: profile?.linkedinUrl || '',
-      githubUrl: profile?.githubUrl || '',
-      portfolioUrl: profile?.portfolioUrl || '',
-      bio: profile?.bio || '',
-    },
+  const [formData, setFormData] = useState<ProfileFormData>({
+    phoneNumber: profile?.phoneNumber || '',
+    location: profile?.location || '',
+    linkedinUrl: profile?.linkedinUrl || '',
+    githubUrl: profile?.githubUrl || '',
+    portfolioUrl: profile?.portfolioUrl || '',
+    bio: profile?.bio || ''
   });
+  const [loading, setLoading] = useState<boolean>(false);
+  const [message, setMessage] = useState<string>('');
 
-  const onSubmit = async (formData: ProfileFormData) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
     setMessage('');
+
     try {
       await api.put('/api/profile', formData);
       setMessage('Profile updated successfully!');
       onUpdate();
     } catch (error: unknown) {
-      setMessage(extractErrorMessage(error, 'Error updating profile'));
+      const errorMessage = extractErrorMessage(error, 'Error updating profile');
+      setMessage(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-card border border-border p-6 rounded-xl shadow-card">
+    <form onSubmit={handleSubmit} className="space-y-6 bg-card border border-border p-6 rounded-xl shadow-card">
       {message && (
         <div className={`p-4 rounded-lg border ${message.includes('success') ? 'bg-success/10 border-success/30 text-success' : 'bg-destructive/10 border-destructive/30 text-destructive'}`}>
           {message}
@@ -67,7 +68,9 @@ export default function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
           <label className="block text-sm font-medium text-muted-foreground mb-2">Phone Number</label>
           <input
             type="tel"
-            {...register('phoneNumber')}
+            name="phoneNumber"
+            value={formData.phoneNumber}
+            onChange={handleChange}
             className="w-full px-4 py-2 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             placeholder="+1 234 567 8900"
           />
@@ -77,7 +80,9 @@ export default function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
           <label className="block text-sm font-medium text-muted-foreground mb-2">Location</label>
           <input
             type="text"
-            {...register('location')}
+            name="location"
+            value={formData.location}
+            onChange={handleChange}
             className="w-full px-4 py-2 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             placeholder="San Francisco, CA"
           />
@@ -87,61 +92,57 @@ export default function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
           <label className="block text-sm font-medium text-muted-foreground mb-2">LinkedIn URL</label>
           <input
             type="url"
-            {...register('linkedinUrl')}
-            className={`w-full px-4 py-2 bg-muted/50 border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors ${errors.linkedinUrl ? 'border-destructive' : 'border-border'}`}
+            name="linkedinUrl"
+            value={formData.linkedinUrl}
+            onChange={handleChange}
+            className="w-full px-4 py-2 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             placeholder="https://linkedin.com/in/yourprofile"
           />
-          {errors.linkedinUrl && (
-            <p className="mt-1 text-sm text-destructive">{errors.linkedinUrl.message}</p>
-          )}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-muted-foreground mb-2">GitHub URL</label>
           <input
             type="url"
-            {...register('githubUrl')}
-            className={`w-full px-4 py-2 bg-muted/50 border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors ${errors.githubUrl ? 'border-destructive' : 'border-border'}`}
+            name="githubUrl"
+            value={formData.githubUrl}
+            onChange={handleChange}
+            className="w-full px-4 py-2 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             placeholder="https://github.com/yourusername"
           />
-          {errors.githubUrl && (
-            <p className="mt-1 text-sm text-destructive">{errors.githubUrl.message}</p>
-          )}
         </div>
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-muted-foreground mb-2">Portfolio URL</label>
           <input
             type="url"
-            {...register('portfolioUrl')}
-            className={`w-full px-4 py-2 bg-muted/50 border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors ${errors.portfolioUrl ? 'border-destructive' : 'border-border'}`}
+            name="portfolioUrl"
+            value={formData.portfolioUrl}
+            onChange={handleChange}
+            className="w-full px-4 py-2 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             placeholder="https://yourportfolio.com"
           />
-          {errors.portfolioUrl && (
-            <p className="mt-1 text-sm text-destructive">{errors.portfolioUrl.message}</p>
-          )}
         </div>
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-muted-foreground mb-2">Bio</label>
           <textarea
-            {...register('bio')}
+            name="bio"
+            value={formData.bio}
+            onChange={handleChange}
             rows={4}
-            className={`w-full px-4 py-3 bg-muted/50 border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors ${errors.bio ? 'border-destructive' : 'border-border'}`}
+            className="w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             placeholder="Tell us about yourself..."
           />
-          {errors.bio && (
-            <p className="mt-1 text-sm text-destructive">{errors.bio.message}</p>
-          )}
         </div>
       </div>
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={loading}
         className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
-        {isSubmitting ? 'Saving...' : 'Save Profile'}
+        {loading ? 'Saving...' : 'Save Profile'}
       </button>
     </form>
   );

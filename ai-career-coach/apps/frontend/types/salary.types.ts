@@ -19,9 +19,6 @@ export interface SalaryPrediction {
   vsMarketAvg: number;
   currency: string;
   dataSource: 'ml' | 'adzuna';
-  profileMatch?: 'strong' | 'partial' | 'career_transition';
-  relevantSkillsCount?: number;
-  skillRelevanceScore?: number;
 }
 
 export interface SalaryFactor {

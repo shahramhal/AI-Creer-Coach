@@ -1,16 +1,20 @@
-# Stage 1: Build the app
-FROM node:18 AS build
+FROM node:18-alpine
 
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm install
-COPY . .
-RUN npm run build
 
-# Stage 2: Serve the app
-FROM node:18
-WORKDIR /app
-RUN npm install -g serve
-COPY --from=build /app/build ./build
+COPY . .
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
 EXPOSE 3000
-CMD ["serve", "-s", "build", "-l", "3000"]
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+ENV NODE_ENV=production
+
+CMD ["npm", "start"]

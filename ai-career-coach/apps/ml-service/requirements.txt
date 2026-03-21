@@ -1,7 +1,49 @@
-fastapi
-uvicorn
-pydantic
-numpy
-pandas
-scikit-learn
-joblib
+# Core framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.12
+# PDF/DOCX parsing
+PyPDF2>=3.0.0
+pdfplumber>=0.11.0
+python-docx>=1.1.0
+
+#parsing enhancements
+pytesseract>=0.3.10
+Pillow>=10.0.0
+pdf2image>=1.16.3
+# NLP and ML
+spacy>=3.8.0
+
+# Utilities
+python-dateutil>=2.8.2
+phonenumbers>=8.13.26
+email-validator>=2.1.0
+
+# Database
+pymongo>=4.6.0
+psycopg2-binary>=2.9.10
+redis>=5.0.1
+
+# Configuration
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+
+# Data Processing (UPDATED - compatible with Python 3.12)
+numpy>=1.26.0
+pandas>=2.0.0
+scikit-learn>=1.5.0
+joblib>=1.5.0
+
+# Job Matching & Keyword Extraction
+sentence-transformers>=2.7.0
+keybert>=0.8.0
+# torch is installed separately in Dockerfile (CPU-only version)
+# This line ensures pip doesn't try to upgrade/reinstall torch
+torch>=2.0.0
+transformers>=4.30.0
+# Jwt decoder 
+pyjwt>=2.8.0
+
+# LLM Integration
+anthropic>=0.40.0
+xgboost

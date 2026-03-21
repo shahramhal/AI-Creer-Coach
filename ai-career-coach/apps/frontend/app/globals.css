@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@layer base {
+  :root {
+    /* Professional dark theme - Command Center aesthetic */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 13%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Professional indigo - primary brand */
+    --primary: 239 84% 67%;
+    --primary-foreground: 222 47% 6%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 16%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    /* Status colors */
+    --success: 142 76% 46%;
+    --success-foreground: 142 76% 96%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 10%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Metrics colors */
+    --metric-excellent: 142 76% 46%;
+    --metric-good: 173 80% 40%;
+    --metric-average: 38 92% 50%;
+    --metric-poor: 0 84% 60%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 239 84% 67%;
+
+    --radius: 0.5rem;
+
+    /* Chart colors */
+    --chart-1: 239 84% 67%;
+    --chart-2: 142 76% 46%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 173 80% 40%;
+
+    /* Sidebar */
+    --sidebar-background: 222 47% 9%;
+    --sidebar-foreground: 215 20% 65%;
+    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary-foreground: 222 47% 6%;
+    --sidebar-accent: 217 33% 14%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 18%;
+    --sidebar-ring: 239 84% 67%;
+
+    /* Shadows */
+    --shadow-card: 0 4px 24px -4px hsla(222, 47%, 0%, 0.5);
+    --shadow-glow: 0 0 20px -5px hsl(239 84% 67% / 0.3);
+  }
+
+  .dark {
+    /* Same as root - dark by default */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Monospace for data/numbers */
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer components {
+  /* Metric badge variants */
+  .metric-excellent {
+    @apply bg-[hsl(var(--metric-excellent)/0.15)] text-[hsl(var(--metric-excellent))] border-[hsl(var(--metric-excellent)/0.3)];
+  }
+  
+  .metric-good {
+    @apply bg-[hsl(var(--metric-good)/0.15)] text-[hsl(var(--metric-good))] border-[hsl(var(--metric-good)/0.3)];
+  }
+  
+  .metric-average {
+    @apply bg-[hsl(var(--metric-average)/0.15)] text-[hsl(var(--metric-average))] border-[hsl(var(--metric-average)/0.3)];
+  }
+  
+  .metric-poor {
+    @apply bg-[hsl(var(--metric-poor)/0.15)] text-[hsl(var(--metric-poor))] border-[hsl(var(--metric-poor)/0.3)];
+  }
+
+  /* Glow effects */
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  .animate-pulse-subtle {
+    animation: pulseSoft 2s ease-in-out infinite;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes pulseSoft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+}

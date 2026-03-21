@@ -1,0 +1,361 @@
+// apps/backend/src/config/database.ts
+import { PrismaClient } from '@prisma/client';
+import mongoose from 'mongoose';
+import Redis from 'ioredis';
+import Bull from 'bull';
+
+
+// PRISMA (PostgreSQL) CLIENT
+
+
+/**
+ * Singleton Prisma client instance
+ * Handles PostgreSQL connections with connection pooling
+ */
+export const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' 
+    ? ['query', 'error', 'warn'] 
+    : ['error'],
+  errorFormat: 'pretty',
+});
+
+// Handle Prisma connection
+prisma.$connect()
+  .then(() => {
+    console.log('✅ PostgreSQL connected via Prisma');
+  })
+  .catch((error) => {
+    console.error('❌ PostgreSQL connection failed:', error);
+    process.exit(1);
+  });
+
+
+// MONGOOSE (MongoDB) CONNECTION
+
+
+/**
+ * Connect to MongoDB
+ * Handles connection with automatic retry
+ */
+export const connectMongoDB = async (): Promise<void> => {
+  try {
+    const mongoUrl = process.env.MONGODB_URL;
+    if (!mongoUrl) {
+    throw new Error('MONGODB_URL environment variable is not set');
+    }
+    await mongoose.connect(mongoUrl, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+    });
+
+    console.log('✅ MongoDB connected');
+
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB disconnected');
+    });
+
+  } catch (error) {
+    console.error('❌ MongoDB connection failed:', error);
+    process.exit(1);
+  }
+};
+
+
+// REDIS CLIENTS
+
+
+/**
+ * Main Redis client for caching
+ */
+export const redis = new Redis({
+  host: process.env.REDIS_HOST || 'redis',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  ...(process.env.REDIS_PASSWORD && { password: process.env.REDIS_PASSWORD }),
+  db: 0,
+  retryStrategy: (times: number) => {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+  maxRetriesPerRequest: 3,
+  enableReadyCheck: true,
+  lazyConnect: false,
+});
+
+/**
+ * Session Redis client (separate database)
+ */
+export const sessionRedis = new Redis({
+  host: process.env.REDIS_HOST || 'redis',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  ...(process.env.REDIS_PASSWORD && { password: process.env.REDIS_PASSWORD }),
+  db: 1,
+  keyPrefix: 'session:',
+});
+
+// Redis event handlers
+redis.on('connect', () => {
+  console.log('✅ Redis connected');
+});
+
+redis.on('error', (err) => {
+  console.error('❌ Redis connection error:', err);
+});
+
+
+// BULL QUEUES
+
+
+/**
+ * Queue configurations for background jobs
+ */
+const queueConfig = {
+  redis: {
+    host: process.env.REDIS_HOST || 'redis',
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+    ...(process.env.REDIS_PASSWORD && { password: process.env.REDIS_PASSWORD }),
+    db: 3,
+  },
+};
+
+/**
+ * Job queues for async processing
+ */
+export const queues = {
+  cvParsing: new Bull('cv-parsing', queueConfig),
+  jobScraping: new Bull('job-scraping', queueConfig),
+  jobMatching: new Bull('job-matching', queueConfig),
+  emailNotification: new Bull('email-notifications', queueConfig),
+  salaryPrediction: new Bull('salary-prediction', queueConfig),
+};
+
+
+// CACHE MANAGER
+
+
+/**
+ * Cache manager for Redis operations
+ * Provides simple get/set/del interface with automatic JSON serialization
+ */
+class CacheManager {
+  private redis: Redis;
+  private defaultTTL: number;
+
+  constructor(redisClient: Redis) {
+    this.redis = redisClient;
+    this.defaultTTL = 3600; // 1 hour
+  }
+
+  /**
+   * Get cached value
+   * @param key - Cache key
+   * @returns Parsed JSON value or null
+   */
+  async get<T = any>(key: string): Promise<T | null> {
+    try {
+      const value = await this.redis.get(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.error(`Cache get error for ${key}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Set cache value
+   * @param key - Cache key
+   * @param value - Value to cache
+   * @param ttl - Time to live in seconds
+   * @returns Success status
+   */
+  async set<T = any>(key: string, value: T, ttl: number = this.defaultTTL): Promise<boolean> {
+    try {
+      await this.redis.setex(key, ttl, JSON.stringify(value));
+      return true;
+    } catch (error) {
+      console.error(`Cache set error for ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete cache entry
+   * @param key - Cache key
+   * @returns Success status
+   */
+  async del(key: string): Promise<boolean> {
+    try {
+      await this.redis.del(key);
+      return true;
+    } catch (error) {
+      console.error(`Cache delete error for ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Get or set cache value (cache-aside pattern)
+   * @param key - Cache key
+   * @param fetchFn - Function to fetch value if not cached
+   * @param ttl - Time to live in seconds
+   * @returns Cached or fetched value
+   */
+  async getOrSet<T = any>(
+    key: string, 
+    fetchFn: () => Promise<T>, 
+    ttl: number = this.defaultTTL
+  ): Promise<T | null> {
+    let value = await this.get<T>(key);
+    
+    if (!value) {
+      value = await fetchFn();
+      if (value !== null && value !== undefined) {
+        await this.set(key, value, ttl);
+      }
+    }
+    
+    return value;
+  }
+
+  /**
+   * Delete all cache entries matching a pattern
+   * @param pattern - Redis key pattern (e.g. "match:user:123:*")
+   * @returns Number of keys deleted
+   */
+  async delByPattern(pattern: string): Promise<number> {
+    try {
+      const keys = await this.redis.keys(pattern);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+      }
+      return keys.length;
+    } catch (error) {
+      console.error(`Cache delByPattern error for ${pattern}:`, error);
+      return 0;
+    }
+  }
+
+  /**
+   * Invalidate all cache entries for a user
+   * @param userId - User ID
+   */
+  async invalidateUser(userId: string): Promise<void> {
+    const patterns = [
+      `user:*:${userId}`,
+      `match:user:${userId}:*`,
+      `cvs:user:${userId}`,
+    ];
+
+    for (const pattern of patterns) {
+      await this.delByPattern(pattern);
+    }
+  }
+}
+
+/**
+ * Cache manager instance
+ */
+export const cache = new CacheManager(redis);
+
+
+// DATABASE HEALTH CHECK
+
+
+interface HealthStatus {
+  postgres: boolean;
+  mongodb: boolean;
+  redis: boolean;
+  timestamp: string;
+}
+
+/**
+ * Check all database connections
+ * @returns Health status object
+ */
+export async function checkDatabaseHealth(): Promise<HealthStatus> {
+  const health: HealthStatus = {
+    postgres: false,
+    mongodb: false,
+    redis: false,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Check PostgreSQL
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    health.postgres = true;
+  } catch (error) {
+    console.error('PostgreSQL health check failed:', error);
+  }
+
+  // Check MongoDB
+  try {
+    if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+      await mongoose.connection.db.admin().ping();
+      health.mongodb = true;
+    }
+  } catch (error) {
+    console.error('MongoDB health check failed:', error);
+  }
+
+  // Check Redis
+  try {
+    await redis.ping();
+    health.redis = true;
+  } catch (error) {
+    console.error('Redis health check failed:', error);
+  }
+
+  return health;
+}
+
+
+// GRACEFUL SHUTDOWN
+
+
+/**
+ * Close all database connections gracefully
+ */
+export async function closeDatabaseConnections(): Promise<void> {
+  console.log('Closing database connections...');
+
+  try {
+    // Close Prisma
+    await prisma.$disconnect();
+    console.log('PostgreSQL disconnected');
+
+    // Close MongoDB
+    await mongoose.connection.close();
+    console.log('MongoDB disconnected');
+
+    // Close Redis
+    redis.disconnect();
+    sessionRedis.disconnect();
+    console.log('Redis disconnected');
+
+    // Close Bull queues
+    await Promise.all(
+      Object.values(queues).map(queue => queue.close())
+    );
+    console.log('Job queues closed');
+
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+}
+
+// Handle process termination signals
+process.on('SIGINT', async () => {
+  await closeDatabaseConnections();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await closeDatabaseConnections();
+  process.exit(0);
+});

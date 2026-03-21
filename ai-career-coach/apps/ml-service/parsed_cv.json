@@ -1,0 +1,69 @@
+{
+  "contact_info": {
+    "email": "shahramhalimzoda@gmail.com",
+    "phone": null,
+    "linkedin": null,
+    "name": null
+  },
+  "summary": "part\u2022 o Implemented all backend logic, including registration, voting, admin menu , and database design\u2022 \u2022 The Corner House Dinner | React.js/Tailwind CSS o Built the website for the restaurant with 100+ daily customers o Managed complete deployment process from development through production launch using modern deployment tools",
+  "skills": [
+    "100+ unit tests",
+    "3 cross-functional teams",
+    "4+ developers",
+    "5+ production-grade apps",
+    "AND INTERESTS",
+    "Achievements",
+    "Agile methodology",
+    "Android",
+    "Aspera Restaurant",
+    "Backend Developer (Remote",
+    "Balanced tasks",
+    "Basic programming",
+    "Basic: Turkish",
+    "CSS",
+    "Client-Server Architectures",
+    "Code review",
+    "Coding",
+    "Collaboration",
+    "Communication",
+    "Computer Science"
+  ],
+  "experience": [
+    {
+      "title": "SoftIT | Tashkent , Uzbekistan |",
+      "company": "\u2022 Designed and maintained backend systems powering 5+ production-grade apps, improving backend efficiency by",
+      "location": "Unknown",
+      "dates": "Nov 2024 - May 2025",
+      "responsibilities": [
+        "Designed and maintained backend systems powering 5+ production-grade apps, improving backend efficiency by",
+        "Leveraged Python (Django) and React Native to support over 1,000 concurrent users",
+        "Implemented 100+ unit tests and executed debugging for stability and quality assurance",
+        "Leveraged Git to coordinate codebase changes across 4+ developers, reducing merge conflicts by 30%",
+        "Collaborated with 3 cross-functional teams to ensure timely delivery of app updates and bug fixes"
+      ]
+    },
+    {
+      "title": "Aspera Restaurant | Essex, United Kingdom |",
+      "company": "\u2022 Problem-Solving: Quickly addressed customer concerns and managed special requests in a fast-paced",
+      "location": "Unknown",
+      "dates": "May 2024 - Nov 2024",
+      "responsibilities": [
+        "Problem-Solving: Quickly addressed customer concerns and managed special requests in a fast-paced",
+        "environment, keeping service running 10/10\u2022",
+        "Time Management & Multitasking: Balanced tasks during peak hours, staying organized and maintaining on-",
+        "time service delivery\u2022",
+        "Team Collaboration: Collaborated closely with the kitchen and front-of-house teams to ensure everything ran"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "BSc",
+      "field": "Computer Science |University of Westminster | United Kingdom | Sep 2024 \u2013 May 2026 (Expected)",
+      "institution": "University of Westminster",
+      "dates": "2024"
+    }
+  ],
+  "filename": "Shahram_Halimzoda_Software_Engineer.pdf",
+  "parsed_at": "2026-02-02T15:24:55.229465"
+}

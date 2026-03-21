@@ -12,14 +12,38 @@ services:
     build: ./apps/backend
     ports:
       - "4000:4000"
+    environment:
+      - ML_SERVICE_URL=http://ml-service:8000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ADZUNA_APP_ID=${ADZUNA_APP_ID}
+      - ADZUNA_APP_KEY=${ADZUNA_APP_KEY}
     depends_on: [postgres, mongodb, redis]
     networks:
       - career_coach_network
 
+  job-api-service:
+    build: ./apps/job-api-service
+    container_name: job-api-service
+    ports:
+      - "8001:8001"
+    environment:
+      - MONGODB_URL=mongodb://admin:admin123@mongodb:27017/career_coach?authSource=admin
+      - ADZUNA_APP_ID=${ADZUNA_APP_ID}
+      - ADZUNA_APP_KEY=${ADZUNA_APP_KEY}
+      - REED_API_KEY=${REED_API_KEY}
+      - PORT=8001
+      - ENV=development
+    volumes:
+      - ./apps/job-api-service:/app
+    depends_on:
+      - mongodb
+    networks:
+    - career_coach_network
   ml-service:
     build: ./apps/ml-service
     ports:
-      - "5000:5000"
+      - "8000:8000"
     depends_on: [postgres, mongodb]
     networks:
       - career_coach_network
@@ -28,9 +52,9 @@ services:
     image: postgres:17
     container_name: career_coach_postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-career_coach}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password}
-      POSTGRES_DB: ${POSTGRES_DB:-career_coach_db}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -39,7 +63,7 @@ services:
     networks:
       - career_coach_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-career_coach}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,26 +72,20 @@ services:
     image: mongo:7
     container_name: career_coach_mongodb
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-career_coach}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-your_secure_password}
-      MONGO_INITDB_DATABASE: ${MONGO_DB:-career_coach_db}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
-      - ./scripts/init-db/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
     networks:
       - career_coach_network
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: career_coach_redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-your_secure_password}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:
@@ -75,7 +93,7 @@ services:
     networks:
       - career_coach_network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-your_secure_password}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -5,6 +5,7 @@ import multer from 'multer';
 import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { prisma, cache } from '../config/database.js';
+import { logUserActivity } from '../utils/activity.util.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -264,7 +265,8 @@ router.post(
       await cache.delByPattern(`match:user:${userId}:*`);
       console.log(`📦 [Cache] Invalidated CV list + matching caches for user: ${userId}`);
 
-      // Step 6: Return response (transform to frontend shape)
+      logUserActivity(userId, 'cv_upload', 'CV Uploaded', cvRecord.filename);
+
       res.status(200).json({
         success: true,
         message: 'CV parsed and saved successfully',
@@ -457,15 +459,15 @@ router.delete(
         }
       }
 
-      // Delete CV from PostgreSQL
       await prisma.cV.delete({
         where: { id: cvId },
       });
 
-      // Invalidate user caches (CV list + job matching)
       await cache.del(`cvs:user:${userId}`);
       await cache.delByPattern(`match:user:${userId}:*`);
       console.log(`📦 [Cache] Invalidated CV list + matching caches for user: ${userId}`);
+
+      logUserActivity(userId, 'cv_delete', 'CV Deleted', cv.filename);
 
       res.json({
         success: true,
@@ -735,6 +737,8 @@ router.post(
       await cache.del(`cvs:user:${userId}`);
 
       console.log(`Analysis stored for CV: ${cvId}, score: ${analysisData.overallScore}/100`);
+
+      logUserActivity(userId, 'cv_analyze', 'CV Analyzed', `${cv.filename} — Score: ${analysisData.overallScore}/100`);
 
       res.json({
         success: true,

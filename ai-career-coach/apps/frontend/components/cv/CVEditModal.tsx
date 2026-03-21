@@ -1,10 +1,54 @@
-// apps/frontend/components/cv/CVEditModal.tsx
-
 'use client';
 
 import { useState } from 'react';
-import type { CV, ParsedCVData, Experience, Education } from '../../types/cv.types';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import type { CV, ParsedCVData } from '../../types/cv.types';
 import { cvService } from '../../services/cv.service';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+
+const experienceSchema = z.object({
+  company: z.string(),
+  title: z.string(),
+  startDate: z.string(),
+  endDate: z.string().optional(),
+  responsibilities: z.string(),
+});
+
+const educationSchema = z.object({
+  institution: z.string(),
+  degree: z.string(),
+  field: z.string().optional(),
+  endDate: z.string().optional(),
+});
+
+const cvEditSchema = z.object({
+  personal: z.object({
+    name: z.string().optional(),
+    email: z.string().email('Invalid email').optional().or(z.literal('')),
+    phone: z.string().optional(),
+    location: z.string().optional(),
+    linkedin: z.string().optional(),
+    github: z.string().optional(),
+  }),
+  summary: z.string().optional(),
+  experience: z.array(experienceSchema),
+  education: z.array(educationSchema),
+  skills: z.string(),
+});
+
+type CVEditFormData = z.infer<typeof cvEditSchema>;
 
 interface CVEditModalProps {
   cv: CV;
@@ -13,422 +57,286 @@ interface CVEditModalProps {
   onSave: (updatedCV: CV) => void;
 }
 
-/**
- * CVEditModal - Modal for editing parsed CV data
- * Allows editing of personal info, experience, education, and skills
- */
+function parsedDataToFormValues(parsedData: ParsedCVData): CVEditFormData {
+  return {
+    personal: {
+      name: parsedData.personal?.name || '',
+      email: parsedData.personal?.email || '',
+      phone: parsedData.personal?.phone || '',
+      location: parsedData.personal?.location || '',
+      linkedin: parsedData.personal?.linkedin || '',
+      github: parsedData.personal?.github || '',
+    },
+    summary: parsedData.summary || '',
+    experience: (parsedData.experience || []).map((experienceItem) => ({
+      company: experienceItem.company || '',
+      title: experienceItem.title || '',
+      startDate: experienceItem.startDate || '',
+      endDate: experienceItem.endDate || '',
+      responsibilities: experienceItem.responsibilities?.join('\n') || '',
+    })),
+    education: (parsedData.education || []).map((educationItem) => ({
+      institution: educationItem.institution || '',
+      degree: educationItem.degree || '',
+      field: educationItem.field || '',
+      endDate: educationItem.endDate || '',
+    })),
+    skills: (parsedData.skills || []).join(', '),
+  };
+}
+
+function formValuesToPayload(formValues: CVEditFormData): ParsedCVData {
+  return {
+    personal: formValues.personal,
+    summary: formValues.summary,
+    experience: formValues.experience.map((experienceItem) => ({
+      ...experienceItem,
+      responsibilities: experienceItem.responsibilities
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0),
+    })),
+    education: formValues.education,
+    skills: formValues.skills
+      .split(',')
+      .map((skill) => skill.trim())
+      .filter((skill) => skill.length > 0),
+  };
+}
+
 export default function CVEditModal({ cv, isOpen, onClose, onSave }: CVEditModalProps) {
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  // Local state for edited data
-  const [editedData, setEditedData] = useState<ParsedCVData>(
-    cv.parsedData || {
-      personal: {},
-      experience: [],
-      education: [],
-      skills: [],
-    }
-  );
+  const defaultParsedData: ParsedCVData = cv.parsedData || {
+    personal: {},
+    experience: [],
+    education: [],
+    skills: [],
+  };
 
-  // Don't render if modal is closed
-  if (!isOpen) return null;
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { isSubmitting },
+  } = useForm<CVEditFormData>({
+    resolver: zodResolver(cvEditSchema),
+    defaultValues: parsedDataToFormValues(defaultParsedData),
+  });
 
-  /**
-   * Save edited CV data to backend
-   */
-  const handleSave = async () => {
-    setIsSaving(true);
-    setError(null);
+  const {
+    fields: experienceFields,
+    append: appendExperience,
+    remove: removeExperience,
+  } = useFieldArray({ control, name: 'experience' });
 
+  const {
+    fields: educationFields,
+    append: appendEducation,
+    remove: removeEducation,
+  } = useFieldArray({ control, name: 'education' });
+
+  const onSubmit = async (formValues: CVEditFormData) => {
+    setServerError(null);
     try {
-      const response = await cvService.updateCV(cv.id, {
-        parsedData: editedData,
-      });
-
+      const parsedPayload = formValuesToPayload(formValues);
+      const response = await cvService.updateCV(cv.id, { parsedData: parsedPayload });
       onSave(response.data);
       onClose();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save changes';
-      setError(errorMessage);
-    } finally {
-      setIsSaving(false);
+    } catch (submitError) {
+      const errorMessage = submitError instanceof Error ? submitError.message : 'Failed to save changes';
+      setServerError(errorMessage);
     }
   };
 
-  /**
-   * Cancel editing and reset data
-   */
   const handleCancel = () => {
-    setEditedData(cv.parsedData || {
-      personal: {},
-      experience: [],
-      education: [],
-      skills: [],
-    });
-    setError(null);
+    reset(parsedDataToFormValues(defaultParsedData));
+    setServerError(null);
     onClose();
   };
 
-  /**
-   * Update personal information field
-   */
-  const updatePersonal = (field: string, value: string) => {
-    setEditedData({
-      ...editedData,
-      personal: {
-        ...editedData.personal,
-        [field]: value,
-      },
-    });
-  };
-
-  /**
-   * Update experience entry
-   */
-  const updateExperience = (index: number, field: keyof Experience, value: any) => {
-    const updatedExperience = [...editedData.experience];
-    updatedExperience[index] = {
-      ...updatedExperience[index],
-      [field]: value,
-    };
-    setEditedData({ ...editedData, experience: updatedExperience });
-  };
-
-  /**
-   * Add new experience entry
-   */
-  const addExperience = () => {
-    setEditedData({
-      ...editedData,
-      experience: [
-        ...editedData.experience,
-        {
-          company: '',
-          title: '',
-          startDate: '',
-          endDate: '',
-          responsibilities: [],
-        },
-      ],
-    });
-  };
-
-  /**
-   * Remove experience entry
-   */
-  const removeExperience = (index: number) => {
-    setEditedData({
-      ...editedData,
-      experience: editedData.experience.filter((_, i) => i !== index),
-    });
-  };
-
-  /**
-   * Update education entry
-   */
-  const updateEducation = (index: number, field: keyof Education, value: any) => {
-    const updatedEducation = [...editedData.education];
-    updatedEducation[index] = {
-      ...updatedEducation[index],
-      [field]: value,
-    };
-    setEditedData({ ...editedData, education: updatedEducation });
-  };
-
-  /**
-   * Add new education entry
-   */
-  const addEducation = () => {
-    setEditedData({
-      ...editedData,
-      education: [
-        ...editedData.education,
-        {
-          institution: '',
-          degree: '',
-          field: '',
-        },
-      ],
-    });
-  };
-
-  /**
-   * Remove education entry
-   */
-  const removeEducation = (index: number) => {
-    setEditedData({
-      ...editedData,
-      education: editedData.education.filter((_, i) => i !== index),
-    });
-  };
-
-  /**
-   * Update skills list from comma-separated string
-   */
-  const updateSkills = (skillsString: string) => {
-    const skills = skillsString
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
-    setEditedData({ ...editedData, skills });
-  };
-
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-background/80 backdrop-blur-sm animate-fade-in">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="relative bg-card border border-border rounded-xl shadow-card max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slide-up">
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleCancel(); }}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" hideCloseButton>
+        <DialogHeader>
+          <DialogTitle>Edit CV</DialogTitle>
+          <DialogDescription>{cv.filename}</DialogDescription>
+        </DialogHeader>
 
-          {/* Modal Header - Fixed */}
-          <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4 flex items-center justify-between z-10 rounded-t-xl">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Edit CV</h2>
-              <p className="text-sm text-muted-foreground">{cv.filename}</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </button>
-              <button
-                onClick={handleCancel}
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium text-foreground bg-secondary rounded-lg hover:bg-secondary/80 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+        {serverError && (
+          <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <p className="text-sm text-destructive">{serverError}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-1 py-4 space-y-8">
+            <section>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Personal Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="cv-personal-name">Full Name</Label>
+                  <Input id="cv-personal-name" {...register('personal.name')} placeholder="John Doe" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cv-personal-email">Email</Label>
+                  <Input id="cv-personal-email" {...register('personal.email')} placeholder="john.doe@example.com" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cv-personal-phone">Phone</Label>
+                  <Input id="cv-personal-phone" {...register('personal.phone')} placeholder="+44 7XXX XXXXXX" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cv-personal-location">Location</Label>
+                  <Input id="cv-personal-location" {...register('personal.location')} placeholder="London, UK" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cv-personal-linkedin">LinkedIn</Label>
+                  <Input id="cv-personal-linkedin" {...register('personal.linkedin')} placeholder="linkedin.com/in/johndoe" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cv-personal-github">GitHub</Label>
+                  <Input id="cv-personal-github" {...register('personal.github')} placeholder="github.com/johndoe" />
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <Label htmlFor="cv-summary" className="text-lg font-semibold text-foreground mb-4 block">Professional Summary</Label>
+              <textarea
+                id="cv-summary"
+                {...register('summary')}
+                rows={4}
+                className="w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
+                placeholder="Brief professional summary..."
+              />
+            </section>
+
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Experience</h3>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-primary"
+                  onClick={() => appendExperience({ company: '', title: '', startDate: '', endDate: '', responsibilities: '' })}
+                >
+                  + Add Experience
+                </Button>
+              </div>
+              <div className="space-y-6">
+                {experienceFields.map((field, index) => (
+                  <div key={field.id} className="p-4 border border-border rounded-lg space-y-3 bg-muted/30">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label>Job Title</Label>
+                        <Input {...register(`experience.${index}.title`)} placeholder="Software Engineer" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Company</Label>
+                        <Input {...register(`experience.${index}.company`)} placeholder="Tech Corp" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Start Date</Label>
+                        <Input {...register(`experience.${index}.startDate`)} placeholder="2020-01" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>End Date</Label>
+                        <Input {...register(`experience.${index}.endDate`)} placeholder="2023-12 or Present" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Responsibilities (one per line)</Label>
+                      <textarea
+                        {...register(`experience.${index}.responsibilities`)}
+                        rows={3}
+                        className="w-full px-3 py-2 text-sm bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary transition-colors"
+                        placeholder={"Led development of X\nImplemented Y\nImproved Z by 50%"}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeExperience(index)}
+                      className="text-sm text-destructive hover:text-destructive/80 transition-colors"
+                    >
+                      Remove Experience
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Education</h3>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-primary"
+                  onClick={() => appendEducation({ institution: '', degree: '', field: '', endDate: '' })}
+                >
+                  + Add Education
+                </Button>
+              </div>
+              <div className="space-y-4">
+                {educationFields.map((field, index) => (
+                  <div key={field.id} className="p-4 border border-border rounded-lg space-y-3 bg-muted/30">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label>Institution</Label>
+                        <Input {...register(`education.${index}.institution`)} placeholder="University of Westminster" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Degree</Label>
+                        <Input {...register(`education.${index}.degree`)} placeholder="BSc Computer Science" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Field of Study</Label>
+                        <Input {...register(`education.${index}.field`)} placeholder="Computer Science" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Graduation Year</Label>
+                        <Input {...register(`education.${index}.endDate`)} placeholder="2025" />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeEducation(index)}
+                      className="text-sm text-destructive hover:text-destructive/80 transition-colors"
+                    >
+                      Remove Education
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <Label htmlFor="cv-skills" className="text-lg font-semibold text-foreground mb-4 block">Skills</Label>
+              <textarea
+                id="cv-skills"
+                {...register('skills')}
+                rows={3}
+                className="w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary transition-colors"
+                placeholder="JavaScript, React, Node.js, Python, Docker"
+              />
+              <p className="mt-2 text-sm text-muted-foreground">Separate skills with commas</p>
+            </section>
           </div>
 
-          {/* Error Display */}
-          {error && (
-            <div className="mx-6 mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
-
-          {/* Modal Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto px-6 py-6">
-            <div className="space-y-8">
-
-              {/* Personal Information Section */}
-              <section>
-                <h3 className="text-lg font-semibold text-foreground mb-4">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Full Name"
-                    value={editedData.personal?.name || ''}
-                    onChange={(v) => updatePersonal('name', v)}
-                    placeholder="John Doe"
-                  />
-                  <InputField
-                    label="Email"
-                    value={editedData.personal?.email || ''}
-                    onChange={(v) => updatePersonal('email', v)}
-                    placeholder="john.doe@example.com"
-                  />
-                  <InputField
-                    label="Phone"
-                    value={editedData.personal?.phone || ''}
-                    onChange={(v) => updatePersonal('phone', v)}
-                    placeholder="+44 7XXX XXXXXX"
-                  />
-                  <InputField
-                    label="Location"
-                    value={editedData.personal?.location || ''}
-                    onChange={(v) => updatePersonal('location', v)}
-                    placeholder="London, UK"
-                  />
-                  <InputField
-                    label="LinkedIn"
-                    value={editedData.personal?.linkedin || ''}
-                    onChange={(v) => updatePersonal('linkedin', v)}
-                    placeholder="linkedin.com/in/johndoe"
-                  />
-                  <InputField
-                    label="GitHub"
-                    value={editedData.personal?.github || ''}
-                    onChange={(v) => updatePersonal('github', v)}
-                    placeholder="github.com/johndoe"
-                  />
-                </div>
-              </section>
-
-              {/* Professional Summary Section */}
-              <section>
-                <h3 className="text-lg font-semibold text-foreground mb-4">Professional Summary</h3>
-                <textarea
-                  value={editedData.summary || ''}
-                  onChange={(e) => setEditedData({ ...editedData, summary: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
-                  placeholder="Brief professional summary..."
-                />
-              </section>
-
-              {/* Experience Section */}
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">Experience</h3>
-                  <button
-                    onClick={addExperience}
-                    className="px-3 py-1 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
-                  >
-                    + Add Experience
-                  </button>
-                </div>
-                <div className="space-y-6">
-                  {editedData.experience.map((exp, index) => (
-                    <div key={index} className="p-4 border border-border rounded-lg space-y-3 bg-muted/30">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <InputField
-                          label="Job Title"
-                          value={exp.title}
-                          onChange={(v) => updateExperience(index, 'title', v)}
-                          placeholder="Software Engineer"
-                        />
-                        <InputField
-                          label="Company"
-                          value={exp.company}
-                          onChange={(v) => updateExperience(index, 'company', v)}
-                          placeholder="Tech Corp"
-                        />
-                        <InputField
-                          label="Start Date"
-                          value={exp.startDate}
-                          onChange={(v) => updateExperience(index, 'startDate', v)}
-                          placeholder="2020-01"
-                        />
-                        <InputField
-                          label="End Date"
-                          value={exp.endDate || ''}
-                          onChange={(v) => updateExperience(index, 'endDate', v)}
-                          placeholder="2023-12 or Present"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-muted-foreground mb-1">
-                          Responsibilities (one per line)
-                        </label>
-                        <textarea
-                          value={exp.responsibilities?.join('\n') || ''}
-                          onChange={(e) => updateExperience(index, 'responsibilities', e.target.value.split('\n'))}
-                          rows={3}
-                          className="w-full px-3 py-2 text-sm bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary transition-colors"
-                          placeholder="Led development of X&#10;Implemented Y&#10;Improved Z by 50%"
-                        />
-                      </div>
-                      <button
-                        onClick={() => removeExperience(index)}
-                        className="text-sm text-destructive hover:text-destructive/80 transition-colors"
-                      >
-                        Remove Experience
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {/* Education Section */}
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">Education</h3>
-                  <button
-                    onClick={addEducation}
-                    className="px-3 py-1 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
-                  >
-                    + Add Education
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {editedData.education.map((edu, index) => (
-                    <div key={index} className="p-4 border border-border rounded-lg space-y-3 bg-muted/30">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <InputField
-                          label="Institution"
-                          value={edu.institution}
-                          onChange={(v) => updateEducation(index, 'institution', v)}
-                          placeholder="University of Westminster"
-                        />
-                        <InputField
-                          label="Degree"
-                          value={edu.degree}
-                          onChange={(v) => updateEducation(index, 'degree', v)}
-                          placeholder="BSc Computer Science"
-                        />
-                        <InputField
-                          label="Field of Study"
-                          value={edu.field || ''}
-                          onChange={(v) => updateEducation(index, 'field', v)}
-                          placeholder="Computer Science"
-                        />
-                        <InputField
-                          label="Graduation Year"
-                          value={edu.endDate || ''}
-                          onChange={(v) => updateEducation(index, 'endDate', v)}
-                          placeholder="2025"
-                        />
-                      </div>
-                      <button
-                        onClick={() => removeEducation(index)}
-                        className="text-sm text-destructive hover:text-destructive/80 transition-colors"
-                      >
-                        Remove Education
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {/* Skills Section */}
-              <section>
-                <h3 className="text-lg font-semibold text-foreground mb-4">Skills</h3>
-                <textarea
-                  value={editedData.skills.join(', ')}
-                  onChange={(e) => updateSkills(e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary transition-colors"
-                  placeholder="JavaScript, React, Node.js, Python, Docker"
-                />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Separate skills with commas
-                </p>
-              </section>
-
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Reusable Input Field Component
- */
-interface InputFieldProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}
-
-function InputField({ label, value, onChange, placeholder }: InputFieldProps) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-muted-foreground mb-1">
-        {label}
-      </label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-4 py-2 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
-      />
-    </div>
+          <DialogFooter className="pt-4 border-t border-border">
+            <Button type="button" variant="secondary" onClick={handleCancel} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

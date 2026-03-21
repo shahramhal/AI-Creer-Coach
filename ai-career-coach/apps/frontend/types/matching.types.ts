@@ -38,9 +38,17 @@ export interface JobMatchResponse {
 export interface MatchFilters {
   country?: string;
   city?: string;
-  job_type?: string;
+  job_type?: string | string[];
   experience_level?: string;
   title_keywords?: string;
   min_salary?: number;
-  remote_type?: string;
+  remote_type?: string | string[];
 }
+
+export type SortOption =
+  | 'score_desc'
+  | 'score_asc'
+  | 'date_desc'
+  | 'date_asc'
+  | 'salary_desc'
+  | 'salary_asc';

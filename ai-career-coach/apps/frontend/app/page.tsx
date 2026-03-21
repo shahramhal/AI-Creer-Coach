@@ -1,28 +1,23 @@
+import { Navigation } from '../components/landing/Navigation';
+import { Hero } from '../components/landing/Hero';
+import { StatsBar } from '../components/landing/StatsBar';
+import { Features } from '../components/landing/Features';
+import { HowItWorks } from '../components/landing/HowItWorks';
+import { BentoShowcase } from '../components/landing/BentoShowcase';
+import { FinalCTA } from '../components/landing/FinalCTA';
+import { Footer } from '../components/landing/Footer';
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">
-          Welcome to AI Career Coach
-        </h1>
-        <p className="text-xl text-gray-600 mb-8">
-          Smart Job Matching & Career Guidance
-        </p>
-        <div className="flex gap-4 justify-center">
-          <a
-            href="/auth/login"
-            className="px-6 py-3 bg-[#6366f1] text-white rounded-lg hover:bg-[#6366f1]/90 transition"
-          >
-            Login
-          </a>
-          <a
-            href="/auth/register"
-            className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
-          >
-            Register
-          </a>
-        </div>
-      </div>
+    <main className="bg-background text-foreground overflow-x-hidden">
+      <Navigation />
+      <Hero />
+      <StatsBar />
+      <Features />
+      <HowItWorks />
+      <BentoShowcase />
+      <FinalCTA />
+      <Footer />
     </main>
   );
 }

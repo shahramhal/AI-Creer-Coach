@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, RotateCcw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -14,77 +15,62 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import type { MatchFilters } from '@/types/matching.types';
+import {
+  COUNTRY_OPTIONS,
+  JOB_TYPE_OPTIONS,
+  EXPERIENCE_LEVEL_OPTIONS,
+  WORK_ARRANGEMENT_OPTIONS,
+} from '@/constants/options';
 
 interface JobFiltersProps {
   filters: MatchFilters;
   onChange: (filters: MatchFilters) => void;
   onApply: () => void;
   isLoading?: boolean;
+  minScore: number;
+  onMinScoreChange: (score: number) => void;
 }
-
-const COUNTRY_OPTIONS = [
-  { value: '', label: 'All Countries' },
-  { value: 'gb', label: 'United Kingdom' },
-  { value: 'us', label: 'United States' },
-  { value: 'ca', label: 'Canada' },
-  { value: 'de', label: 'Germany' },
-  { value: 'fr', label: 'France' },
-  { value: 'au', label: 'Australia' },
-  { value: 'nl', label: 'Netherlands' },
-  { value: 'in', label: 'India' },
-  { value: 'sg', label: 'Singapore' },
-  { value: 'at', label: 'Austria' },
-  { value: 'be', label: 'Belgium' },
-  { value: 'br', label: 'Brazil' },
-  { value: 'it', label: 'Italy' },
-  { value: 'pl', label: 'Poland' },
-  { value: 'za', label: 'South Africa' },
-];
-
-const JOB_TYPE_OPTIONS = [
-  { value: '', label: 'All Types' },
-  { value: 'Full-time', label: 'Full-time' },
-  { value: 'Part-time', label: 'Part-time' },
-  { value: 'Contract', label: 'Contract' },
-  { value: 'Internship', label: 'Internship' },
-  { value: 'Temporary', label: 'Temporary' },
-];
-
-const EXPERIENCE_OPTIONS = [
-  { value: '', label: 'All Levels' },
-  { value: 'Junior', label: 'Junior' },
-  { value: 'Mid', label: 'Mid' },
-  { value: 'Senior', label: 'Senior' },
-];
-
-const REMOTE_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'Remote', label: 'Remote' },
-  { value: 'On-site', label: 'On-site' },
-  { value: 'Hybrid', label: 'Hybrid' },
-];
 
 const EMPTY_FILTERS: MatchFilters = {};
 
-export function JobFilters({ filters, onChange, onApply, isLoading }: JobFiltersProps) {
+export function JobFilters({ filters, onChange, onApply, isLoading, minScore, onMinScoreChange }: JobFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const hasActiveFilters = Object.values(filters).some(
-    (value) => value !== undefined && value !== '' && value !== null,
-  );
+  const activeFilterCount = Object.values(filters).filter((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== undefined && value !== '' && value !== null;
+  }).length;
+
+  const hasActiveFilters = activeFilterCount > 0 || minScore > 0;
 
   const handleReset = () => {
     onChange(EMPTY_FILTERS);
+    onMinScoreChange(0);
   };
 
   const updateFilter = <K extends keyof MatchFilters>(key: K, value: MatchFilters[K]) => {
     const updatedFilters = { ...filters };
-    if (value === '' || value === undefined || value === null) {
+    if (value === '' || value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
       delete updatedFilters[key];
     } else {
       updatedFilters[key] = value;
     }
     onChange(updatedFilters);
+  };
+
+  const toggleArrayFilter = (key: 'remote_type' | 'job_type', item: string) => {
+    const currentValue = filters[key];
+    const currentArray = Array.isArray(currentValue) ? currentValue : currentValue ? [currentValue] : [];
+    const updatedArray = currentArray.includes(item)
+      ? currentArray.filter((existingItem) => existingItem !== item)
+      : [...currentArray, item];
+    updateFilter(key, updatedArray.length > 0 ? updatedArray : undefined);
+  };
+
+  const isArrayFilterChecked = (key: 'remote_type' | 'job_type', item: string): boolean => {
+    const currentValue = filters[key];
+    if (Array.isArray(currentValue)) return currentValue.includes(item);
+    return currentValue === item;
   };
 
   return (
@@ -101,7 +87,7 @@ export function JobFilters({ filters, onChange, onApply, isLoading }: JobFilters
             Filters
             {hasActiveFilters && (
               <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                {Object.values(filters).filter((v) => v !== undefined && v !== '' && v !== null).length}
+                {activeFilterCount}
               </span>
             )}
           </span>
@@ -128,8 +114,9 @@ export function JobFilters({ filters, onChange, onApply, isLoading }: JobFilters
                   <SelectValue placeholder="All Countries" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="_all">All Countries</SelectItem>
                   {COUNTRY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value || '_all'}>
+                    <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
@@ -159,24 +146,22 @@ export function JobFilters({ filters, onChange, onApply, isLoading }: JobFilters
               />
             </div>
 
-            {/* Job Type */}
+            {/* Job Type (multi-select checkboxes) */}
             <div className="space-y-1.5">
-              <Label htmlFor="filter-job-type" className="text-xs">Job Type</Label>
-              <Select
-                value={filters.job_type ?? ''}
-                onValueChange={(value) => updateFilter('job_type', value === '_all' ? '' : value)}
-              >
-                <SelectTrigger id="filter-job-type">
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  {JOB_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value || '_all'}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Job Type</Label>
+              <div className="flex flex-wrap gap-3 pt-1">
+                {JOB_TYPE_OPTIONS.map((jobType) => (
+                  <label key={jobType} htmlFor={`filter-job-type-${jobType}`} className="flex items-center gap-1.5 cursor-pointer">
+                    <Checkbox
+                      id={`filter-job-type-${jobType}`}
+                      checked={isArrayFilterChecked('job_type', jobType)}
+                      onCheckedChange={() => toggleArrayFilter('job_type', jobType)}
+                      className="h-3.5 w-3.5"
+                    />
+                    <span className="text-xs text-foreground">{jobType}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* Experience Level */}
@@ -190,8 +175,9 @@ export function JobFilters({ filters, onChange, onApply, isLoading }: JobFilters
                   <SelectValue placeholder="All Levels" />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXPERIENCE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value || '_all'}>
+                  <SelectItem value="_all">All Levels</SelectItem>
+                  {EXPERIENCE_LEVEL_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
@@ -199,24 +185,22 @@ export function JobFilters({ filters, onChange, onApply, isLoading }: JobFilters
               </Select>
             </div>
 
-            {/* Remote Type */}
+            {/* Work Type (multi-select checkboxes) */}
             <div className="space-y-1.5">
-              <Label htmlFor="filter-remote" className="text-xs">Work Type</Label>
-              <Select
-                value={filters.remote_type ?? ''}
-                onValueChange={(value) => updateFilter('remote_type', value === '_all' ? '' : value)}
-              >
-                <SelectTrigger id="filter-remote">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  {REMOTE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value || '_all'}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Work Type</Label>
+              <div className="flex flex-wrap gap-3 pt-1">
+                {WORK_ARRANGEMENT_OPTIONS.map((arrangement) => (
+                  <label key={arrangement} htmlFor={`filter-work-type-${arrangement}`} className="flex items-center gap-1.5 cursor-pointer">
+                    <Checkbox
+                      id={`filter-work-type-${arrangement}`}
+                      checked={isArrayFilterChecked('remote_type', arrangement)}
+                      onCheckedChange={() => toggleArrayFilter('remote_type', arrangement)}
+                      className="h-3.5 w-3.5"
+                    />
+                    <span className="text-xs text-foreground">{arrangement}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* Min Salary */}
@@ -231,6 +215,23 @@ export function JobFilters({ filters, onChange, onApply, isLoading }: JobFilters
                   const parsedValue = e.target.value ? Number(e.target.value) : undefined;
                   updateFilter('min_salary', parsedValue);
                 }}
+              />
+            </div>
+
+            {/* Min Match Score */}
+            <div className="space-y-1.5">
+              <Label htmlFor="filter-score" className="text-xs">
+                Min Match Score: {minScore}%
+              </Label>
+              <input
+                id="filter-score"
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={minScore}
+                onChange={(e) => onMinScoreChange(Number(e.target.value))}
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
             </div>
           </div>

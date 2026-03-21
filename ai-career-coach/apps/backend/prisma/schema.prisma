@@ -40,6 +40,7 @@ model User {
   interviewSessions    InterviewSession[]
   learningPaths        LearningPath[]
   userCourses          UserCourse[]
+  activities           UserActivity[]
 
   @@index([email], name: "idx_users_email")
   @@map("users")
@@ -56,10 +57,19 @@ model UserProfile {
   githubUrl    String?  @map("github_url") @db.VarChar(500)
   portfolioUrl String?  @map("portfolio_url") @db.VarChar(500)
   bio          String?  @db.Text
-  avatarUrl    String?  @map("avatar_url") @db.VarChar(500)
-  jobTitle     String?  @map("job_title") @db.VarChar(255)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamp()
+  avatarUrl        String?  @map("avatar_url") @db.VarChar(500)
+  jobTitle         String?  @map("job_title") @db.VarChar(255)
+  targetRole       String?  @map("target_role") @db.VarChar(255)
+  experienceLevel  String?  @map("experience_level") @db.VarChar(50)
+  targetCompanies  Json?    @map("target_companies") @db.JsonB
+  country          String?  @db.VarChar(10)
+  region           String?  @db.VarChar(255)
+  salaryMin        Int?     @map("salary_min")
+  salaryMax        Int?     @map("salary_max")
+  workArrangements   Json?    @map("work_arrangements") @db.JsonB
+  preferredJobTypes  Json?    @map("preferred_job_types") @db.JsonB
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamp()
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -236,6 +246,7 @@ model LearningPath {
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   skill              Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, skillId])
   @@map("learning_paths")
 }
 
@@ -273,6 +284,20 @@ model UserCourse {
 
   @@unique([userId, courseId])
   @@map("user_courses")
+}
+
+model UserActivity {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  type        String   @db.VarChar(50)
+  title       String   @db.VarChar(255)
+  description String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp()
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)], name: "idx_activity_user_date")
+  @@map("user_activities")
 }
 
 model AdminAuditLog {

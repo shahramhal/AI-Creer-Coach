@@ -26,11 +26,11 @@ interface JobMatchRequest {
     location?: string;
     country?: string;
     city?: string;
-    job_type?: string;
+    job_type?: string | string[];
     experience_level?: string;
     title_keywords?: string;
     min_salary?: number;
-    remote_type?: string;
+    remote_type?: string | string[];
   };
   top_k?: number;
   job_limit?: number; // Maximum number of jobs to analyze
@@ -517,7 +517,9 @@ async function fetchJobs(
       andConditions.push({ location: { $regex: escapeRegex(userFilters.city), $options: 'i' } });
     }
     if (userFilters.job_type) {
-      andConditions.push({ job_type: { $regex: escapeRegex(userFilters.job_type), $options: 'i' } });
+      const jobTypeValues = Array.isArray(userFilters.job_type) ? userFilters.job_type : [userFilters.job_type];
+      const jobTypeRegexPatterns = jobTypeValues.map((value) => new RegExp(escapeRegex(value), 'i'));
+      andConditions.push({ job_type: { $in: jobTypeRegexPatterns } });
     }
     if (userFilters.experience_level) {
       andConditions.push({ experience_level: userFilters.experience_level });
@@ -529,7 +531,8 @@ async function fetchJobs(
       andConditions.push({ salary_min: { $gte: userFilters.min_salary } });
     }
     if (userFilters.remote_type) {
-      andConditions.push({ remote_type: userFilters.remote_type });
+      const remoteTypeValues = Array.isArray(userFilters.remote_type) ? userFilters.remote_type : [userFilters.remote_type];
+      andConditions.push({ remote_type: { $in: remoteTypeValues } });
     }
   }
 

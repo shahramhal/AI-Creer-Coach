@@ -87,23 +87,10 @@ export function MarketInsights({ preferences, salaryData, isLoading }: MarketIns
       demand: entry.demandTrend,
     }));
 
-  const formattedSalary = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: salaryData.prediction.currency || 'USD',
-    maximumFractionDigits: 0,
-  }).format(salaryData.prediction.predictedSalary);
-
-  const formattedMin = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: salaryData.prediction.currency || 'USD',
-    maximumFractionDigits: 0,
-  }).format(salaryData.prediction.salaryMin);
-
-  const formattedMax = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: salaryData.prediction.currency || 'USD',
-    maximumFractionDigits: 0,
-  }).format(salaryData.prediction.salaryMax);
+  const currencySymbol = salaryData.prediction.currency || '$';
+  const formattedSalary = `${currencySymbol}${Math.round(salaryData.prediction.predictedSalary).toLocaleString()}`;
+  const formattedMin = `${currencySymbol}${Math.round(salaryData.prediction.salaryMin).toLocaleString()}`;
+  const formattedMax = `${currencySymbol}${Math.round(salaryData.prediction.salaryMax).toLocaleString()}`;
 
   return (
     <Card className="border-border bg-card shadow-card">

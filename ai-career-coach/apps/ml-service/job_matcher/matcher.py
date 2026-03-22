@@ -190,6 +190,8 @@ class JobMatcher:
                 'salary_max': job.get('salary_max'),
                 'source_url': job.get('source_url', ''),
                 'posted_date': job.get('posted_date'),
+                'job_type': job.get('job_type'),
+                'remote_type': job.get('remote_type'),
 
                 # Matching details
                 'match_score': float(score.item() * 100),  # Convert to percentage
@@ -467,13 +469,30 @@ class JobMatcher:
                 if job.get('salary_min') and job['salary_min'] >= filters['min_salary']
             ]
         
-        # Remote type filter
-        if filters.get('remote_type'):
+        # Job type filter (supports single value or list)
+        if filters.get('job_type'):
+            job_type_values = filters['job_type']
+            if not isinstance(job_type_values, list):
+                job_type_values = [job_type_values]
+            job_type_values_lower = [jt.lower() for jt in job_type_values]
             filtered = [
                 job for job in filtered
-                if job.get('remote_type') == filters['remote_type']
+                if job.get('job_type') and any(
+                    jt in job['job_type'].lower() for jt in job_type_values_lower
+                )
             ]
-        
+
+        # Remote type filter (supports single value or list)
+        if filters.get('remote_type'):
+            remote_type_values = filters['remote_type']
+            if not isinstance(remote_type_values, list):
+                remote_type_values = [remote_type_values]
+            remote_type_values_lower = [rt.lower() for rt in remote_type_values]
+            filtered = [
+                job for job in filtered
+                if job.get('remote_type') and job['remote_type'].lower() in remote_type_values_lower
+            ]
+
         return filtered
     
     def batch_generate_embeddings(self, jobs: List[Dict]) -> Dict[str, np.ndarray]:

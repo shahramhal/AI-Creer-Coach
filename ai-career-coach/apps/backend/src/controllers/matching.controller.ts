@@ -612,7 +612,9 @@ async function getMLMatches(
           country: job.country,
         })),
         top_k: topK,
-        filters
+        // job_type and remote_type are already pre-filtered by MongoDB — strip them
+        // from ML filters to prevent _apply_filters from discarding valid results
+        filters: filters ? (({ job_type, remote_type, ...mlFilters }) => mlFilters)(filters) : undefined
       }),
       signal: controller.signal
     });

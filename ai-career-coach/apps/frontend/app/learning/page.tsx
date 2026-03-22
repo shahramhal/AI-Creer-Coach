@@ -1,19 +1,20 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '../../context/authContext';
 import { skillGapService } from '../../services/skillGap.service';
+import { settingsService } from '../../services/settings.service';
 import dynamic from 'next/dynamic';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { Switch } from '../../components/ui/switch';
-import { GraduationCap, Loader2, Search, RefreshCw } from 'lucide-react';
+import { GraduationCap, Loader2, Search, RefreshCw, Settings } from 'lucide-react';
 import type {
   SkillGapAnalysis,
   LearningPathRecord,
@@ -27,22 +28,13 @@ import ProgressTracker from '../../components/learning/ProgressTracker';
 
 const SkillCoverageChart = dynamic(() => import('../../components/learning/SkillCoverageChart'), { ssr: false });
 
-const TARGET_ROLES = [
-  { label: 'Software Engineer', value: 'software_engineer' },
-  { label: 'Frontend Developer', value: 'frontend_developer' },
-  { label: 'Backend Developer', value: 'backend_developer' },
-  { label: 'Full Stack Developer', value: 'full_stack_developer' },
-  { label: 'Data Scientist', value: 'data_scientist' },
-  { label: 'DevOps Engineer', value: 'devops_engineer' },
-  { label: 'Product Manager', value: 'product_manager' },
-];
-
 export default function LearningPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState('analysis');
-  const [targetRole, setTargetRole] = useState('');
+  const [settingsTargetRole, setSettingsTargetRole] = useState<string | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<SkillGapAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState('');
@@ -58,6 +50,24 @@ export default function LearningPage() {
   const [progressError, setProgressError] = useState('');
   const [showFreeOnly, setShowFreeOnly] = useState(false);
 
+  // Fetch target role from Settings on mount so the user cannot override it here
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    const fetchTargetRole = async () => {
+      try {
+        const preferences = await settingsService.getCareerPreferences();
+        setSettingsTargetRole(preferences.targetRole ?? null);
+      } catch {
+        setSettingsTargetRole(null);
+      } finally {
+        setSettingsLoading(false);
+      }
+    };
+
+    fetchTargetRole();
+  }, [authLoading, user]);
+
   // Redirect if not authenticated
   if (!authLoading && !user) {
     router.push('/auth/login');
@@ -68,7 +78,7 @@ export default function LearningPage() {
     setAnalysisLoading(true);
     setAnalysisError('');
     try {
-      const response = await skillGapService.analyze(targetRole || undefined);
+      const response = await skillGapService.analyze(settingsTargetRole || undefined);
       setAnalysisResult(response.data);
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to analyze skills. Make sure you have uploaded a CV.';
@@ -76,7 +86,7 @@ export default function LearningPage() {
     } finally {
       setAnalysisLoading(false);
     }
-  }, [targetRole]);
+  }, [settingsTargetRole]);
 
   const loadLearningPaths = useCallback(async () => {
     setPathsLoading(true);
@@ -195,20 +205,37 @@ export default function LearningPage() {
                       <label className="text-sm font-medium text-foreground mb-1 block">
                         Target Role
                       </label>
-                      <Select value={targetRole} onValueChange={setTargetRole}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Auto-detect from CV" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TARGET_ROLES.map((role) => (
-                            <SelectItem key={role.value} value={role.value}>
-                              {role.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {/* Read-only display — the target role comes from Settings and can only be changed there */}
+                      <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-input bg-muted/30">
+                        {settingsLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : settingsTargetRole ? (
+                          <>
+                            <span className="text-sm font-medium text-foreground flex-1">
+                              {settingsTargetRole}
+                            </span>
+                            <Link
+                              href="/settings"
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors shrink-0"
+                            >
+                              <Settings className="h-3 w-3" />
+                              Change in Settings
+                            </Link>
+                          </>
+                        ) : (
+                          <Link
+                            href="/settings"
+                            className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            No target role set — configure in Settings →
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                    <Button onClick={runAnalysis} disabled={analysisLoading}>
+                    <Button
+                      onClick={runAnalysis}
+                      disabled={analysisLoading || settingsLoading || !settingsTargetRole}
+                    >
                       {analysisLoading ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
@@ -290,8 +317,9 @@ export default function LearningPage() {
                       Discover Your Skill Gaps
                     </h3>
                     <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                      Select a target role and click &quot;Analyze My Skills&quot; to compare your CV
-                      against industry requirements and get a personalized learning path.
+                      {settingsTargetRole
+                        ? `Click "Analyze My Skills" to compare your CV against requirements for ${settingsTargetRole} and get a personalized learning path.`
+                        : 'Set your target role in Settings first, then come back to analyze your skill gaps and get a personalized learning path.'}
                     </p>
                   </CardContent>
                 </Card>

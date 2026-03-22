@@ -12,11 +12,27 @@ interface CVListProps {
   onCVSelect: (cv: CV) => void;
   onCVDelete: (cvId: string) => void;
   onCVUpdate: (updatedCV: CV) => void;
+  onSetPrimary?: (cvId: string) => Promise<void>;
 }
 
-export default function CVList({ cvs, selectedCVId, onCVSelect, onCVDelete, onCVUpdate }: CVListProps) {
+export default function CVList({ cvs, selectedCVId, onCVSelect, onCVDelete, onCVUpdate, onSetPrimary }: CVListProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
+
+  const handleSetPrimary = async (cvId: string) => {
+    if (!onSetPrimary) return;
+    setSettingPrimaryId(cvId);
+    setError(null);
+    try {
+      await onSetPrimary(cvId);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to set primary CV';
+      setError(errorMessage);
+    } finally {
+      setSettingPrimaryId(null);
+    }
+  };
 
   const handleDelete = async (cvId: string, filename: string) => {
     const confirmed = window.confirm(
@@ -120,9 +136,9 @@ export default function CVList({ cvs, selectedCVId, onCVSelect, onCVDelete, onCV
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {formatDate(cv.createdAt)}
-                      {cv.analysisData && (
+                      {(cv.overviewData || cv.analysisData) && (
                         <span className="ml-2 text-metric-good font-medium">
-                          Score: {cv.analysisData.overallScore}/100
+                          Score: {(cv.overviewData?.overallScore ?? cv.analysisData?.overallScore)}/100
                         </span>
                       )}
                     </p>
@@ -131,15 +147,16 @@ export default function CVList({ cvs, selectedCVId, onCVSelect, onCVDelete, onCV
 
                 {/* Right: quick actions */}
                 <div className="flex items-center gap-1 flex-shrink-0 ml-3">
-                  {!isSelected && (
+                  {!cv.isPrimary && onSetPrimary && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onCVSelect(cv);
+                        handleSetPrimary(cv.id);
                       }}
-                      className="px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 rounded-md hover:bg-primary/20 transition-colors"
+                      disabled={settingPrimaryId === cv.id}
+                      className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 rounded-md hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Select
+                      {settingPrimaryId === cv.id ? 'Setting...' : 'Set as Primary'}
                     </button>
                   )}
                   <button

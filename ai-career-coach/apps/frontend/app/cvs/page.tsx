@@ -12,7 +12,7 @@ import CVDetail from '../../components/cv/CVDetail';
 import CVSummaryCard from '../../components/cv/CVSummaryCard';
 import CVAnalysisTabs from '../../components/cv/CVAnalysisTabs';
 import { useUserCVs, queryKeys } from '../../hooks/queries';
-import type { CV, ParsedCVData, CVOverviewData } from '../../types/cv.types';
+import type { CV, ParsedCVData } from '../../types/cv.types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Upload, FileText } from 'lucide-react';
@@ -38,10 +38,11 @@ export default function CVsPage() {
   const cvsQuery = useUserCVs(isReady);
   const cvs = cvsQuery.data?.data ?? [];
 
-  // Auto-select first CV when data loads
+  // Auto-select primary CV on load (falls back to first CV if none is primary)
   useEffect(() => {
     if (cvs.length > 0 && !selectedCV) {
-      setSelectedCV(cvs[0]);
+      const primaryCV = cvs.find(cv => cv.isPrimary) ?? cvs[0];
+      setSelectedCV(primaryCV);
     }
   }, [cvs, selectedCV]);
 
@@ -81,6 +82,28 @@ export default function CVsPage() {
     }
     if (detailCV?.id === updatedCV.id) {
       setDetailCV(updatedCV);
+    }
+  };
+
+  const handleSetPrimary = async (cvId: string) => {
+    try {
+      await cvService.setPrimaryCV(cvId);
+      queryClient.setQueryData<{ data: CV[] }>(queryKeys.cvs, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: old.data.map((cv) => ({ ...cv, isPrimary: cv.id === cvId })),
+        };
+      });
+      // Switch the displayed CV to the newly primary one
+      const freshData = queryClient.getQueryData<{ data: CV[] }>(queryKeys.cvs);
+      const primaryCV = freshData?.data.find(cv => cv.id === cvId);
+      if (primaryCV) {
+        setSelectedCV(primaryCV);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to set primary CV';
+      setError(errorMessage);
     }
   };
 
@@ -124,15 +147,18 @@ export default function CVsPage() {
     setError(null);
 
     try {
-      const response = await cvService.analyzeCV(selectedCV.id);
-      const overviewData: CVOverviewData = response.data;
+      // Backend saves analysis to DB and clears Redis cache before responding
+      await cvService.analyzeCV(selectedCV.id);
 
-      const updatedCV: CV = { ...selectedCV, analysisData: null, overviewData };
-      setSelectedCV(updatedCV);
-      queryClient.setQueryData<{ data: CV[] }>(queryKeys.cvs, (old) => {
-        if (!old) return old;
-        return { ...old, data: old.data.map((cv) => (cv.id === updatedCV.id ? updatedCV : cv)) };
-      });
+      // Refetch from DB to get the confirmed saved analysis data
+      await queryClient.refetchQueries({ queryKey: queryKeys.cvs });
+
+      // Find the analyzed CV in the fresh server data and display it
+      const freshData = queryClient.getQueryData<{ data: CV[] }>(queryKeys.cvs);
+      const freshCV = freshData?.data.find(cv => cv.id === selectedCV.id);
+      if (freshCV) {
+        setSelectedCV(freshCV);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to analyze CV';
       setError(errorMessage);
@@ -276,6 +302,7 @@ export default function CVsPage() {
                 onCVSelect={handleCVSelect}
                 onCVDelete={handleCVDeleteFromList}
                 onCVUpdate={handleCVUpdate}
+                onSetPrimary={handleSetPrimary}
               />
             )}
           </>

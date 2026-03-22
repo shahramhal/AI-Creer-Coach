@@ -47,22 +47,22 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="career-preferences">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-4 sm:inline-flex sm:w-auto">
             <TabsTrigger value="career-preferences" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Career Preferences
+              <Settings className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Career Preferences</span>
             </TabsTrigger>
             <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="h-4 w-4" />
-              Notifications
+              <Bell className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Notifications</span>
             </TabsTrigger>
             <TabsTrigger value="integrations" className="gap-2">
-              <Link2 className="h-4 w-4" />
-              Integrations
+              <Link2 className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Integrations</span>
             </TabsTrigger>
             <TabsTrigger value="account" className="gap-2">
-              <User className="h-4 w-4" />
-              Account
+              <User className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Account</span>
             </TabsTrigger>
           </TabsList>
 

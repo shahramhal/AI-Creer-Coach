@@ -22,11 +22,11 @@ export function AppLayout({ children }: AppLayoutProps) {
         onCollapsedChange={setSidebarCollapsed}
       />
       <div className={cn(
-        "transition-all duration-300",
+        "transition-all duration-300 min-w-0 overflow-x-hidden",
         sidebarCollapsed ? "md:pl-16" : "md:pl-60"
       )}>
         <TopNav onMenuClick={() => setMobileSidebarOpen(true)} />
-        <main id="main-content" className="p-4 md:p-6">{children}</main>
+        <main id="main-content" className="p-4 md:p-6 min-w-0">{children}</main>
       </div>
     </div>
   );

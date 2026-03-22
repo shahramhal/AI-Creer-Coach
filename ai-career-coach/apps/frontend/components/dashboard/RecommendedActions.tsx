@@ -56,7 +56,7 @@ function buildActions(
       impact: "high",
       icon: FileText,
       cta: "Upload CV",
-      href: "/cv",
+      href: "/cvs",
     });
   } else if (!cvData.overviewData) {
     actions.push({
@@ -66,7 +66,7 @@ function buildActions(
       impact: "high",
       icon: FileText,
       cta: "Analyze",
-      href: "/cv",
+      href: "/cvs",
     });
   }
 
@@ -91,7 +91,7 @@ function buildActions(
       impact: "high",
       icon: AlertCircle,
       cta: "Fix Issues",
-      href: "/cv",
+      href: "/cvs",
     });
   }
 

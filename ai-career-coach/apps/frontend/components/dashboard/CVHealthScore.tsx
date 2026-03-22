@@ -66,7 +66,7 @@ export function CVHealthScore({ score, issues, hasCv, hasAnalysis, isLoading }: 
               <p className="text-xs text-muted-foreground">Get your CV health score and improvement tips</p>
             </div>
             <Button size="sm" asChild>
-              <Link href="/cv">Upload CV</Link>
+              <Link href="/cvs">Upload CV</Link>
             </Button>
           </div>
         </CardContent>
@@ -95,7 +95,7 @@ export function CVHealthScore({ score, issues, hasCv, hasAnalysis, isLoading }: 
             <div className="flex flex-col gap-3">
               <p className="text-sm text-muted-foreground">Analyze your CV to get a score</p>
               <Button size="sm" asChild>
-                <Link href="/cv">Analyze CV</Link>
+                <Link href="/cvs">Analyze CV</Link>
               </Button>
             </div>
           </div>
@@ -144,7 +144,7 @@ export function CVHealthScore({ score, issues, hasCv, hasAnalysis, isLoading }: 
               </div>
             )}
             <Button size="sm" className="mt-1 h-8" asChild>
-              <Link href="/cv">Improve Score</Link>
+              <Link href="/cvs">Improve Score</Link>
             </Button>
           </div>
         </div>

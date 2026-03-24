@@ -6,7 +6,7 @@ import { logAdminAction } from '../utils/audit.util.js';
 
 const adminService = new AdminService();
 
-// ─── Dashboard ──────────────────────────────────────────────
+//  Dashboard 
 
 export const getDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -27,7 +27,7 @@ export const getUserGrowthTrend = async (req: Request, res: Response, next: Next
   }
 };
 
-// ─── User Management ───────────────────────────────────────
+//  User Management 
 
 export const listUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -149,7 +149,7 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-// ─── Job Management ────────────────────────────────────────
+//  Job Management 
 
 export const listJobs = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -231,7 +231,7 @@ export const deleteJob = async (req: Request, res: Response, next: NextFunction)
   }
 };
 
-// ─── System Monitoring ─────────────────────────────────────
+//  System Monitoring 
 
 export const getServiceHealth = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -269,7 +269,7 @@ export const getDatabaseStats = async (req: Request, res: Response, next: NextFu
   }
 };
 
-// ─── Audit Logs ──────────────────────────────────────────────
+//  Audit Logs 
 
 export const getAuditLogs = async (req: Request, res: Response, next: NextFunction) => {
   try {

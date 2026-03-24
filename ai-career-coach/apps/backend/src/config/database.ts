@@ -265,7 +265,7 @@ export const cache = new CacheManager(redis);
 // DATABASE HEALTH CHECK
 
 
-interface HealthStatus {
+export interface HealthStatus {
   postgres: boolean;
   mongodb: boolean;
   redis: boolean;

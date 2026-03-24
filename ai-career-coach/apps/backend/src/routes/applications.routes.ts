@@ -59,7 +59,7 @@ async function fetchCVDataFromMongo(mongoDocId: string): Promise<{
 }
 
 /** Helper: fetch from ML service with timeout */
-async function fetchMLService(path: string, body: Record<string, any>): Promise<Response> {
+async function fetchMLService(path: string, body: Record<string, any>): Promise<globalThis.Response> {
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => abortController.abort(), ML_REQUEST_TIMEOUT_MS);
 
@@ -75,10 +75,10 @@ async function fetchMLService(path: string, body: Record<string, any>): Promise<
   }
 }
 
-// ============================================================
+// 
 // IMPORTANT: Static routes MUST come before parameterised routes
 // Otherwise Express matches "/ats-check" as ":applicationId"
-// ============================================================
+// 
 
 /**
  * ATS check with raw job description text

@@ -361,7 +361,7 @@ export class SkillGapService {
         courseId,
         progress: Math.min(100, Math.max(0, progress)),
         status,
-        startedAt,
+        ...(startedAt !== undefined && { startedAt }),
         completedAt,
       },
       include: { course: true },

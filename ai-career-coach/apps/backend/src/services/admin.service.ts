@@ -81,12 +81,12 @@ export class AdminService {
     for (let i = 0; i < days; i++) {
       const date = new Date();
       date.setDate(date.getDate() - (days - 1 - i));
-      dailyCounts[date.toISOString().split('T')[0]] = 0;
+      dailyCounts[date.toISOString().split('T')[0]!] = 0;
     }
 
     for (const user of users) {
       const dateKey = user.createdAt.toISOString().split('T')[0];
-      if (dailyCounts[dateKey] !== undefined) {
+      if (dateKey && dailyCounts[dateKey] !== undefined) {
         dailyCounts[dateKey]++;
       }
     }
@@ -484,7 +484,7 @@ export class AdminService {
 
       const parseInfoField = (infoText: string, field: string): string => {
         const match = infoText.match(new RegExp(`${field}:(.+?)\\r?\\n`));
-        return match ? match[1].trim() : '0';
+        return match?.[1]?.trim() ?? '0';
       };
 
       return {

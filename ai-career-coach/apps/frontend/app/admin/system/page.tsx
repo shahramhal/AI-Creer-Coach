@@ -119,7 +119,7 @@ export default function AdminSystemPage() {
         <p className="text-xs text-muted-foreground">Auto-refreshes every 30s</p>
       </div>
 
-      {/* ── Service Health Cards ─────────────────────────────── */}
+      {/*  Service Health Cards  */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {health &&
           (Object.keys(SERVICE_CONFIG) as ServiceKey[]).map((key) => {
@@ -176,7 +176,7 @@ export default function AdminSystemPage() {
           })}
       </div>
 
-      {/* ── Expanded Detail Panel ────────────────────────────── */}
+      {/*  Expanded Detail Panel  */}
       {expandedService === 'postgres' && dbStats && (
         <Card className="animate-in slide-in-from-top-2 duration-200">
           <CardHeader className="pb-3">
@@ -252,7 +252,7 @@ export default function AdminSystemPage() {
         </Card>
       )}
 
-      {/* ── Queue Status ─────────────────────────────────────── */}
+      {/*  Queue Status  */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -302,7 +302,7 @@ export default function AdminSystemPage() {
         </CardContent>
       </Card>
 
-      {/* ── Recent Activity ──────────────────────────────────── */}
+      {/*  Recent Activity  */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">

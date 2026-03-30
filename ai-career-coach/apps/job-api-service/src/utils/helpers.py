@@ -7,7 +7,7 @@ Used by both Adzuna and Reed API clients.
 import re
 from datetime import datetime
 
-# ── Job type inference ───────────────────────────────────────────────────────
+#  Job type inference 
 
 _JOB_TYPE_PATTERNS = [
     (r'\b(full[\s-]?time)\b', 'Full-time'),
@@ -29,7 +29,7 @@ def infer_job_type(title: str, description: str) -> str:
     return "Not specified"
 
 
-# ── Remote type detection ────────────────────────────────────────────────────
+#  Remote type detection 
 
 def detect_remote_type(title: str, description: str) -> str:
     """Detect remote/hybrid/on-site from text."""
@@ -43,7 +43,7 @@ def detect_remote_type(title: str, description: str) -> str:
     return "Not specified"
 
 
-# ── Experience level detection ───────────────────────────────────────────────
+#  Experience level detection 
 
 _JUNIOR_TITLE_PATTERN = re.compile(
     r'\b(junior|jr\.?|entry[\s-]?level|graduate|grad|trainee|apprentice|intern)\b', re.I
@@ -142,7 +142,7 @@ def detect_experience_level(title: str, description: str) -> str:
     return "Not specified"
 
 
-# ── Date normalization ───────────────────────────────────────────────────────
+#  Date normalization 
 
 def normalize_date_to_iso(date_string: str) -> str:
     """

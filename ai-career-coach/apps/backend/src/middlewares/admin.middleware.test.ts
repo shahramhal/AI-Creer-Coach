@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
 import { requireAdmin } from './admin.middleware.js';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+//  Helpers 
 
 function buildMockResponse() {
   const mockResponse = {
@@ -29,7 +29,7 @@ function buildMockRequest(userOverride?: Partial<Request['user']> | null): Reque
   return requestBase as unknown as Request;
 }
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+//  Tests 
 
 describe('requireAdmin middleware', () => {
   let mockNextFunction: NextFunction;

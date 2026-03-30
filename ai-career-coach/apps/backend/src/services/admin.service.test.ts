@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 // Get the mocked Prisma singleton shared with the source module
 const mockPrismaInstance = new PrismaClient() as any;
 
-// ─── Mock ../config/database before importing admin.service ───────────────────
+//  Mock ../config/database before importing admin.service 
 // admin.service imports redis, queues, and checkDatabaseHealth from config/database.
 // The real database.ts creates Redis and Bull instances at module-load time.
 // We provide lightweight stubs to prevent that from happening in tests.
@@ -64,7 +64,7 @@ vi.mock('../config/database.js', () => mockDatabaseModule);
 // Import AdminService AFTER database mock is registered
 import { AdminService } from './admin.service.js';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+//  Helpers 
 
 function buildUserRecord(overrides: Record<string, unknown> = {}) {
   return {
@@ -86,7 +86,7 @@ function buildUserRecord(overrides: Record<string, unknown> = {}) {
   };
 }
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+//  Tests 
 
 describe('AdminService', () => {
   let adminService: AdminService;
@@ -129,7 +129,7 @@ describe('AdminService', () => {
     });
   });
 
-  // ─── getDashboardStats ──────────────────────────────────────────────────────
+  //  getDashboardStats 
 
   describe('getDashboardStats', () => {
     it('should return aggregated counts for users, CVs, applications, and jobs', async () => {
@@ -166,7 +166,7 @@ describe('AdminService', () => {
     });
   });
 
-  // ─── listUsers ─────────────────────────────────────────────────────────────
+  //  listUsers 
 
   describe('listUsers', () => {
     it('should return a paginated list of users with total and page metadata', async () => {
@@ -266,7 +266,7 @@ describe('AdminService', () => {
     });
   });
 
-  // ─── getUserDetail ─────────────────────────────────────────────────────────
+  //  getUserDetail 
 
   describe('getUserDetail', () => {
     it('should return the full user record when the userId exists', async () => {
@@ -294,7 +294,7 @@ describe('AdminService', () => {
     });
   });
 
-  // ─── toggleUserDisabled ────────────────────────────────────────────────────
+  //  toggleUserDisabled 
 
   describe('toggleUserDisabled', () => {
     it('should update isDisabled to true and return a success message when disabling a user', async () => {
@@ -339,7 +339,7 @@ describe('AdminService', () => {
     });
   });
 
-  // ─── promoteUser ───────────────────────────────────────────────────────────
+  //  promoteUser 
 
   describe('promoteUser', () => {
     it('should update role to ADMIN and return a success message when promoting a USER', async () => {
@@ -376,7 +376,7 @@ describe('AdminService', () => {
     });
   });
 
-  // ─── demoteUser ────────────────────────────────────────────────────────────
+  //  demoteUser 
 
   describe('demoteUser', () => {
     it('should update role to USER and return a success message when demoting another admin', async () => {
@@ -440,7 +440,7 @@ describe('AdminService', () => {
     });
   });
 
-  // ─── deleteUser ────────────────────────────────────────────────────────────
+  //  deleteUser 
 
   describe('deleteUser', () => {
     it('should delete the Prisma user record and return a success message', async () => {
@@ -480,7 +480,7 @@ describe('AdminService', () => {
     });
   });
 
-  // ─── getAuditLogs ──────────────────────────────────────────────────────────
+  //  getAuditLogs 
 
   describe('getAuditLogs', () => {
     it('should return paginated audit logs with admin info included', async () => {
@@ -509,7 +509,7 @@ describe('AdminService', () => {
       const auditLogsResult = await adminService.getAuditLogs({ page: 1, limit: 20 });
 
       expect(auditLogsResult.logs).toHaveLength(1);
-      expect(auditLogsResult.logs[0].action).toBe('USER_DISABLED');
+      expect(auditLogsResult.logs[0]!.action).toBe('USER_DISABLED');
       expect(auditLogsResult.pagination.total).toBe(1);
       expect(auditLogsResult.pagination.totalPages).toBe(1);
     });
@@ -545,7 +545,7 @@ describe('AdminService', () => {
     });
   });
 
-  // ─── getUserGrowthTrend ─────────────────────────────────────────────────────
+  //  getUserGrowthTrend 
 
   describe('getUserGrowthTrend', () => {
     it('should return one entry per day for the requested number of days', async () => {
@@ -580,7 +580,7 @@ describe('AdminService', () => {
       const growthTrend = await adminService.getUserGrowthTrend(1);
 
       expect(growthTrend).toHaveLength(1);
-      expect(growthTrend[0].count).toBe(2);
+      expect(growthTrend[0]!.count).toBe(2);
     });
   });
 });

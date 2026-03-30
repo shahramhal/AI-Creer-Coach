@@ -746,12 +746,12 @@ export class SalaryService {
       userLocation1 = matchedRegion ? matchedRegion.location1 : location;
     }
 
-    // ── Determine if ML prediction is available for this country ──
+    //  Determine if ML prediction is available for this country 
     const isMLCountry = country === 'gb' || country === 'us';
     let mlPrediction: MLPredictionResult | null = null;
     let dataSource: 'ml' | 'adzuna' = 'adzuna';
 
-    // ── Phase 1: Fetch critical data (national + user location + history) ──
+    //  Phase 1: Fetch critical data (national + user location + history) 
     // Also attempt ML prediction in parallel for UK/US
     const hasLocationQuery = !!userLocation1;
     const [nationalHistogram, locationHistogram, historyData, mlResult, skillRelevanceResult] = await Promise.all([
@@ -801,7 +801,7 @@ export class SalaryService {
       );
     }
 
-    // ── Phase 2: Fetch regional histograms + top-paying roles (throttled) ──
+    //  Phase 2: Fetch regional histograms + top-paying roles (throttled) 
     const alreadyFetched = new Map<string, Record<string, number>>();
     if (hasLocationQuery && userLocation1 && locationMedian > 0) {
       alreadyFetched.set(userLocation1, locationHistogram);
@@ -812,7 +812,7 @@ export class SalaryService {
       fetchTopPayingRoles(country, jobTitle, countryLoc0),
     ]);
 
-    // ── Calculate prediction values ──
+    //  Calculate prediction values 
     let predictedSalary: number;
     let salaryMin: number;
     let salaryMax: number;

@@ -6,30 +6,26 @@ import { logAdminAction } from '../utils/audit.util.js';
 
 const adminService = new AdminService();
 
-//  Dashboard 
-
-export const getDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
+export const getDashboardStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const stats = await adminService.getDashboardStats();
-    return res.json({ success: true, data: stats });
+    res.json({ success: true, data: stats });
   } catch (error) {
     next(error);
   }
 };
 
-export const getUserGrowthTrend = async (req: Request, res: Response, next: NextFunction) => {
+export const getUserGrowthTrend = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const days = parseInt(req.query.days as string) || 30;
     const trend = await adminService.getUserGrowthTrend(days);
-    return res.json({ success: true, data: trend });
+    res.json({ success: true, data: trend });
   } catch (error) {
     next(error);
   }
 };
 
-//  User Management 
-
-export const listUsers = async (req: Request, res: Response, next: NextFunction) => {
+export const listUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
@@ -38,33 +34,42 @@ export const listUsers = async (req: Request, res: Response, next: NextFunction)
     const sortBy = req.query.sortBy as string | undefined;
     const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
 
-    const result = await adminService.listUsers({ page, limit, search, role, sortBy, sortOrder });
-    return res.json({ success: true, data: result });
+    const result = await adminService.listUsers({
+      page,
+      limit,
+      sortOrder,
+      ...(search !== undefined && { search }),
+      ...(role !== undefined && { role }),
+      ...(sortBy !== undefined && { sortBy }),
+    });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-export const getUserDetail = async (req: Request, res: Response, next: NextFunction) => {
+export const getUserDetail = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const user = await adminService.getUserDetail(req.params.userId);
-    return res.json({ success: true, data: user });
+    const user = await adminService.getUserDetail(req.params['userId'] as string);
+    res.json({ success: true, data: user });
   } catch (error) {
     next(error);
   }
 };
 
-export const toggleUserStatus = async (req: Request, res: Response, next: NextFunction) => {
+export const toggleUserStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { userId } = req.params;
+    const userId = req.params['userId'] as string;
     const { disabled } = req.body;
 
     if (userId === req.user!.id) {
-      return res.status(400).json({ success: false, message: 'Cannot disable yourself' });
+      res.status(400).json({ success: false, message: 'Cannot disable yourself' });
+      return;
     }
 
     if (typeof disabled !== 'boolean') {
-      return res.status(400).json({ success: false, message: 'disabled must be a boolean' });
+      res.status(400).json({ success: false, message: 'disabled must be a boolean' });
+      return;
     }
 
     const result = await adminService.toggleUserDisabled(userId, disabled);
@@ -75,15 +80,15 @@ export const toggleUserStatus = async (req: Request, res: Response, next: NextFu
       targetId: userId,
     });
 
-    return res.json({ success: true, data: result });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-export const promoteUser = async (req: Request, res: Response, next: NextFunction) => {
+export const promoteUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { userId } = req.params;
+    const userId = req.params['userId'] as string;
     const result = await adminService.promoteUser(userId);
 
     logAdminAction(req, {
@@ -92,15 +97,15 @@ export const promoteUser = async (req: Request, res: Response, next: NextFunctio
       targetId: userId,
     });
 
-    return res.json({ success: true, data: result });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-export const demoteUser = async (req: Request, res: Response, next: NextFunction) => {
+export const demoteUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { userId } = req.params;
+    const userId = req.params['userId'] as string;
     const result = await adminService.demoteUser(userId, req.user!.id);
 
     logAdminAction(req, {
@@ -109,15 +114,15 @@ export const demoteUser = async (req: Request, res: Response, next: NextFunction
       targetId: userId,
     });
 
-    return res.json({ success: true, data: result });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-export const forceResetPassword = async (req: Request, res: Response, next: NextFunction) => {
+export const forceResetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { userId } = req.params;
+    const userId = req.params['userId'] as string;
     const result = await adminService.forcePasswordReset(userId);
 
     logAdminAction(req, {
@@ -126,15 +131,15 @@ export const forceResetPassword = async (req: Request, res: Response, next: Next
       targetId: userId,
     });
 
-    return res.json({ success: true, data: result });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { userId } = req.params;
+    const userId = req.params['userId'] as string;
     const result = await adminService.deleteUser(userId, req.user!.id);
 
     logAdminAction(req, {
@@ -143,46 +148,51 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
       targetId: userId,
     });
 
-    return res.json({ success: true, data: result });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-//  Job Management 
-
-export const listJobs = async (req: Request, res: Response, next: NextFunction) => {
+export const listJobs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const source = req.query.source as string | undefined;
     const country = req.query.country as string | undefined;
-
     const sortBy = req.query.sortBy as string | undefined;
-    const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || undefined;
+    const sortOrder = req.query.sortOrder as 'asc' | 'desc' | undefined;
 
-    const result = await adminService.listJobs({ page, limit, source, country, sortBy, sortOrder });
-    return res.json({ success: true, data: result });
+    const result = await adminService.listJobs({
+      page,
+      limit,
+      ...(source !== undefined && { source }),
+      ...(country !== undefined && { country }),
+      ...(sortBy !== undefined && { sortBy }),
+      ...(sortOrder !== undefined && { sortOrder }),
+    });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-export const getJobStats = async (req: Request, res: Response, next: NextFunction) => {
+export const getJobStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const stats = await adminService.getJobStats();
-    return res.json({ success: true, data: stats });
+    res.json({ success: true, data: stats });
   } catch (error) {
     next(error);
   }
 };
 
-export const triggerJobFetch = async (req: Request, res: Response, next: NextFunction) => {
+export const triggerJobFetch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { keywords, country, location } = req.body;
 
     if (!keywords || !country) {
-      return res.status(400).json({ success: false, message: 'keywords and country are required' });
+      res.status(400).json({ success: false, message: 'keywords and country are required' });
+      return;
     }
 
     const result = await adminService.triggerJobFetch(country, keywords, location);
@@ -193,13 +203,13 @@ export const triggerJobFetch = async (req: Request, res: Response, next: NextFun
       details: { keywords, country, location },
     });
 
-    return res.json({ success: true, data: result });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-export const triggerJobCleanup = async (req: Request, res: Response, next: NextFunction) => {
+export const triggerJobCleanup = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const result = await adminService.triggerJobCleanup();
 
@@ -208,15 +218,15 @@ export const triggerJobCleanup = async (req: Request, res: Response, next: NextF
       targetType: 'job',
     });
 
-    return res.json({ success: true, data: result });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-export const deleteJob = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { jobId } = req.params;
+    const jobId = req.params['jobId'] as string;
     const result = await adminService.deleteJob(jobId);
 
     logAdminAction(req, {
@@ -225,60 +235,60 @@ export const deleteJob = async (req: Request, res: Response, next: NextFunction)
       targetId: jobId,
     });
 
-    return res.json({ success: true, data: result });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
-//  System Monitoring 
-
-export const getServiceHealth = async (req: Request, res: Response, next: NextFunction) => {
+export const getServiceHealth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const health = await adminService.getServiceHealth();
-    return res.json({ success: true, data: health });
+    res.json({ success: true, data: health });
   } catch (error) {
     next(error);
   }
 };
 
-export const getCacheStats = async (req: Request, res: Response, next: NextFunction) => {
+export const getCacheStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const stats = await adminService.getCacheStats();
-    return res.json({ success: true, data: stats });
+    res.json({ success: true, data: stats });
   } catch (error) {
     next(error);
   }
 };
 
-export const getQueueStatus = async (req: Request, res: Response, next: NextFunction) => {
+export const getQueueStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const queues = await adminService.getQueueStatus();
-    return res.json({ success: true, data: queues });
+    res.json({ success: true, data: queues });
   } catch (error) {
     next(error);
   }
 };
 
-export const getDatabaseStats = async (req: Request, res: Response, next: NextFunction) => {
+export const getDatabaseStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const stats = await adminService.getDatabaseStats();
-    return res.json({ success: true, data: stats });
+    res.json({ success: true, data: stats });
   } catch (error) {
     next(error);
   }
 };
 
-//  Audit Logs 
-
-export const getAuditLogs = async (req: Request, res: Response, next: NextFunction) => {
+export const getAuditLogs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const action = req.query.action as string | undefined;
 
-    const result = await adminService.getAuditLogs({ page, limit, action });
-    return res.json({ success: true, data: result });
+    const result = await adminService.getAuditLogs({
+      page,
+      limit,
+      ...(action !== undefined && { action }),
+    });
+    res.json({ success: true, data: result });
   } catch (error) {
     next(error);
   }

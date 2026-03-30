@@ -1,43 +1,38 @@
 // apps/backend/src/routes/admin.routes.ts
 
 import { Router } from 'express';
+import type { RequestHandler } from 'express';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { requireAdmin } from '../middlewares/admin.middleware.js';
 import * as adminController from '../controllers/admin.controller.js';
 
 const router = Router();
 
-// All admin routes require authentication + admin role
-router.use(authenticate as any);
-router.use(requireAdmin as any);
+router.use(authenticate as RequestHandler);
+router.use(requireAdmin as RequestHandler);
 
-// Dashboard
-router.get('/dashboard/stats', adminController.getDashboardStats as any);
-router.get('/dashboard/user-growth', adminController.getUserGrowthTrend as any);
+router.get('/dashboard/stats', adminController.getDashboardStats);
+router.get('/dashboard/user-growth', adminController.getUserGrowthTrend);
 
-// User Management
-router.get('/users', adminController.listUsers as any);
-router.get('/users/:userId', adminController.getUserDetail as any);
-router.patch('/users/:userId/status', adminController.toggleUserStatus as any);
-router.post('/users/:userId/promote', adminController.promoteUser as any);
-router.post('/users/:userId/demote', adminController.demoteUser as any);
-router.post('/users/:userId/force-reset-password', adminController.forceResetPassword as any);
-router.delete('/users/:userId', adminController.deleteUser as any);
+router.get('/users', adminController.listUsers);
+router.get('/users/:userId', adminController.getUserDetail);
+router.patch('/users/:userId/status', adminController.toggleUserStatus);
+router.post('/users/:userId/promote', adminController.promoteUser);
+router.post('/users/:userId/demote', adminController.demoteUser);
+router.post('/users/:userId/force-reset-password', adminController.forceResetPassword);
+router.delete('/users/:userId', adminController.deleteUser);
 
-// Job Management
-router.get('/jobs', adminController.listJobs as any);
-router.get('/jobs/stats', adminController.getJobStats as any);
-router.post('/jobs/fetch', adminController.triggerJobFetch as any);
-router.post('/jobs/cleanup', adminController.triggerJobCleanup as any);
-router.delete('/jobs/:jobId', adminController.deleteJob as any);
+router.get('/jobs', adminController.listJobs);
+router.get('/jobs/stats', adminController.getJobStats);
+router.post('/jobs/fetch', adminController.triggerJobFetch);
+router.post('/jobs/cleanup', adminController.triggerJobCleanup);
+router.delete('/jobs/:jobId', adminController.deleteJob);
 
-// System Monitoring
-router.get('/system/health', adminController.getServiceHealth as any);
-router.get('/system/cache', adminController.getCacheStats as any);
-router.get('/system/queues', adminController.getQueueStatus as any);
-router.get('/system/database', adminController.getDatabaseStats as any);
+router.get('/system/health', adminController.getServiceHealth);
+router.get('/system/cache', adminController.getCacheStats);
+router.get('/system/queues', adminController.getQueueStatus);
+router.get('/system/database', adminController.getDatabaseStats);
 
-// Audit Logs
-router.get('/audit-logs', adminController.getAuditLogs as any);
+router.get('/audit-logs', adminController.getAuditLogs);
 
 export default router;

@@ -1,6 +1,6 @@
 // apps/backend/src/routes/applications.routes.ts
 import { Router } from 'express';
-import type { Request, Response, RequestHandler } from 'express';
+import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { prisma, cache } from '../config/database.js';
@@ -86,7 +86,7 @@ async function fetchMLService(path: string, body: Record<string, any>): Promise<
  */
 router.post(
   '/ats-check',
-  authenticate as RequestHandler,
+  authenticate,
   async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.user!.id;
@@ -188,7 +188,7 @@ router.post(
  */
 router.post(
   '/jobs/:jobId/ats-preview',
-  authenticate as RequestHandler,
+  authenticate,
   async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.user!.id;
@@ -291,7 +291,7 @@ router.post(
  */
 router.post(
   '/:applicationId/ats-score',
-  authenticate as RequestHandler,
+  authenticate,
   async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.user!.id;

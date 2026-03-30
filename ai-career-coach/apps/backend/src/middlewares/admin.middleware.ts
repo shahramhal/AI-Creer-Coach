@@ -11,13 +11,14 @@ export const requireAdmin = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   if (!req.user || req.user.role !== 'ADMIN') {
-    return res.status(403).json({
+    res.status(403).json({
       success: false,
       message: 'Admin access required',
       code: 'ADMIN_REQUIRED',
     });
+    return;
   }
 
   next();

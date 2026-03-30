@@ -1,8 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import mongoose from 'mongoose';
-import { redis } from '../config/database.js';
-
-const prisma = new PrismaClient();
+import { prisma, redis } from '../config/database.js';
 
 export class AccountService {
   async deleteUserAccount(userId: string) {

@@ -34,7 +34,7 @@ describe('AuthService', () => {
     vi.mocked((bcryptModule as any).default.compare).mockResolvedValue(true);
   });
 
-  // ─── register ──────────────────────────────────────────────────────────────
+  //  register 
   describe('register', () => {
     it('should throw an error when a user with the same email already exists', async () => {
       const existingUserRecord = {
@@ -130,7 +130,7 @@ describe('AuthService', () => {
     });
   });
 
-  // ─── login ─────────────────────────────────────────────────────────────────
+  //  login 
   describe('login', () => {
     it('should throw "Invalid credentials" when user email is not found', async () => {
       mockPrismaInstance.user.findUnique.mockResolvedValue(null);
@@ -199,7 +199,7 @@ describe('AuthService', () => {
     });
   });
 
-  // ─── verifyEmail ───────────────────────────────────────────────────────────
+  //  verifyEmail 
   describe('verifyEmail', () => {
     it('should throw an error when the verification token does not match any user', async () => {
       mockPrismaInstance.user.findUnique.mockResolvedValue(null);
@@ -239,7 +239,7 @@ describe('AuthService', () => {
     });
   });
 
-  // ─── requestPasswordReset ──────────────────────────────────────────────────
+  //  requestPasswordReset 
   describe('requestPasswordReset', () => {
     it('should return a safe message even when email does not exist (prevents user enumeration)', async () => {
       mockPrismaInstance.user.findUnique.mockResolvedValue(null);
@@ -282,7 +282,7 @@ describe('AuthService', () => {
     });
   });
 
-  // ─── resetPassword ─────────────────────────────────────────────────────────
+  //  resetPassword 
   describe('resetPassword', () => {
     it('should throw an error when reset token is invalid or expired', async () => {
       mockPrismaInstance.user.findFirst.mockResolvedValue(null);
@@ -325,7 +325,7 @@ describe('AuthService', () => {
     });
   });
 
-  // ─── refreshAccessToken ────────────────────────────────────────────────────
+  //  refreshAccessToken 
   describe('refreshAccessToken', () => {
     it('should throw "Invalid refresh token" when given an invalid refresh token string', async () => {
       await expect(

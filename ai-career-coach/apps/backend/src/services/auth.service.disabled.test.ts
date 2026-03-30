@@ -24,7 +24,7 @@ vi.mock('../utils/email.util.js', () => ({
   sendWelcomeEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+//  Helpers 
 
 function buildUserRecord(overrides: Record<string, unknown> = {}) {
   return {
@@ -46,7 +46,7 @@ function buildUserRecord(overrides: Record<string, unknown> = {}) {
   };
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+//  Tests 
 
 describe('AuthService.login — disabled account and role features', () => {
   let authService: AuthService;

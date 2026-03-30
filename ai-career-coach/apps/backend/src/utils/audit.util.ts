@@ -1,9 +1,7 @@
 // apps/backend/src/utils/audit.util.ts
 
 import type { Request } from 'express';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/database.js';
 
 interface AuditAction {
   action: string;

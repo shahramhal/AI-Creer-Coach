@@ -12,7 +12,7 @@ import { PrismaClient } from '@prisma/client';
 
 const mockPrismaInstance = new PrismaClient() as any;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+//  Helpers 
 
 function createValidAccessToken(userId: string, userEmail: string): string {
   return jwt.sign({ userId, email: userEmail }, process.env.JWT_SECRET!, { expiresIn: '1h' });
@@ -34,7 +34,7 @@ function buildMockResponse() {
   return mockResponse as unknown as Response;
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+//  Tests 
 
 describe('authenticate middleware — disabled account and role features', () => {
   let mockNextFunction: NextFunction;

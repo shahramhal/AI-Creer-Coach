@@ -1,10 +1,8 @@
 // apps/backend/src/middlewares/auth.middleware.ts
 
 import type{ Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
 import { verifyAccessToken } from '../utils/jwt.util.js';
-
-const prisma = new PrismaClient();
 
 /**
  * Extends Express Request to include user data
@@ -35,25 +33,21 @@ export const authenticate = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
-    // Get token from Authorization header
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Access token required',
       });
+      return;
     }
 
-    // Extract token (format: "Bearer <token>")
     const token = authHeader.substring(7);
-
-    // Verify token
     const decoded = verifyAccessToken(token);
 
-    // Fetch user from database (ensures user still exists and checks role/status)
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -68,22 +62,22 @@ export const authenticate = async (
     });
 
     if (!user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'User not found',
       });
+      return;
     }
 
-    // Block disabled accounts
     if (user.isDisabled) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         message: 'Account is disabled',
         code: 'ACCOUNT_DISABLED',
       });
+      return;
     }
 
-    // Attach user to request object
     req.user = {
       id: user.id,
       email: user.email,
@@ -99,22 +93,24 @@ export const authenticate = async (
 
     if (error instanceof Error) {
       if (error.message === 'Token expired') {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           message: 'Token expired',
           code: 'TOKEN_EXPIRED',
         });
+        return;
       }
 
       if (error.message === 'Invalid token') {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           message: 'Invalid token',
         });
+        return;
       }
     }
 
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       message: 'Authentication failed',
     });
@@ -155,12 +151,12 @@ export const optionalAuthenticate = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next(); // Continue without user
+      return next();
     }
 
     const token = authHeader.substring(7);

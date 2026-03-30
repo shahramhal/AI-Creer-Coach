@@ -1,18 +1,16 @@
 import multer from 'multer';
 import path from 'path';
+import type { Request } from 'express';
 
-//strorage configuration
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-         // Save to public/uploads folder
-         cb(null, 'public/uploads/avatars');
-  },
-  filename: (req, file, cb) => {
-    // Use unique filename
-    const userId = (req as any).user.userId;
-    const ext = path.extname(file.originalname);
-    cb(null, `${userId}-${Date.now()}${ext}`);
-  }
+    destination: (_req, _file, cb) => {
+        cb(null, 'public/uploads/avatars');
+    },
+    filename: (req: Request, file, cb) => {
+        const userId = req.user?.id ?? 'unknown';
+        const ext = path.extname(file.originalname);
+        cb(null, `${userId}-${Date.now()}${ext}`);
+    }
 
 
     

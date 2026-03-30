@@ -3,10 +3,6 @@
 
 const mongoose = require('mongoose');
 
-// =====================================================
-// DATABASE CONNECTION
-// =====================================================
-
 const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ai_career_coach', {
@@ -14,7 +10,7 @@ const connectDB = async () => {
             useUnifiedTopology: true
         });
         console.log('MongoDB connected successfully');
-        
+
         // Create indexes after connection
         await createIndexes();
     } catch (error) {
@@ -23,33 +19,24 @@ const connectDB = async () => {
     }
 };
 
-// =====================================================
-// JOB POSTINGS SCHEMA
-// =====================================================
-
 const jobPostingSchema = new mongoose.Schema({
-    // Unique identifier from source
     external_id: {
         type: String,
         required: true,
         index: true
     },
-    
-    // Basic job information
     title: {
         type: String,
         required: true,
-        index: 'text'  // Enable text search
+        index: 'text'
     },
     company: {
         name: String,
         id: String,
         logo_url: String,
-        size: String,  // startup, small, medium, large, enterprise
+        size: String,
         industry: String
     },
-    
-    // Location details
     location: {
         city: String,
         state: String,
@@ -64,17 +51,13 @@ const jobPostingSchema = new mongoose.Schema({
             lng: Number
         }
     },
-    
-    // Job details
     description: {
         type: String,
-        index: 'text'  // Enable text search
+        index: 'text'
     },
     requirements: [String],
     responsibilities: [String],
     benefits: [String],
-    
-    // Employment details
     employment_type: {
         type: String,
         enum: ['full_time', 'part_time', 'contract', 'internship', 'temporary'],
@@ -87,17 +70,13 @@ const jobPostingSchema = new mongoose.Schema({
     },
     years_experience_min: Number,
     years_experience_max: Number,
-    
-    // Compensation
     salary: {
         min: Number,
         max: Number,
         currency: String,
-        period: String,  // yearly, monthly, hourly
+        period: String,
         is_estimated: Boolean
     },
-    
-    // Skills and qualifications
     skills_required: [{
         name: String,
         importance: {
@@ -107,20 +86,16 @@ const jobPostingSchema = new mongoose.Schema({
         years_needed: Number
     }],
     education_required: {
-        level: String,  // high_school, bachelors, masters, phd
+        level: String,
         field: [String]
     },
     certifications: [String],
-    
-    // Source and metadata
     source: {
         type: String,
         required: true,
-        index: true  // indeed, linkedin, glassdoor, etc
+        index: true
     },
     source_url: String,
-    
-    // Dates
     posted_date: {
         type: Date,
         index: true
@@ -135,8 +110,6 @@ const jobPostingSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-    
-    // Status
     is_active: {
         type: Boolean,
         default: true,
@@ -146,15 +119,11 @@ const jobPostingSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    
-    // ML-generated fields
     embedding: {
-        type: [Number],  // 384-dimensional vector from sentence-transformers
-        index: '2dsphere'  // Enable vector similarity search
+        type: [Number],
+        index: '2dsphere'
     },
-    skill_embeddings: mongoose.Schema.Types.Mixed,  // Multiple skill vectors
-    
-    // Analytics
+    skill_embeddings: mongoose.Schema.Types.Mixed,
     view_count: {
         type: Number,
         default: 0
@@ -167,24 +136,15 @@ const jobPostingSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    
-    // Quality metrics
-    quality_score: Number,  // 0-100 based on completeness
-    ats_keywords: [String],  // Extracted ATS-friendly keywords
-    
-    // Raw data backup
-    raw_html: String,  // Original scraped HTML
-    raw_text: String   // Cleaned text version
+    quality_score: Number,
+    ats_keywords: [String],
+    raw_html: String,
+    raw_text: String
 });
 
-// Compound indexes for common queries
 jobPostingSchema.index({ company: 1, posted_date: -1 });
 jobPostingSchema.index({ 'location.city': 1, 'location.state': 1 });
 jobPostingSchema.index({ skills_required: 1, experience_level: 1 });
-
-// =====================================================
-// PARSED CV SCHEMA
-// =====================================================
 
 const parsedCVSchema = new mongoose.Schema({
     user_id: {
@@ -193,13 +153,11 @@ const parsedCVSchema = new mongoose.Schema({
         index: true
     },
     cv_id: {
-        type: String,  // Reference to PostgreSQL cvs table
+        type: String,
         required: true,
         index: true
     },
-    
-    // Parsing metadata
-    parse_version: String,  // Parser version used
+    parse_version: String,
     parse_timestamp: {
         type: Date,
         default: Date.now
@@ -212,8 +170,6 @@ const parsedCVSchema = new mongoose.Schema({
         education: Number,
         skills: Number
     },
-    
-    // Extracted contact information
     contact: {
         full_name: String,
         email: String,
@@ -228,15 +184,11 @@ const parsedCVSchema = new mongoose.Schema({
             full_address: String
         }
     },
-    
-    // Professional summary
     summary: {
         text: String,
         keywords: [String],
-        tone: String  // professional, casual, academic
+        tone: String
     },
-    
-    // Work experience (detailed)
     experience: [{
         company: String,
         title: String,
@@ -249,15 +201,12 @@ const parsedCVSchema = new mongoose.Schema({
         responsibilities: [String],
         achievements: [String],
         technologies: [String],
-        // NER extracted entities
         entities: {
-            metrics: [String],  // "increased sales by 25%"
+            metrics: [String],
             projects: [String],
             teams: [String]
         }
     }],
-    
-    // Education (detailed)
     education: [{
         institution: String,
         degree: String,
@@ -269,27 +218,23 @@ const parsedCVSchema = new mongoose.Schema({
         coursework: [String],
         thesis_title: String
     }],
-    
-    // Skills (comprehensive)
     skills: {
         technical: [{
             name: String,
             category: String,
             proficiency: String,
             years: Number,
-            context: [String]  // Where skill was mentioned
+            context: [String]
         }],
         soft: [String],
         languages: [{
             name: String,
-            proficiency: String  // native, fluent, professional, basic
+            proficiency: String
         }],
         tools: [String],
         frameworks: [String],
         databases: [String]
     },
-    
-    // Projects
     projects: [{
         name: String,
         description: String,
@@ -298,8 +243,6 @@ const parsedCVSchema = new mongoose.Schema({
         date: Date,
         role: String
     }],
-    
-    // Certifications
     certifications: [{
         name: String,
         issuer: String,
@@ -307,8 +250,6 @@ const parsedCVSchema = new mongoose.Schema({
         expiry: Date,
         credential_id: String
     }],
-    
-    // Publications and awards
     publications: [{
         title: String,
         publisher: String,
@@ -322,39 +263,27 @@ const parsedCVSchema = new mongoose.Schema({
         date: Date,
         description: String
     }],
-    
-    // ATS analysis
     ats_analysis: {
-        score: Number,  // 0-100
+        score: Number,
         issues: [{
-            type: String,  // formatting, keywords, structure
-            severity: String,  // critical, major, minor
+            type: String,
+            severity: String,
             description: String,
-            location: String,  // Where in CV
+            location: String,
             fix_suggestion: String
         }],
         keyword_density: mongoose.Schema.Types.Mixed,
         missing_sections: [String],
         formatting_problems: [String]
     },
-    
-    // ML features
-    embedding: [Number],  // Document embedding
+    embedding: [Number],
     skill_vectors: mongoose.Schema.Types.Mixed,
-    
-    // Original text
     raw_text: String,
-    structured_text: mongoose.Schema.Types.Mixed,  // Sections preserved
-    
-    // Metadata
-    file_hash: String,  // For deduplication
+    structured_text: mongoose.Schema.Types.Mixed,
+    file_hash: String,
     word_count: Number,
     page_count: Number
 });
-
-// =====================================================
-// JOB MATCHING RESULTS SCHEMA
-// =====================================================
 
 const jobMatchSchema = new mongoose.Schema({
     user_id: {
@@ -363,21 +292,15 @@ const jobMatchSchema = new mongoose.Schema({
         index: true
     },
     cv_id: String,
-    
-    // Matching run metadata
     match_date: {
         type: Date,
         default: Date.now,
         index: true
     },
     algorithm_version: String,
-    
-    // Matched jobs
     matches: [{
-        job_id: String,  // Reference to job posting
-        match_score: Number,  // Overall match 0-100
-        
-        // Detailed scoring breakdown
+        job_id: String,
+        match_score: Number,
         scores: {
             skill_match: Number,
             experience_match: Number,
@@ -386,34 +309,26 @@ const jobMatchSchema = new mongoose.Schema({
             salary_match: Number,
             culture_fit: Number
         },
-        
-        // Match details
         matched_skills: [{
             skill: String,
             user_level: String,
             required_level: String,
-            match_quality: String  // exact, similar, transferable
+            match_quality: String
         }],
         missing_skills: [{
             skill: String,
             importance: String,
-            learning_time_estimate: Number  // in hours
+            learning_time_estimate: Number
         }],
-        
-        // Recommendations
         application_tips: [String],
         cv_improvements: [String],
         cover_letter_points: [String],
-        
-        // User interaction
-        user_rating: Number,  // 1-5
+        user_rating: Number,
         applied: Boolean,
         saved: Boolean,
         dismissed: Boolean,
         feedback: String
     }],
-    
-    // Aggregated insights
     insights: {
         top_matching_companies: [String],
         top_matching_roles: [String],
@@ -423,31 +338,22 @@ const jobMatchSchema = new mongoose.Schema({
     }
 });
 
-// =====================================================
-// SALARY PREDICTION DATA SCHEMA
-// =====================================================
-
 const salaryDataSchema = new mongoose.Schema({
-    // Data source
     source: {
         type: String,
-        required: true  // h1b, glassdoor, levels.fyi, user_reported
+        required: true
     },
     source_id: String,
-    
-    // Job details
     job_title: {
         type: String,
         required: true,
         index: true
     },
-    normalized_title: String,  // Standardized title
+    normalized_title: String,
     company: {
         type: String,
         index: true
     },
-    
-    // Location
     location: {
         city: String,
         state: String,
@@ -455,8 +361,6 @@ const salaryDataSchema = new mongoose.Schema({
         metro_area: String,
         cost_of_living_index: Number
     },
-    
-    // Salary information
     salary: {
         base: {
             type: Number,
@@ -466,23 +370,15 @@ const salaryDataSchema = new mongoose.Schema({
         stock: Number,
         total_compensation: Number,
         currency: String,
-        period: String  // yearly, monthly
+        period: String
     },
-    
-    // Requirements
     years_experience: Number,
     education_level: String,
     skills: [String],
-    
-    // Dates
     reported_date: Date,
     effective_date: Date,
-    
-    // Validation
     is_verified: Boolean,
     confidence_score: Number,
-    
-    // For H1B specific
     h1b_data: {
         case_number: String,
         employer: String,
@@ -492,263 +388,7 @@ const salaryDataSchema = new mongoose.Schema({
     }
 });
 
-// Index for queue processing
-scrapeQueueSchema.index({ status: 1, priority: -1, scheduled_for: 1 });
-
-// =====================================================
-// ANALYTICS AGGREGATIONS SCHEMA
-// =====================================================
-
-const analyticsAggregationSchema = new mongoose.Schema({
-    // Aggregation metadata
-    metric_type: {
-        type: String,
-        required: true,
-        index: true  // daily_signups, job_views, application_rate, etc.
-    },
-    granularity: {
-        type: String,
-        enum: ['hour', 'day', 'week', 'month'],
-        required: true
-    },
-    timestamp: {
-        type: Date,
-        required: true,
-        index: true
-    },
-    
-    // Dimensions for slicing data
-    dimensions: {
-        user_segment: String,  // new, active, churned
-        job_category: String,
-        location: String,
-        source: String,
-        device_type: String
-    },
-    
-    // Metrics
-    metrics: {
-        count: Number,
-        unique_users: Number,
-        total_value: Number,
-        average_value: Number,
-        median_value: Number,
-        percentile_95: Number,
-        conversion_rate: Number,
-        growth_rate: Number
-    },
-    
-    // Time-series specific
-    period_comparison: {
-        previous_period_value: Number,
-        change_percentage: Number,
-        trend: String  // up, down, stable
-    },
-    
-    created_at: {
-        type: Date,
-        default: Date.now
-    }
-});
-
-// Compound index for time-series queries
-analyticsAggregationSchema.index({ metric_type: 1, timestamp: -1 });
-analyticsAggregationSchema.index({ metric_type: 1, granularity: 1, timestamp: -1 });
-
-// =====================================================
-// MODEL CREATION AND INDEXING
-// =====================================================
-
-// Create models
-const JobPosting = mongoose.model('JobPosting', jobPostingSchema);
-const ParsedCV = mongoose.model('ParsedCV', parsedCVSchema);
-const JobMatch = mongoose.model('JobMatch', jobMatchSchema);
-const SalaryData = mongoose.model('SalaryData', salaryDataSchema);
-const UserActivity = mongoose.model('UserActivity', userActivitySchema);
-const ScrapeQueue = mongoose.model('ScrapeQueue', scrapeQueueSchema);
-const AnalyticsAggregation = mongoose.model('AnalyticsAggregation', analyticsAggregationSchema);
-
-// Function to create additional indexes after connection
-const createIndexes = async () => {
-    try {
-        // Text search indexes for job search
-        await JobPosting.collection.createIndex({
-            title: 'text',
-            description: 'text',
-            'company.name': 'text'
-        }, {
-            weights: {
-                title: 10,
-                'company.name': 5,
-                description: 1
-            }
-        });
-        
-        // Geospatial index for location-based search
-        await JobPosting.collection.createIndex({
-            'location.coordinates': '2dsphere'
-        });
-        
-        // TTL index for automatic cleanup of old activities
-        await UserActivity.collection.createIndex({
-            timestamp: 1
-        }, {
-            expireAfterSeconds: 90 * 24 * 60 * 60  // 90 days
-        });
-        
-        // TTL index for scrape queue cleanup
-        await ScrapeQueue.collection.createIndex({
-            completed_at: 1
-        }, {
-            expireAfterSeconds: 7 * 24 * 60 * 60,  // 7 days
-            partialFilterExpression: { status: 'completed' }
-        });
-        
-        console.log('MongoDB indexes created successfully');
-    } catch (error) {
-        console.error('Error creating indexes:', error);
-    }
-};
-
-// =====================================================
-// HELPER FUNCTIONS
-// =====================================================
-
-// Function to perform vector similarity search
-const findSimilarJobs = async function(embedding, limit = 10) {
-    // This would use MongoDB Atlas Search or a vector database
-    // Simplified example using aggregation
-    return await JobPosting.aggregate([
-        {
-            $addFields: {
-                similarity: {
-                    // Cosine similarity calculation
-                    // In production, use Atlas Search or dedicated vector DB
-                    $divide: [
-                        { $reduce: {
-                            input: { $range: [0, { $size: '$embedding' }] },
-                            initialValue: 0,
-                            in: {
-                                $add: [
-                                    '$value',
-                                    { $multiply: [
-                                        { $arrayElemAt: ['$embedding', '$this'] },
-                                        { $arrayElemAt: [embedding, '$this'] }
-                                    ]}
-                                ]
-                            }
-                        }},
-                        1 // Normalized score
-                    ]
-                }
-            }
-        },
-        { $sort: { similarity: -1 } },
-        { $limit: limit }
-    ]);
-};
-
-// Function to update job match feedback
-const updateMatchFeedback = async function(userId, jobId, feedback) {
-    return await JobMatch.findOneAndUpdate(
-        {
-            user_id: userId,
-            'matches.job_id': jobId
-        },
-        {
-            $set: {
-                'matches.$.user_rating': feedback.rating,
-                'matches.$.applied': feedback.applied,
-                'matches.$.saved': feedback.saved,
-                'matches.$.feedback': feedback.comment
-            }
-        },
-        { new: true }
-    );
-};
-
-// Function to calculate ATS score
-const calculateATSScore = function(parsedCV) {
-    let score = 100;
-    const issues = [];
-    
-    // Check for formatting issues
-    if (!parsedCV.contact.email) {
-        score -= 20;
-        issues.push({
-            type: 'missing_contact',
-            severity: 'critical',
-            description: 'Email address not found'
-        });
-    }
-    
-    if (!parsedCV.contact.phone) {
-        score -= 10;
-        issues.push({
-            type: 'missing_contact',
-            severity: 'major',
-            description: 'Phone number not found'
-        });
-    }
-    
-    // Check for required sections
-    if (!parsedCV.experience || parsedCV.experience.length === 0) {
-        score -= 25;
-        issues.push({
-            type: 'missing_section',
-            severity: 'critical',
-            description: 'Work experience section not found'
-        });
-    }
-    
-    if (!parsedCV.education || parsedCV.education.length === 0) {
-        score -= 15;
-        issues.push({
-            type: 'missing_section',
-            severity: 'major',
-            description: 'Education section not found'
-        });
-    }
-    
-    if (!parsedCV.skills.technical || parsedCV.skills.technical.length === 0) {
-        score -= 20;
-        issues.push({
-            type: 'missing_section',
-            severity: 'major',
-            description: 'Skills section not found or empty'
-        });
-    }
-    
-    return { score: Math.max(0, score), issues };
-};
-
-// =====================================================
-// EXPORT MODULES
-// =====================================================
-
-module.exports = {
-    // Connection
-    connectDB,
-    
-    // Models
-    JobPosting,
-    ParsedCV,
-    JobMatch,
-    SalaryData,
-    UserActivity,
-    ScrapeQueue,
-    AnalyticsAggregation,
-    
-    // Helper functions
-    findSimilarJobs,
-    updateMatchFeedback,
-    calculateATSScore
-}; 
 salaryDataSchema.index({ job_title: 1, 'location.state': 1, years_experience: 1 });
-
-// =====================================================
-// USER ACTIVITY TRACKING SCHEMA
-// =====================================================
 
 const userActivitySchema = new mongoose.Schema({
     user_id: {
@@ -760,18 +400,14 @@ const userActivitySchema = new mongoose.Schema({
         type: String,
         index: true
     },
-    
-    // Activity details
     activity_type: {
         type: String,
         required: true,
-        enum: ['page_view', 'job_view', 'job_save', 'job_apply', 
+        enum: ['page_view', 'job_view', 'job_save', 'job_apply',
                 'cv_upload', 'cv_analyze', 'skill_test', 'search',
                 'filter', 'profile_update', 'interview_practice'],
         index: true
     },
-    
-    // Context data (varies by activity type)
     metadata: {
         page_url: String,
         job_id: String,
@@ -782,18 +418,14 @@ const userActivitySchema = new mongoose.Schema({
         click_position: Number,
         improvement_score: Number
     },
-    
-    // Device and browser info
     device: {
-        type: String,  // mobile, tablet, desktop
+        type: String,
         os: String,
         browser: String,
         screen_resolution: String,
         ip: String,
         country: String
     },
-    
-    // Timestamp
     timestamp: {
         type: Date,
         default: Date.now,
@@ -801,13 +433,8 @@ const userActivitySchema = new mongoose.Schema({
     }
 });
 
-// Compound index for user activity analysis
 userActivitySchema.index({ user_id: 1, timestamp: -1 });
 userActivitySchema.index({ activity_type: 1, timestamp: -1 });
-
-// =====================================================
-// SCRAPED DATA QUEUE SCHEMA
-// =====================================================
 
 const scrapeQueueSchema = new mongoose.Schema({
     url: {
@@ -837,19 +464,220 @@ const scrapeQueueSchema = new mongoose.Schema({
     last_attempt: Date,
     next_retry: Date,
     error_message: String,
-    
-    // Results
     data_extracted: Boolean,
     jobs_found: Number,
-    
-    // Scheduling
     scheduled_for: Date,
     completed_at: Date,
-    
     created_at: {
         type: Date,
         default: Date.now
     }
 });
 
-// Index for
+scrapeQueueSchema.index({ status: 1, priority: -1, scheduled_for: 1 });
+
+const analyticsAggregationSchema = new mongoose.Schema({
+    metric_type: {
+        type: String,
+        required: true,
+        index: true
+    },
+    granularity: {
+        type: String,
+        enum: ['hour', 'day', 'week', 'month'],
+        required: true
+    },
+    timestamp: {
+        type: Date,
+        required: true,
+        index: true
+    },
+    dimensions: {
+        user_segment: String,
+        job_category: String,
+        location: String,
+        source: String,
+        device_type: String
+    },
+    metrics: {
+        count: Number,
+        unique_users: Number,
+        total_value: Number,
+        average_value: Number,
+        median_value: Number,
+        percentile_95: Number,
+        conversion_rate: Number,
+        growth_rate: Number
+    },
+    period_comparison: {
+        previous_period_value: Number,
+        change_percentage: Number,
+        trend: String
+    },
+    created_at: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+analyticsAggregationSchema.index({ metric_type: 1, timestamp: -1 });
+analyticsAggregationSchema.index({ metric_type: 1, granularity: 1, timestamp: -1 });
+
+// Create models
+const JobPosting = mongoose.model('JobPosting', jobPostingSchema);
+const ParsedCV = mongoose.model('ParsedCV', parsedCVSchema);
+const JobMatch = mongoose.model('JobMatch', jobMatchSchema);
+const SalaryData = mongoose.model('SalaryData', salaryDataSchema);
+const UserActivity = mongoose.model('UserActivity', userActivitySchema);
+const ScrapeQueue = mongoose.model('ScrapeQueue', scrapeQueueSchema);
+const AnalyticsAggregation = mongoose.model('AnalyticsAggregation', analyticsAggregationSchema);
+
+const createIndexes = async () => {
+    try {
+        await JobPosting.collection.createIndex({
+            title: 'text',
+            description: 'text',
+            'company.name': 'text'
+        }, {
+            weights: {
+                title: 10,
+                'company.name': 5,
+                description: 1
+            }
+        });
+
+        await JobPosting.collection.createIndex({
+            'location.coordinates': '2dsphere'
+        });
+
+        await UserActivity.collection.createIndex({
+            timestamp: 1
+        }, {
+            expireAfterSeconds: 90 * 24 * 60 * 60
+        });
+
+        await ScrapeQueue.collection.createIndex({
+            completed_at: 1
+        }, {
+            expireAfterSeconds: 7 * 24 * 60 * 60,
+            partialFilterExpression: { status: 'completed' }
+        });
+
+        console.log('MongoDB indexes created successfully');
+    } catch (error) {
+        console.error('Error creating indexes:', error);
+    }
+};
+
+const findSimilarJobs = async function(embedding, limit = 10) {
+    return await JobPosting.aggregate([
+        {
+            $addFields: {
+                similarity: {
+                    $divide: [
+                        { $reduce: {
+                            input: { $range: [0, { $size: '$embedding' }] },
+                            initialValue: 0,
+                            in: {
+                                $add: [
+                                    '$value',
+                                    { $multiply: [
+                                        { $arrayElemAt: ['$embedding', '$this'] },
+                                        { $arrayElemAt: [embedding, '$this'] }
+                                    ]}
+                                ]
+                            }
+                        }},
+                        1
+                    ]
+                }
+            }
+        },
+        { $sort: { similarity: -1 } },
+        { $limit: limit }
+    ]);
+};
+
+const updateMatchFeedback = async function(userId, jobId, feedback) {
+    return await JobMatch.findOneAndUpdate(
+        {
+            user_id: userId,
+            'matches.job_id': jobId
+        },
+        {
+            $set: {
+                'matches.$.user_rating': feedback.rating,
+                'matches.$.applied': feedback.applied,
+                'matches.$.saved': feedback.saved,
+                'matches.$.feedback': feedback.comment
+            }
+        },
+        { new: true }
+    );
+};
+
+const calculateATSScore = function(parsedCV) {
+    let score = 100;
+    const issues = [];
+
+    if (!parsedCV.contact.email) {
+        score -= 20;
+        issues.push({
+            type: 'missing_contact',
+            severity: 'critical',
+            description: 'Email address not found'
+        });
+    }
+
+    if (!parsedCV.contact.phone) {
+        score -= 10;
+        issues.push({
+            type: 'missing_contact',
+            severity: 'major',
+            description: 'Phone number not found'
+        });
+    }
+
+    if (!parsedCV.experience || parsedCV.experience.length === 0) {
+        score -= 25;
+        issues.push({
+            type: 'missing_section',
+            severity: 'critical',
+            description: 'Work experience section not found'
+        });
+    }
+
+    if (!parsedCV.education || parsedCV.education.length === 0) {
+        score -= 15;
+        issues.push({
+            type: 'missing_section',
+            severity: 'major',
+            description: 'Education section not found'
+        });
+    }
+
+    if (!parsedCV.skills.technical || parsedCV.skills.technical.length === 0) {
+        score -= 20;
+        issues.push({
+            type: 'missing_section',
+            severity: 'major',
+            description: 'Skills section not found or empty'
+        });
+    }
+
+    return { score: Math.max(0, score), issues };
+};
+
+module.exports = {
+    connectDB,
+    JobPosting,
+    ParsedCV,
+    JobMatch,
+    SalaryData,
+    UserActivity,
+    ScrapeQueue,
+    AnalyticsAggregation,
+    findSimilarJobs,
+    updateMatchFeedback,
+    calculateATSScore
+};

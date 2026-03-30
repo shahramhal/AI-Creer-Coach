@@ -4,11 +4,7 @@
 // AdminService is fully mocked — we only test the controller layer.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Request, Response } from 'express';
-
-// ─── Hoisted mock service instance ────────────────────────────────────────────
-// vi.mock() factories are hoisted to the top of the file by Vitest, so any
-// variables they reference must also be hoisted via vi.hoisted().
+import type { Request, Response, NextFunction } from 'express';
 
 const sharedMockAdminServiceInstance = vi.hoisted(() => ({
   getDashboardStats: vi.fn(),
@@ -32,9 +28,6 @@ const sharedMockAdminServiceInstance = vi.hoisted(() => ({
   getAuditLogs: vi.fn(),
 }));
 
-// ─── Mock AdminService before importing the controller ───────────────────────
-// Use a `function` keyword (not arrow) so `new AdminService()` works as a constructor.
-
 vi.mock('../services/admin.service.js', () => {
   function MockAdminService(this: any) {
     return sharedMockAdminServiceInstance;
@@ -43,17 +36,12 @@ vi.mock('../services/admin.service.js', () => {
   return { AdminService: MockAdminService };
 });
 
-// ─── Mock logAdminAction to prevent real Prisma calls ────────────────────────
-
 vi.mock('../utils/audit.util.js', () => ({
   logAdminAction: vi.fn(),
 }));
 
-// Import controller AFTER mocks are registered
 import * as adminController from './admin.controller.js';
 import { logAdminAction } from '../utils/audit.util.js';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildMockResponse() {
   const mockResponse = {
@@ -75,17 +63,15 @@ function buildMockRequest(overrides: Partial<Request> = {}): Request {
   } as unknown as Request;
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
 describe('Admin Controller', () => {
   let mockResponse: Response;
+  let mockNext: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockResponse = buildMockResponse();
+    mockNext = vi.fn();
   });
-
-  // ─── getDashboardStats ─────────────────────────────────────────────────────
 
   describe('getDashboardStats', () => {
     it('should return 200 with dashboard stats on success', async () => {
@@ -103,7 +89,7 @@ describe('Admin Controller', () => {
 
       const mockRequest = buildMockRequest();
 
-      await adminController.getDashboardStats(mockRequest, mockResponse);
+      await adminController.getDashboardStats(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, data: fakeStats })
@@ -111,21 +97,18 @@ describe('Admin Controller', () => {
       expect((mockResponse.status as any)).not.toHaveBeenCalled();
     });
 
-    it('should return 500 when AdminService.getDashboardStats throws an unexpected error', async () => {
-      sharedMockAdminServiceInstance.getDashboardStats.mockRejectedValue(new Error('Database failure'));
+    it('should call next with error when AdminService.getDashboardStats throws', async () => {
+      const error = new Error('Database failure');
+      sharedMockAdminServiceInstance.getDashboardStats.mockRejectedValue(error);
 
       const mockRequest = buildMockRequest();
 
-      await adminController.getDashboardStats(mockRequest, mockResponse);
+      await adminController.getDashboardStats(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      expect((mockResponse.status as any)).toHaveBeenCalledWith(500);
-      expect((mockResponse.json as any)).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false })
-      );
+      expect(mockNext).toHaveBeenCalledWith(error);
+      expect((mockResponse.status as any)).not.toHaveBeenCalled();
     });
   });
-
-  // ─── listUsers ─────────────────────────────────────────────────────────────
 
   describe('listUsers', () => {
     it('should return 200 with paginated users list', async () => {
@@ -138,7 +121,7 @@ describe('Admin Controller', () => {
 
       const mockRequest = buildMockRequest({ query: { page: '1', limit: '20' } });
 
-      await adminController.listUsers(mockRequest, mockResponse);
+      await adminController.listUsers(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, data: fakeUsersResult })
@@ -159,7 +142,7 @@ describe('Admin Controller', () => {
         },
       });
 
-      await adminController.listUsers(mockRequest, mockResponse);
+      await adminController.listUsers(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect(sharedMockAdminServiceInstance.listUsers).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -178,14 +161,12 @@ describe('Admin Controller', () => {
 
       const mockRequest = buildMockRequest({ query: { limit: '999' } });
 
-      await adminController.listUsers(mockRequest, mockResponse);
+      await adminController.listUsers(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      const calledWithParams = sharedMockAdminServiceInstance.listUsers.mock.calls[0][0];
+      const calledWithParams = sharedMockAdminServiceInstance.listUsers.mock.calls[0]![0]!;
       expect(calledWithParams.limit).toBe(100);
     });
   });
-
-  // ─── getUserDetail ─────────────────────────────────────────────────────────
 
   describe('getUserDetail', () => {
     it('should return 200 with user details when user is found', async () => {
@@ -195,37 +176,34 @@ describe('Admin Controller', () => {
 
       const mockRequest = buildMockRequest({ params: { userId: 'user-detail-uuid' } });
 
-      await adminController.getUserDetail(mockRequest, mockResponse);
+      await adminController.getUserDetail(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, data: fakeUserDetail })
       );
     });
 
-    it('should return 404 when service throws "User not found"', async () => {
-      sharedMockAdminServiceInstance.getUserDetail.mockRejectedValue(new Error('User not found'));
+    it('should call next with error when service throws "User not found"', async () => {
+      const error = new Error('User not found');
+      sharedMockAdminServiceInstance.getUserDetail.mockRejectedValue(error);
 
       const mockRequest = buildMockRequest({ params: { userId: 'ghost-uuid' } });
 
-      await adminController.getUserDetail(mockRequest, mockResponse);
+      await adminController.getUserDetail(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      expect((mockResponse.status as any)).toHaveBeenCalledWith(404);
-      expect((mockResponse.json as any)).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, message: 'User not found' })
-      );
+      expect(mockNext).toHaveBeenCalledWith(error);
+      expect((mockResponse.status as any)).not.toHaveBeenCalled();
     });
   });
-
-  // ─── toggleUserStatus ──────────────────────────────────────────────────────
 
   describe('toggleUserStatus', () => {
     it('should return 400 when admin attempts to toggle their own account status', async () => {
       const selfAdminRequest = buildMockRequest({
-        params: { userId: 'requesting-admin-uuid' }, // same as req.user.id in buildMockRequest
+        params: { userId: 'requesting-admin-uuid' },
         body: { disabled: true },
       });
 
-      await adminController.toggleUserStatus(selfAdminRequest, mockResponse);
+      await adminController.toggleUserStatus(selfAdminRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.status as any)).toHaveBeenCalledWith(400);
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
@@ -236,10 +214,10 @@ describe('Admin Controller', () => {
     it('should return 400 when disabled field is not a boolean', async () => {
       const mockRequest = buildMockRequest({
         params: { userId: 'other-user-uuid' },
-        body: { disabled: 'yes' }, // string instead of boolean
+        body: { disabled: 'yes' },
       });
 
-      await adminController.toggleUserStatus(mockRequest, mockResponse);
+      await adminController.toggleUserStatus(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.status as any)).toHaveBeenCalledWith(400);
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
@@ -257,7 +235,7 @@ describe('Admin Controller', () => {
         body: { disabled: true },
       });
 
-      await adminController.toggleUserStatus(mockRequest, mockResponse);
+      await adminController.toggleUserStatus(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
         expect.objectContaining({ success: true })
@@ -282,7 +260,7 @@ describe('Admin Controller', () => {
         body: { disabled: false },
       });
 
-      await adminController.toggleUserStatus(mockRequest, mockResponse);
+      await adminController.toggleUserStatus(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect(logAdminAction).toHaveBeenCalledWith(
         mockRequest,
@@ -291,15 +269,13 @@ describe('Admin Controller', () => {
     });
   });
 
-  // ─── promoteUser ───────────────────────────────────────────────────────────
-
   describe('promoteUser', () => {
     it('should return 200 and call logAdminAction with USER_PROMOTED on success', async () => {
       sharedMockAdminServiceInstance.promoteUser.mockResolvedValue({ message: 'User promoted to admin' });
 
       const mockRequest = buildMockRequest({ params: { userId: 'promote-target-uuid' } });
 
-      await adminController.promoteUser(mockRequest, mockResponse);
+      await adminController.promoteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
         expect.objectContaining({ success: true })
@@ -310,33 +286,28 @@ describe('Admin Controller', () => {
       );
     });
 
-    it('should return 404 when service throws "User not found"', async () => {
-      sharedMockAdminServiceInstance.promoteUser.mockRejectedValue(new Error('User not found'));
+    it('should call next with error when service throws "User not found"', async () => {
+      const error = new Error('User not found');
+      sharedMockAdminServiceInstance.promoteUser.mockRejectedValue(error);
 
       const mockRequest = buildMockRequest({ params: { userId: 'no-user-uuid' } });
 
-      await adminController.promoteUser(mockRequest, mockResponse);
+      await adminController.promoteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      expect((mockResponse.status as any)).toHaveBeenCalledWith(404);
+      expect(mockNext).toHaveBeenCalledWith(error);
     });
 
-    it('should return 400 when service throws "User is already an admin"', async () => {
-      sharedMockAdminServiceInstance.promoteUser.mockRejectedValue(
-        new Error('User is already an admin')
-      );
+    it('should call next with error when service throws "User is already an admin"', async () => {
+      const error = new Error('User is already an admin');
+      sharedMockAdminServiceInstance.promoteUser.mockRejectedValue(error);
 
       const mockRequest = buildMockRequest({ params: { userId: 'already-admin-uuid' } });
 
-      await adminController.promoteUser(mockRequest, mockResponse);
+      await adminController.promoteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      expect((mockResponse.status as any)).toHaveBeenCalledWith(400);
-      expect((mockResponse.json as any)).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'User is already an admin' })
-      );
+      expect(mockNext).toHaveBeenCalledWith(error);
     });
   });
-
-  // ─── demoteUser ────────────────────────────────────────────────────────────
 
   describe('demoteUser', () => {
     it('should return 200 and call logAdminAction with USER_DEMOTED on success', async () => {
@@ -346,7 +317,7 @@ describe('Admin Controller', () => {
 
       const mockRequest = buildMockRequest({ params: { userId: 'demote-target-uuid' } });
 
-      await adminController.demoteUser(mockRequest, mockResponse);
+      await adminController.demoteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
         expect.objectContaining({ success: true })
@@ -357,29 +328,26 @@ describe('Admin Controller', () => {
       );
     });
 
-    it('should return 400 when service throws "Cannot demote yourself"', async () => {
-      sharedMockAdminServiceInstance.demoteUser.mockRejectedValue(new Error('Cannot demote yourself'));
+    it('should call next with error when service throws "Cannot demote yourself"', async () => {
+      const error = new Error('Cannot demote yourself');
+      sharedMockAdminServiceInstance.demoteUser.mockRejectedValue(error);
 
       const mockRequest = buildMockRequest({ params: { userId: 'self-demote-uuid' } });
 
-      await adminController.demoteUser(mockRequest, mockResponse);
+      await adminController.demoteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      expect((mockResponse.status as any)).toHaveBeenCalledWith(400);
-      expect((mockResponse.json as any)).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Cannot demote yourself' })
-      );
+      expect(mockNext).toHaveBeenCalledWith(error);
     });
 
-    it('should return 400 when service throws "Cannot demote the last admin"', async () => {
-      sharedMockAdminServiceInstance.demoteUser.mockRejectedValue(
-        new Error('Cannot demote the last admin')
-      );
+    it('should call next with error when service throws "Cannot demote the last admin"', async () => {
+      const error = new Error('Cannot demote the last admin');
+      sharedMockAdminServiceInstance.demoteUser.mockRejectedValue(error);
 
       const mockRequest = buildMockRequest({ params: { userId: 'last-admin-uuid' } });
 
-      await adminController.demoteUser(mockRequest, mockResponse);
+      await adminController.demoteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      expect((mockResponse.status as any)).toHaveBeenCalledWith(400);
+      expect(mockNext).toHaveBeenCalledWith(error);
     });
 
     it('should pass req.user.id as the requestingAdminId to the service', async () => {
@@ -397,7 +365,7 @@ describe('Admin Controller', () => {
         },
       } as any);
 
-      await adminController.demoteUser(mockRequest, mockResponse);
+      await adminController.demoteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect(sharedMockAdminServiceInstance.demoteUser).toHaveBeenCalledWith(
         'target-admin-uuid',
@@ -405,8 +373,6 @@ describe('Admin Controller', () => {
       );
     });
   });
-
-  // ─── deleteUser ────────────────────────────────────────────────────────────
 
   describe('deleteUser', () => {
     it('should return 200 and call logAdminAction with USER_DELETED on success', async () => {
@@ -416,7 +382,7 @@ describe('Admin Controller', () => {
 
       const mockRequest = buildMockRequest({ params: { userId: 'delete-target-uuid' } });
 
-      await adminController.deleteUser(mockRequest, mockResponse);
+      await adminController.deleteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
         expect.objectContaining({ success: true })
@@ -427,39 +393,36 @@ describe('Admin Controller', () => {
       );
     });
 
-    it('should return 400 when service throws "Cannot delete yourself"', async () => {
-      sharedMockAdminServiceInstance.deleteUser.mockRejectedValue(new Error('Cannot delete yourself'));
+    it('should call next with error when service throws "Cannot delete yourself"', async () => {
+      const error = new Error('Cannot delete yourself');
+      sharedMockAdminServiceInstance.deleteUser.mockRejectedValue(error);
 
       const mockRequest = buildMockRequest({ params: { userId: 'self-delete-uuid' } });
 
-      await adminController.deleteUser(mockRequest, mockResponse);
+      await adminController.deleteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      expect((mockResponse.status as any)).toHaveBeenCalledWith(400);
-      expect((mockResponse.json as any)).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Cannot delete yourself' })
-      );
+      expect(mockNext).toHaveBeenCalledWith(error);
     });
 
-    it('should return 404 when service throws "User not found"', async () => {
-      sharedMockAdminServiceInstance.deleteUser.mockRejectedValue(new Error('User not found'));
+    it('should call next with error when service throws "User not found"', async () => {
+      const error = new Error('User not found');
+      sharedMockAdminServiceInstance.deleteUser.mockRejectedValue(error);
 
       const mockRequest = buildMockRequest({ params: { userId: 'ghost-delete-uuid' } });
 
-      await adminController.deleteUser(mockRequest, mockResponse);
+      await adminController.deleteUser(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      expect((mockResponse.status as any)).toHaveBeenCalledWith(404);
+      expect(mockNext).toHaveBeenCalledWith(error);
     });
   });
-
-  // ─── triggerJobFetch ───────────────────────────────────────────────────────
 
   describe('triggerJobFetch', () => {
     it('should return 400 when keywords or country are missing from the request body', async () => {
       const missingCountryRequest = buildMockRequest({
-        body: { keywords: 'software engineer' }, // country is missing
+        body: { keywords: 'software engineer' },
       });
 
-      await adminController.triggerJobFetch(missingCountryRequest, mockResponse);
+      await adminController.triggerJobFetch(missingCountryRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.status as any)).toHaveBeenCalledWith(400);
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
@@ -470,7 +433,7 @@ describe('Admin Controller', () => {
     it('should return 400 when both keywords and country are absent', async () => {
       const emptyBodyRequest = buildMockRequest({ body: {} });
 
-      await adminController.triggerJobFetch(emptyBodyRequest, mockResponse);
+      await adminController.triggerJobFetch(emptyBodyRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.status as any)).toHaveBeenCalledWith(400);
     });
@@ -485,7 +448,7 @@ describe('Admin Controller', () => {
         body: { keywords: 'data engineer', country: 'gb', location: 'Manchester' },
       });
 
-      await adminController.triggerJobFetch(mockRequest, mockResponse);
+      await adminController.triggerJobFetch(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
         expect.objectContaining({ success: true })
@@ -501,8 +464,6 @@ describe('Admin Controller', () => {
     });
   });
 
-  // ─── getAuditLogs ──────────────────────────────────────────────────────────
-
   describe('getAuditLogs', () => {
     it('should return 200 with audit log data on success', async () => {
       const fakeAuditResult = {
@@ -514,7 +475,7 @@ describe('Admin Controller', () => {
 
       const mockRequest = buildMockRequest({ query: { page: '1', limit: '20' } });
 
-      await adminController.getAuditLogs(mockRequest, mockResponse);
+      await adminController.getAuditLogs(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect((mockResponse.json as any)).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, data: fakeAuditResult })
@@ -526,24 +487,23 @@ describe('Admin Controller', () => {
 
       const mockRequest = buildMockRequest({ query: { action: 'USER_PROMOTED' } });
 
-      await adminController.getAuditLogs(mockRequest, mockResponse);
+      await adminController.getAuditLogs(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
       expect(sharedMockAdminServiceInstance.getAuditLogs).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'USER_PROMOTED' })
       );
     });
 
-    it('should return 500 when AdminService.getAuditLogs throws', async () => {
-      sharedMockAdminServiceInstance.getAuditLogs.mockRejectedValue(new Error('DB error'));
+    it('should call next with error when AdminService.getAuditLogs throws', async () => {
+      const error = new Error('DB error');
+      sharedMockAdminServiceInstance.getAuditLogs.mockRejectedValue(error);
 
       const mockRequest = buildMockRequest();
 
-      await adminController.getAuditLogs(mockRequest, mockResponse);
+      await adminController.getAuditLogs(mockRequest, mockResponse, mockNext as unknown as NextFunction);
 
-      expect((mockResponse.status as any)).toHaveBeenCalledWith(500);
-      expect((mockResponse.json as any)).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false })
-      );
+      expect(mockNext).toHaveBeenCalledWith(error);
+      expect((mockResponse.status as any)).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,7 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-import { cache } from '../config/database.js';
-
-const prisma = new PrismaClient();
+import { prisma, cache } from '../config/database.js';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
 

@@ -1,14 +1,11 @@
 // apps/backend/src/services/admin.service.ts
 
-import { PrismaClient } from '@prisma/client';
 import mongoose from 'mongoose';
-import { redis, queues, checkDatabaseHealth } from '../config/database.js';
+import { prisma, redis, queues, checkDatabaseHealth } from '../config/database.js';
 import crypto from 'crypto';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 import { accountService } from './account.service.js';
 import { sendAccountDisabledEmail } from '../utils/email.util.js';
-
-const prisma = new PrismaClient();
 
 interface ListUsersParams {
   page: number;
@@ -35,7 +32,7 @@ interface AuditLogParams {
 }
 
 export class AdminService {
-  // ─── Dashboard ──────────────────────────────────────────────
+  //  Dashboard 
 
   async getDashboardStats() {
     const [totalUsers, totalCVs, totalApplications, totalJobs, disabledUsers, adminCount] =
@@ -94,7 +91,7 @@ export class AdminService {
     return Object.entries(dailyCounts).map(([date, count]) => ({ date, count }));
   }
 
-  // ─── User Management ───────────────────────────────────────
+  //  User Management 
 
   async listUsers(params: ListUsersParams) {
     const { page, limit, search, role, sortBy = 'createdAt', sortOrder = 'desc' } = params;
@@ -293,7 +290,7 @@ export class AdminService {
     return await accountService.deleteUserAccount(userId);
   }
 
-  // ─── Job Management ────────────────────────────────────────
+  //  Job Management 
 
   async listJobs(params: ListJobsParams) {
     const { page, limit, source, country, sortBy, sortOrder = 'desc' } = params;
@@ -436,7 +433,7 @@ export class AdminService {
     return { message: 'Job deleted' };
   }
 
-  // ─── System Monitoring ─────────────────────────────────────
+  //  System Monitoring 
 
   async getServiceHealth() {
     const dbHealth = await checkDatabaseHealth();
@@ -577,7 +574,7 @@ export class AdminService {
     };
   }
 
-  // ─── Audit Logs ────────────────────────────────────────────
+  //  Audit Logs 
 
   async getAuditLogs(params: AuditLogParams) {
     const { page, limit, action } = params;
@@ -612,7 +609,7 @@ export class AdminService {
     };
   }
 
-  // ─── Helpers ───────────────────────────────────────────────
+  //  Helpers 
 
   private async getMongoJobCount(): Promise<number> {
     try {

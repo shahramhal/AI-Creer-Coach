@@ -1,7 +1,7 @@
 // apps/backend/src/services/auth.service.ts
 
 import bcrypt from 'bcrypt';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database.js';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -11,8 +11,6 @@ import {
 } from '../utils/jwt.util.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/email.util.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
-
-const prisma = new PrismaClient();
 
 // Registration data structure
 interface RegisterData {

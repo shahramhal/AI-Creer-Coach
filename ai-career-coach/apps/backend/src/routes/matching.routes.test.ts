@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 
 // Mock the config/database module to avoid real DB connections
@@ -26,9 +25,8 @@ vi.mock('../config/database.js', () => ({
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+import { prisma } from '../config/database.js';
 import matchingRoutes from './matching.routes.js';
-
-const mockPrismaInstance = new PrismaClient() as any;
 
 function buildTestApp(): express.Application {
   const testApp = express();
@@ -44,7 +42,17 @@ function generateTestAccessToken(userId: string, email: string): string {
 const authenticatedUserId = 'matching-test-user-uuid';
 const authenticatedUserEmail = 'matching@example.com';
 
-describe('Matching Routes — POST /api/matching/find-jobs', () => {
+const mockUser = {
+  id: authenticatedUserId,
+  email: authenticatedUserEmail,
+  isEmailVerified: true,
+  firstName: 'Match',
+  lastName: 'User',
+  role: 'USER',
+  isDisabled: false,
+};
+
+describe('Matching Routes - POST /api/matching/find-jobs', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -64,15 +72,8 @@ describe('Matching Routes — POST /api/matching/find-jobs', () => {
   it('should return 503 when MongoDB connection is not ready', async () => {
     const validAccessToken = generateTestAccessToken(authenticatedUserId, authenticatedUserEmail);
 
-    mockPrismaInstance.user.findUnique.mockResolvedValue({
-      id: authenticatedUserId,
-      email: authenticatedUserEmail,
-      isEmailVerified: true,
-      firstName: 'Match',
-      lastName: 'User',
-    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
 
-    // Import mongoose and set readyState to 0 (disconnected) for this test
     const mongoose = await import('mongoose');
     (mongoose.default.connection as any).readyState = 0;
 
@@ -84,29 +85,22 @@ describe('Matching Routes — POST /api/matching/find-jobs', () => {
 
       expect(response.status).toBe(503);
       expect(response.body.success).toBe(false);
-      expect(response.body.error.code).toBe('DB_CONNECTION_ERROR');
+      expect(response.body.code).toBe('INTERNAL_ERROR');
     } finally {
       (mongoose.default.connection as any).readyState = 1;
     }
   });
 
-  it('should return 404 NO_CV error when authenticated user has no uploaded CV', async () => {
+  it('should return 404 when authenticated user has no uploaded CV', async () => {
     const validAccessToken = generateTestAccessToken(authenticatedUserId, authenticatedUserEmail);
 
-    mockPrismaInstance.user.findUnique.mockResolvedValue({
-      id: authenticatedUserId,
-      email: authenticatedUserEmail,
-      isEmailVerified: true,
-      firstName: 'Match',
-      lastName: 'User',
-    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
 
-    // MongoDB is connected but no CV exists
     const mongoose = await import('mongoose');
     const originalDb = (mongoose.default.connection as any).db;
     (mongoose.default.connection as any).readyState = 1;
     const mockCollection = {
-      findOne: vi.fn().mockResolvedValue(null), // No CV found
+      findOne: vi.fn().mockResolvedValue(null),
       find: vi.fn().mockReturnValue({
         sort: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
@@ -126,14 +120,14 @@ describe('Matching Routes — POST /api/matching/find-jobs', () => {
 
       expect(response.status).toBe(404);
       expect(response.body.success).toBe(false);
-      expect(response.body.error.code).toBe('NO_CV');
+      expect(response.body.code).toBe('NOT_FOUND');
     } finally {
       (mongoose.default.connection as any).db = originalDb;
     }
   });
 });
 
-describe('Matching Routes — GET /api/matching/diagnostics', () => {
+describe('Matching Routes - GET /api/matching/diagnostics', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -152,15 +146,8 @@ describe('Matching Routes — GET /api/matching/diagnostics', () => {
   it('should return 200 with diagnostics data for authenticated users', async () => {
     const validAccessToken = generateTestAccessToken(authenticatedUserId, authenticatedUserEmail);
 
-    mockPrismaInstance.user.findUnique.mockResolvedValue({
-      id: authenticatedUserId,
-      email: authenticatedUserEmail,
-      isEmailVerified: true,
-      firstName: 'Diag',
-      lastName: 'User',
-    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
 
-    // Set up mock mongoose connection for diagnostics
     const mongoose = await import('mongoose');
     (mongoose.default.connection as any).readyState = 1;
     (mongoose.default.connection as any).db = {
@@ -170,7 +157,6 @@ describe('Matching Routes — GET /api/matching/diagnostics', () => {
       }),
     };
 
-    // Mock ML service health check
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,

@@ -124,7 +124,7 @@ class JobAggregator:
             except Exception as e:
                 logger.error(f"Error storing job {job_data.get('job_id')}: {e}")
 
-        logger.info(f"✅ Stored {stored_count} jobs in MongoDB")
+        logger.info(f" Stored {stored_count} jobs in MongoDB")
         return stored_count
 
     async def backfill_experience_levels(self) -> Dict:
@@ -159,7 +159,7 @@ class JobAggregator:
                 level_counts[new_level] = level_counts.get(new_level, 0) + 1
 
         logger.info(
-            f"✅ Backfill complete: scanned {scanned}, reclassified {reclassified} "
+            f" Backfill complete: scanned {scanned}, reclassified {reclassified} "
             f"({level_counts})"
         )
 
@@ -192,7 +192,7 @@ class JobAggregator:
             })
 
             # Delete Reed jobs whose expiration_date has passed
-            # Use $nin to exclude empty strings and null — prevents BSON null < string comparison
+            # Use $nin to exclude empty strings and null - prevents BSON null < string comparison
             now_iso = datetime.utcnow().isoformat() + "Z"
             result_expired = await self.jobs_collection.delete_many({
                 'expiration_date': {
@@ -223,5 +223,5 @@ class JobAggregator:
             return total_deleted
 
         except Exception as e:
-            logger.error(f"❌ Error during job cleanup: {e}")
+            logger.error(f" Error during job cleanup: {e}")
             return 0

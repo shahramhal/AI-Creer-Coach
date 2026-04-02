@@ -75,7 +75,7 @@ export default function SalaryInsightsPage() {
           }
         }
       } catch {
-        // No preferences saved — use default unfiltered mode
+        // No preferences saved - use default unfiltered mode
       }
 
       setIsInitialized(true);

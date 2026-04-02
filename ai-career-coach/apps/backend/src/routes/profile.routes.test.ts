@@ -5,7 +5,7 @@ import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 
-// vi.mock is hoisted — use vi.hoisted() to create mocks accessible inside the factory.
+// vi.mock is hoisted - use vi.hoisted() to create mocks accessible inside the factory.
 // IMPORTANT: Never replace these references (no Object.assign). vi.clearAllMocks()
 // resets implementation/state in-place. Per-test behavior is set via .mockResolvedValue() etc.
 const mockProfileServiceMethods = vi.hoisted(() => ({
@@ -25,7 +25,7 @@ vi.mock('../services/profile.service.js', () => {
   return { ProfileService: ProfileServiceMock };
 });
 
-// Control whether the upload mock injects a file — toggle per-test
+// Control whether the upload mock injects a file - toggle per-test
 const uploadControl = vi.hoisted(() => ({
   shouldInjectFile: true,
 }));
@@ -66,7 +66,7 @@ function generateTestAccessToken(userId: string, email: string): string {
 const authenticatedUserId = 'authenticated-profile-user-uuid';
 const authenticatedUserEmail = 'profile@example.com';
 
-describe('Profile Routes — GET /api/profile/:userId', () => {
+describe('Profile Routes - GET /api/profile/:userId', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -133,7 +133,7 @@ describe('Profile Routes — GET /api/profile/:userId', () => {
   });
 });
 
-describe('Profile Routes — PUT /api/profile', () => {
+describe('Profile Routes - PUT /api/profile', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -184,12 +184,12 @@ describe('Profile Routes — PUT /api/profile', () => {
   });
 });
 
-describe('Profile Routes — POST /api/profile/avatar', () => {
+describe('Profile Routes - POST /api/profile/avatar', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    uploadControl.shouldInjectFile = true; // Explicit reset — never rely on test ordering
+    uploadControl.shouldInjectFile = true; // Explicit reset - never rely on test ordering
     testApp = buildTestApp();
   });
 
@@ -259,7 +259,7 @@ describe('Profile Routes — POST /api/profile/avatar', () => {
   });
 });
 
-describe('Profile Routes — DELETE /api/profile/avatar', () => {
+describe('Profile Routes - DELETE /api/profile/avatar', () => {
   let testApp: express.Application;
 
   beforeEach(() => {

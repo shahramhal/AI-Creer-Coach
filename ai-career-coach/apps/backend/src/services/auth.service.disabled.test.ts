@@ -48,7 +48,7 @@ function buildUserRecord(overrides: Record<string, unknown> = {}) {
 
 //  Tests 
 
-describe('AuthService.login — disabled account and role features', () => {
+describe('AuthService.login - disabled account and role features', () => {
   let authService: AuthService;
 
   beforeEach(async () => {
@@ -68,7 +68,7 @@ describe('AuthService.login — disabled account and role features', () => {
       isDisabled: true,
     });
 
-    // Password check passes — the disabled check fires after bcrypt
+    // Password check passes - the disabled check fires after bcrypt
     mockPrismaInstance.user.findUnique.mockResolvedValue(disabledUserRecord);
 
     await expect(

@@ -1,7 +1,7 @@
 """
-Keyword Analyzer — KeyBERT + JobBERT
+Keyword Analyzer - KeyBERT + JobBERT
 Extracts keywords from CVs and identifies gaps against target roles.
-No external API calls — runs entirely locally.
+No external API calls - runs entirely locally.
 """
 
 import logging

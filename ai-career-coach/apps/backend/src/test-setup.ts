@@ -3,7 +3,7 @@
 
 import { vi } from 'vitest';
 
-// ─── Environment Variables ──────────────────────────────────────────────────
+//  Environment Variables 
 // Set required env vars before modules load
 process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-chars-long';
 process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret-at-least-32-chars-long';
@@ -25,7 +25,7 @@ process.env.MONGODB_URL = 'mongodb://localhost:27017/test';
 process.env.REDIS_HOST = 'localhost';
 process.env.REDIS_PORT = '6379';
 
-// ─── Mock ioredis ───────────────────────────────────────────────────────────
+// Mock ioredis 
 vi.mock('ioredis', () => {
   const mockRedisInstance = {
     get: vi.fn().mockResolvedValue(null),
@@ -44,7 +44,7 @@ vi.mock('ioredis', () => {
   return { default: RedisMock };
 });
 
-// ─── Mock Bull queues ────────────────────────────────────────────────────────
+//  Mock Bull queues 
 vi.mock('bull', () => {
   const BullMock = vi.fn().mockImplementation(() => ({
     add: vi.fn().mockResolvedValue({ id: 'mock-job-id' }),
@@ -58,7 +58,7 @@ vi.mock('bull', () => {
   return { default: BullMock };
 });
 
-// ─── Mock @prisma/client ─────────────────────────────────────────────────────
+//  Mock @prisma/client 
 // We use a singleton pattern: every call to `new PrismaClient()` returns the same
 // mock instance, so source modules and test files share the same mock object.
 vi.mock('@prisma/client', () => {
@@ -101,7 +101,7 @@ vi.mock('@prisma/client', () => {
   return { PrismaClient: PrismaClientMock };
 });
 
-// ─── Mock mongoose ───────────────────────────────────────────────────────────
+//  Mock mongoose 
 vi.mock('mongoose', async () => {
   const mockCollection = {
     findOne: vi.fn().mockResolvedValue(null),
@@ -156,7 +156,7 @@ vi.mock('mongoose', async () => {
   return { default: mockMongoose, ...mockMongoose };
 });
 
-// ─── Mock nodemailer ─────────────────────────────────────────────────────────
+//  Mock nodemailer 
 vi.mock('nodemailer', () => {
   const sendMailMock = vi.fn().mockResolvedValue({ messageId: 'mock-message-id' });
   const createTransportMock = vi.fn().mockReturnValue({ sendMail: sendMailMock });

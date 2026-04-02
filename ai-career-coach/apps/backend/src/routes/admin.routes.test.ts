@@ -2,7 +2,7 @@
 //
 // Integration-style tests verifying that admin routes enforce
 // authenticate + requireAdmin middleware and delegate to the correct handlers.
-// All service dependencies are mocked — no real DB or Redis calls.
+// All service dependencies are mocked - no real DB or Redis calls.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
@@ -102,7 +102,7 @@ function buildAdminUserRecord(overrides: Record<string, unknown> = {}) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe('Admin Routes — middleware enforcement', () => {
+describe('Admin Routes - middleware enforcement', () => {
   let testApp: express.Application;
 
   beforeEach(() => {

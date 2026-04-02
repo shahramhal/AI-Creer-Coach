@@ -21,7 +21,7 @@ try:
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
-    print("⚠️  OCR libraries not installed. Scanned PDFs won't be parsed.")
+    print("  OCR libraries not installed. Scanned PDFs won't be parsed.")
 
 # DOCX parsing
 from docx import Document
@@ -261,10 +261,10 @@ class CVParser:
             # : OCR fallback if text is too short
             MIN_TEXT_LENGTH = 100
             if len(text.strip()) < MIN_TEXT_LENGTH:
-                print(f"⚠️  Text too short ({len(text)} chars), attempting OCR...")
+                print(f"  Text too short ({len(text)} chars), attempting OCR...")
                 ocr_text = self._extract_text_with_ocr(file_content)
                 if len(ocr_text) > len(text):
-                    print("✅ OCR produced better results, using OCR text")
+                    print(" OCR produced better results, using OCR text")
                     text = ocr_text
                     
         elif filename.endswith('.docx'):
@@ -1284,7 +1284,7 @@ def test_parser_on_files(pdf_paths: List[str]):
             result = parser.parse(content, pdf_path)
             
             # Display results
-            print(f"✅ Parsed successfully")
+            print(f" Parsed successfully")
             print(f"   Email:       {result['contact_info'].get('email', 'N/A')}")
             print(f"   Phone:       {result['contact_info'].get('phone', 'N/A')}")
             print(f"   Name:        {result['contact_info'].get('name', 'N/A')}")
@@ -1298,7 +1298,7 @@ def test_parser_on_files(pdf_paths: List[str]):
             print(f"   Education:   {len(result['education'])} entries")
             
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f" Error: {e}")
 
 
 if __name__ == "__main__":

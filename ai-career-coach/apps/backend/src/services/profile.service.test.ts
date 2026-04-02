@@ -59,7 +59,7 @@ describe('ProfileService', () => {
         updatedAt: new Date(),
       };
 
-      // findUnique returns null — profile does not exist
+      // findUnique returns null - profile does not exist
       mockPrismaInstance.userProfile.findUnique.mockResolvedValue(null);
       // create returns the new profile
       mockPrismaInstance.userProfile.create.mockResolvedValue(newlyCreatedProfile);
@@ -87,7 +87,7 @@ describe('ProfileService', () => {
         updatedAt: new Date(),
       };
 
-      // getProfile internally calls findUnique — return existing profile
+      // getProfile internally calls findUnique - return existing profile
       mockPrismaInstance.userProfile.findUnique.mockResolvedValue(sampleProfileRecord);
       mockPrismaInstance.userProfile.update.mockResolvedValue(updatedProfileRecord);
 

@@ -212,7 +212,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
   try {
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // Clear refresh token cookie — options must match what was set on login
+    // Clear refresh token cookie - options must match what was set on login
     res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: isProduction,

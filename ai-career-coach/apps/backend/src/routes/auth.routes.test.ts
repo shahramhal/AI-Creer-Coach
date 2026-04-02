@@ -5,7 +5,7 @@ import request from 'supertest';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 
-// vi.mock is hoisted — the factory runs before any variable declarations.
+// vi.mock is hoisted - the factory runs before any variable declarations.
 // We use vi.hoisted() to create mocks that are available inside the factory.
 // IMPORTANT: Never replace these references (no Object.assign). vi.clearAllMocks()
 // resets implementation/state in-place, so the class instances still point to the
@@ -54,7 +54,7 @@ function generateTestAccessToken(userId: string, email: string): string {
   return jwt.sign({ userId, email }, process.env.JWT_SECRET!, { expiresIn: '1h' });
 }
 
-describe('Auth Routes — POST /api/auth/register', () => {
+describe('Auth Routes - POST /api/auth/register', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -121,7 +121,7 @@ describe('Auth Routes — POST /api/auth/register', () => {
   });
 });
 
-describe('Auth Routes — POST /api/auth/login', () => {
+describe('Auth Routes - POST /api/auth/login', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -181,7 +181,7 @@ describe('Auth Routes — POST /api/auth/login', () => {
   });
 });
 
-describe('Auth Routes — GET /api/auth/verify-email', () => {
+describe('Auth Routes - GET /api/auth/verify-email', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -224,7 +224,7 @@ describe('Auth Routes — GET /api/auth/verify-email', () => {
   });
 });
 
-describe('Auth Routes — POST /api/auth/forgot-password', () => {
+describe('Auth Routes - POST /api/auth/forgot-password', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -255,7 +255,7 @@ describe('Auth Routes — POST /api/auth/forgot-password', () => {
   });
 });
 
-describe('Auth Routes — POST /api/auth/refresh', () => {
+describe('Auth Routes - POST /api/auth/refresh', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -299,7 +299,7 @@ describe('Auth Routes — POST /api/auth/refresh', () => {
   });
 });
 
-describe('Auth Routes — POST /api/auth/logout', () => {
+describe('Auth Routes - POST /api/auth/logout', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -336,7 +336,7 @@ describe('Auth Routes — POST /api/auth/logout', () => {
   });
 });
 
-describe('Auth Routes — GET /api/auth/me', () => {
+describe('Auth Routes - GET /api/auth/me', () => {
   let testApp: express.Application;
 
   beforeEach(() => {

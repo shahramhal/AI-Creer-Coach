@@ -54,7 +54,7 @@ export default function ATSScoreCard({
     }
   };
 
-  // No ATS data yet — show CTA
+  // No ATS data yet - show CTA
   if (!atsData) {
     return (
       <div className="bg-card border border-border rounded-xl p-6 text-center">

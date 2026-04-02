@@ -12,7 +12,7 @@ interface AuditAction {
 
 /**
  * Log an admin action to the audit trail.
- * Fire-and-forget — never throws. Audit failure does not block admin actions.
+ * Fire-and-forget - never throws. Audit failure does not block admin actions.
  */
 export function logAdminAction(req: Request, auditAction: AuditAction): void {
   const adminId = req.user?.id;

@@ -37,7 +37,7 @@ function setupAuthenticatedUser() {
   });
 }
 
-describe('Job Routes — GET /api/jobs/search', () => {
+describe('Job Routes - GET /api/jobs/search', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 
@@ -142,7 +142,7 @@ describe('Job Routes — GET /api/jobs/search', () => {
   });
 });
 
-describe('Job Routes — GET /api/jobs/stats', () => {
+describe('Job Routes - GET /api/jobs/stats', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 

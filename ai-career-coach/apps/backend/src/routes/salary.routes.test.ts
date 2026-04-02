@@ -117,7 +117,7 @@ function createMockMongoDb(overrides?: {
   };
 }
 
-describe('Salary Routes — GET /api/salary/insights', () => {
+describe('Salary Routes - GET /api/salary/insights', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 
@@ -179,7 +179,7 @@ describe('Salary Routes — GET /api/salary/insights', () => {
   });
 });
 
-describe('Salary Routes — Skills premium scales with base salary', () => {
+describe('Salary Routes - Skills premium scales with base salary', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 
@@ -246,7 +246,7 @@ describe('Salary Routes — Skills premium scales with base salary', () => {
   });
 });
 
-describe('Salary Routes — Location factor included in prediction', () => {
+describe('Salary Routes - Location factor included in prediction', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 
@@ -308,7 +308,7 @@ describe('Salary Routes — Location factor included in prediction', () => {
   });
 });
 
-describe('Salary Routes — Education missing = neutral', () => {
+describe('Salary Routes - Education missing = neutral', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 
@@ -389,7 +389,7 @@ describe('Salary Routes — Education missing = neutral', () => {
   });
 });
 
-describe('Salary Routes — Salary range centered on prediction', () => {
+describe('Salary Routes - Salary range centered on prediction', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 
@@ -439,7 +439,7 @@ describe('Salary Routes — Salary range centered on prediction', () => {
   });
 });
 
-describe('Salary Routes — Confidence reflects data quality', () => {
+describe('Salary Routes - Confidence reflects data quality', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 
@@ -505,7 +505,7 @@ describe('Salary Routes — Confidence reflects data quality', () => {
   });
 });
 
-describe('Salary Routes — No redundant API calls', () => {
+describe('Salary Routes - No redundant API calls', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 
@@ -537,7 +537,7 @@ describe('Salary Routes — No redundant API calls', () => {
     // Count histogram calls:
     // Phase 1: 1 national + 1 London (user location) = 2 histogram + 1 history
     // Phase 2: 12 regional, but London is reused from phase 1 = 11 new histogram calls
-    // Total histogram: 2 + 11 = 13 (NOT 14 — London not fetched twice)
+    // Total histogram: 2 + 11 = 13 (NOT 14 - London not fetched twice)
     const histogramCalls = mockFetch.mock.calls.filter(
       (call: any[]) => String(call[0]).includes('/histogram')
     );
@@ -550,7 +550,7 @@ describe('Salary Routes — No redundant API calls', () => {
   });
 });
 
-describe('Salary Routes — Experience adjustment is centered on market average', () => {
+describe('Salary Routes - Experience adjustment is centered on market average', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 
@@ -620,7 +620,7 @@ describe('Salary Routes — Experience adjustment is centered on market average'
   });
 });
 
-describe('Salary Routes — PATCH /api/salary/preferences', () => {
+describe('Salary Routes - PATCH /api/salary/preferences', () => {
   let testApp: express.Application;
   let validAccessToken: string;
 

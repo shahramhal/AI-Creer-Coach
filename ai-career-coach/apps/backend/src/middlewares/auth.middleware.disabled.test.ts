@@ -36,7 +36,7 @@ function buildMockResponse() {
 
 //  Tests 
 
-describe('authenticate middleware — disabled account and role features', () => {
+describe('authenticate middleware - disabled account and role features', () => {
   let mockNextFunction: NextFunction;
   let mockResponse: Response;
 

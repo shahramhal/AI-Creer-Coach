@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     jobs_per_request: int = 50
     max_jobs_per_search: int = 50  # Reduced for free-tier (1 page of 50)
 
-    # Job freshness — remove stale jobs, only fetch recent ones
+    # Job freshness - remove stale jobs, only fetch recent ones
     job_max_age_days: int = 14
     adzuna_max_days_old: int = 14
 

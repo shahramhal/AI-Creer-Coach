@@ -114,7 +114,7 @@ describe('authenticate middleware', () => {
       headers: { authorization: `Bearer ${validToken}` },
     });
 
-    // Prisma returns null — user not found
+    // Prisma returns null - user not found
     mockPrismaInstance.user.findUnique.mockResolvedValue(null);
 
     await authenticate(mockRequest, mockResponse, nextFunction);

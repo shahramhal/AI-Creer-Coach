@@ -208,7 +208,7 @@ async def parse_cv(file: UploadFile = File(...), authorization: str = Header(Non
                 user_id = payload.get('userId') or payload.get('id')
                 print(f"📝 Parsing CV for user: {user_id}")
             except Exception as e:
-                print(f"⚠️ Could not decode JWT: {e}")
+                print(f" Could not decode JWT: {e}")
         
         # Read file content
         content = await file.read()
@@ -223,9 +223,9 @@ async def parse_cv(file: UploadFile = File(...), authorization: str = Header(Non
             mongo = get_mongodb_connection()
             if mongo.connect():
                 doc_id = mongo.save_parsed_cv(user_id, parsed_data)
-                print(f"✅ CV saved to MongoDB: {doc_id}")
+                print(f" CV saved to MongoDB: {doc_id}")
         except Exception as mongo_error:
-            print(f"⚠️ MongoDB save skipped: {mongo_error}")
+            print(f" MongoDB save skipped: {mongo_error}")
 
         # Serialize and return
         serialized_data = serialize_objectid(parsed_data)
@@ -248,7 +248,7 @@ async def parse_cv(file: UploadFile = File(...), authorization: str = Header(Non
 async def analyze_cv(request: AnalyzeCVRequest):
     """
     Analyze CV for ATS compatibility, keyword gaps, and recommendations.
-    Runs entirely locally — no external API calls.
+    Runs entirely locally - no external API calls.
 
     Args:
         request: CV text, parsed data, filename, optional target role
@@ -433,7 +433,7 @@ async def match_jobs(request: JobMatchRequest):
             filters=request.filters
         )
         
-        print(f"✅ Matching complete: {len(matched_jobs)} jobs matched")
+        print(f" Matching complete: {len(matched_jobs)} jobs matched")
         
         return JobMatchResponse(
             success=True,
@@ -442,7 +442,7 @@ async def match_jobs(request: JobMatchRequest):
         )
         
     except Exception as e:
-        print(f"❌ Matching error: {e}")
+        print(f" Matching error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Job matching failed: {str(e)}"

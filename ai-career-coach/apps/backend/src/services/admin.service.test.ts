@@ -12,7 +12,7 @@ const mockPrismaInstance = new PrismaClient() as any;
 // We provide lightweight stubs to prevent that from happening in tests.
 //
 // IMPORTANT: All values referenced inside vi.mock() factories must be created
-// with vi.hoisted() — the factory is hoisted before any top-level const/let.
+// with vi.hoisted() - the factory is hoisted before any top-level const/let.
 
 const mockDatabaseModule = vi.hoisted(() => {
   const redisStub = {
@@ -102,12 +102,12 @@ describe('AdminService', () => {
       create: vi.fn(),
     };
 
-    // The test-setup.ts Prisma mock doesn't include cV.count — add it here
+    // The test-setup.ts Prisma mock doesn't include cV.count - add it here
     // so getDashboardStats tests can mock it without hitting undefined.
     if (!mockPrismaInstance.cV.count) {
       mockPrismaInstance.cV.count = vi.fn();
     } else {
-      // clearAllMocks wipes the implementation — re-assign the function
+      // clearAllMocks wipes the implementation - re-assign the function
       mockPrismaInstance.cV.count = vi.fn();
     }
 
@@ -384,7 +384,7 @@ describe('AdminService', () => {
       const requestingAdminId = 'requesting-admin-uuid';
 
       mockPrismaInstance.user.findUnique.mockResolvedValue(targetAdminRecord);
-      mockPrismaInstance.user.count = vi.fn().mockResolvedValue(2); // Two admins — safe to demote
+      mockPrismaInstance.user.count = vi.fn().mockResolvedValue(2); // Two admins - safe to demote
       mockPrismaInstance.user.update.mockResolvedValue({ ...targetAdminRecord, role: 'USER' });
 
       const demoteResult = await adminService.demoteUser('target-admin-uuid', requestingAdminId);

@@ -789,7 +789,7 @@ export class SalaryService {
     const nationalMedian = computeMedianFromHistogram(nationalHistogram);
     const locationMedian = hasLocationQuery ? computeMedianFromHistogram(locationHistogram) : 0;
 
-    // National median is the base — it represents the average listing for this role.
+    // National median is the base - it represents the average listing for this role.
     const effectiveBase = nationalMedian;
     const effectiveHistogram = (hasLocationQuery && locationMedian > 0) ? locationHistogram : nationalHistogram;
 
@@ -852,15 +852,15 @@ export class SalaryService {
         ? Math.round(locationMedian - nationalMedian)
         : 0;
 
-      // Skill gap penalty — only when relevance data is unavailable (weight-1.0 fallback mode)
+      // Skill gap penalty - only when relevance data is unavailable (weight-1.0 fallback mode)
       // When relevance weights are applied, the reduced skillsPremium already expresses the signal.
       // This penalty acts as a coarse floor when we have no ML relevance to weight with.
       let skillGapPenalty = 0;
       if (cvSkills.length > 0 && !skillRelevanceResult) {
-        // No relevance data — can't weight skills, so no penalty either (preserves current behavior)
+        // No relevance data - can't weight skills, so no penalty either (preserves current behavior)
         skillGapPenalty = 0;
       } else if (cvSkills.length > 0 && skillRelevanceResult) {
-        // Relevance data available — penalty only for severe career transitions
+        // Relevance data available - penalty only for severe career transitions
         // where relevance weighting alone may not sufficiently reduce the premium
         if (relevantSkillsCount === 0) {
           skillGapPenalty = Math.round(effectiveBase * -0.08);

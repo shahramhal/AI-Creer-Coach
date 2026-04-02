@@ -232,7 +232,7 @@ class SkillGapAnalyzer:
             estimated_hours = SKILL_LEARNING_ESTIMATES.get(skill_name, 40)
             salary_impact = SKILL_SALARY_IMPACT.get(skill_name, 3)
 
-            # ROI = salary_impact / (estimated_hours / 40) — value per week invested
+            # ROI = salary_impact / (estimated_hours / 40) - value per week invested
             roi_score = round(salary_impact / max(estimated_hours / 40, 0.5), 2)
 
             category = _get_skill_category(skill_name)
@@ -314,7 +314,7 @@ class SkillGapAnalyzer:
             foundation_hours = sum(skill["estimated_hours"] for skill in foundation_skills)
             learning_path.append({
                 "phase": "Foundation",
-                "description": "Core skills required for the role — highest impact and most frequently requested by employers.",
+                "description": "Core skills required for the role - highest impact and most frequently requested by employers.",
                 "total_hours": foundation_hours,
                 "skills": foundation_skills,
             })

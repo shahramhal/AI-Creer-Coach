@@ -1,5 +1,5 @@
 """
-CV Overview Scorer — Job-agnostic CV quality assessment.
+CV Overview Scorer - Job-agnostic CV quality assessment.
 Evaluates CV quality across 4 categories without requiring a job description.
 Reuses existing scoring modules from score_calculator.py and ats_checker.py.
 """

@@ -89,7 +89,7 @@ class AdzunaAPI:
                     'content-type': 'application/json',
                 }
 
-                logger.info(f"Adzuna [{country.upper()}]: page {page} — '{keywords}' in '{location}'")
+                logger.info(f"Adzuna [{country.upper()}]: page {page} - '{keywords}' in '{location}'")
 
                 response = requests.get(url, params=params, timeout=15)
                 response.raise_for_status()
@@ -111,14 +111,14 @@ class AdzunaAPI:
 
                 page += 1
 
-            logger.info(f"✅ Adzuna [{country.upper()}]: {len(all_jobs)} jobs fetched")
+            logger.info(f" Adzuna [{country.upper()}]: {len(all_jobs)} jobs fetched")
             return all_jobs
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"❌ Adzuna [{country.upper()}] API request error: {e}")
+            logger.error(f" Adzuna [{country.upper()}] API request error: {e}")
             return all_jobs
         except Exception as e:
-            logger.error(f"❌ Adzuna [{country.upper()}] unexpected error: {e}")
+            logger.error(f" Adzuna [{country.upper()}] unexpected error: {e}")
             return all_jobs
 
     def _normalize_job(self, raw_job: Dict, keywords: str, location: str, country: str) -> Dict:

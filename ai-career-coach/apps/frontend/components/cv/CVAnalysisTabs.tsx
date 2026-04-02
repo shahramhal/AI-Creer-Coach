@@ -22,7 +22,7 @@ export default function CVAnalysisTabs({
   // Prefer overviewData, fall back to analysisData for backward compat
   const activeData = overviewData || analysisData;
 
-  // No analysis yet — show CTA
+  // No analysis yet - show CTA
   if (!activeData) {
     return (
       <div className="bg-card border border-border rounded-xl p-8 text-center">

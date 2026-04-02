@@ -1,5 +1,5 @@
 """
-ATS Checker — Rule-based ATS compatibility analysis.
+ATS Checker - Rule-based ATS compatibility analysis.
 Checks CV against common Applicant Tracking System requirements.
 No external API calls.
 """
@@ -109,7 +109,7 @@ class ATSChecker:
         elif email:
             return {"status": "warning", "title": "Email format may be invalid", "description": "Email may be parsed incorrectly by ATS systems"}
         else:
-            return {"status": "fail", "title": "Missing email address", "description": "Contact email is critical for ATS — recruiters need a way to reach you"}
+            return {"status": "fail", "title": "Missing email address", "description": "Contact email is critical for ATS - recruiters need a way to reach you"}
 
     def _check_contact_phone(self, parsed_data: Dict) -> Dict:
         contact = parsed_data.get("contact_info", parsed_data.get("personal", {}))
@@ -127,7 +127,7 @@ class ATSChecker:
         if location and len(location) > 2:
             return {"status": "pass", "title": "Location present", "description": "Location helps with geographic matching"}
         else:
-            return {"status": "warning", "title": "Missing location", "description": "Many ATS filter by location — add city and country"}
+            return {"status": "warning", "title": "Missing location", "description": "Many ATS filter by location - add city and country"}
 
     def _check_contact_linkedin(self, parsed_data: Dict) -> Dict:
         contact = parsed_data.get("contact_info", parsed_data.get("personal", {}))
@@ -157,14 +157,14 @@ class ATSChecker:
         elif len(experience) == 1:
             return {"status": "pass", "title": "Work experience present", "description": "1 position documented"}
         else:
-            return {"status": "fail", "title": "No work experience found", "description": "Experience section is critical — most ATS require it for scoring"}
+            return {"status": "fail", "title": "No work experience found", "description": "Experience section is critical - most ATS require it for scoring"}
 
     def _check_education_present(self, parsed_data: Dict) -> Dict:
         education = parsed_data.get("education", [])
         if education:
             return {"status": "pass", "title": "Education section present", "description": f"{len(education)} education entries found"}
         else:
-            return {"status": "warning", "title": "No education section found", "description": "Many roles require education — add degrees or certifications"}
+            return {"status": "warning", "title": "No education section found", "description": "Many roles require education - add degrees or certifications"}
 
     def _check_skills_present(self, parsed_data: Dict) -> Dict:
         skills = parsed_data.get("skills", [])
@@ -173,7 +173,7 @@ class ATSChecker:
         elif len(skills) >= 3:
             return {"status": "warning", "title": "Skills section could be expanded", "description": f"Only {len(skills)} skills listed. Add more relevant technical skills"}
         else:
-            return {"status": "fail", "title": "Insufficient skills listed", "description": "ATS heavily relies on skills matching — list at least 8-10 relevant skills"}
+            return {"status": "fail", "title": "Insufficient skills listed", "description": "ATS heavily relies on skills matching - list at least 8-10 relevant skills"}
 
     def _check_summary_present(self, parsed_data: Dict) -> Dict:
         summary = parsed_data.get("summary", "")

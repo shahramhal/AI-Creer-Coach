@@ -1,7 +1,7 @@
 // apps/backend/src/controllers/admin.controller.test.ts
 //
 // Unit tests for admin controller request/response handling.
-// AdminService is fully mocked — we only test the controller layer.
+// AdminService is fully mocked - we only test the controller layer.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';

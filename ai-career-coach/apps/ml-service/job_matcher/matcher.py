@@ -118,7 +118,7 @@ class JobMatcher:
         self._cache_hits = 0
         self._cache_misses = 0
 
-        logger.info("✅ Model loaded successfully")
+        logger.info(" Model loaded successfully")
     
     def match_jobs(
         self,
@@ -157,7 +157,7 @@ class JobMatcher:
         job_embeddings = self._get_job_embeddings_cached(jobs)
 
         embedding_time = time.time() - start_time
-        logger.info(f"📊 Embeddings ready in {embedding_time:.2f}s (cache hits: {self._cache_hits}, misses: {self._cache_misses})")
+        logger.info(f" Embeddings ready in {embedding_time:.2f}s (cache hits: {self._cache_hits}, misses: {self._cache_misses})")
 
         # Step 3: Calculate cosine similarity
         similarities = util.cos_sim(cv_embedding, job_embeddings)[0]
@@ -204,7 +204,7 @@ class JobMatcher:
             matched_jobs = self._apply_filters(matched_jobs, filters)
 
         total_time = time.time() - start_time
-        logger.info(f"✅ Matched {len(matched_jobs)} jobs in {total_time:.2f}s")
+        logger.info(f" Matched {len(matched_jobs)} jobs in {total_time:.2f}s")
         return matched_jobs
 
     def _get_job_embeddings_cached(self, jobs: List[Dict]) -> torch.Tensor:
@@ -384,15 +384,15 @@ class JobMatcher:
         summary_parts = []
         if skill_coverage >= 70:
             summary_parts.append(
-                f"Strong skill match — you have {skill_overlap} of {total_job_skills} required skills."
+                f"Strong skill match - you have {skill_overlap} of {total_job_skills} required skills."
             )
         elif skill_coverage >= 40:
             summary_parts.append(
-                f"Moderate skill match — you have {skill_overlap} of {total_job_skills} required skills."
+                f"Moderate skill match - you have {skill_overlap} of {total_job_skills} required skills."
             )
         elif total_job_skills > 0:
             summary_parts.append(
-                f"You have {skill_overlap} of {total_job_skills} required skills — consider developing the missing ones."
+                f"You have {skill_overlap} of {total_job_skills} required skills - consider developing the missing ones."
             )
         else:
             summary_parts.append("No specific skills could be extracted from this job listing.")
@@ -523,5 +523,5 @@ class JobMatcher:
             for i, job in enumerate(jobs)
         }
         
-        logger.info(f"✅ Generated {len(embedding_map)} embeddings")
+        logger.info(f" Generated {len(embedding_map)} embeddings")
         return embedding_map

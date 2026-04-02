@@ -6,7 +6,7 @@ Coverage:
 - Explicit target_role vs auto-detection from CV content
 - target_job_description augments the target skill set
 - Edge cases: empty cv_text, empty skills list, unknown/invalid role
-- Response structure — all required top-level fields present
+- Response structure - all required top-level fields present
 - Missing skills sorted by roi_score descending
 - Learning path phases map correctly: high → Foundation, medium → Intermediate, low → Advanced
 - skill_coverage calculation is within 0-100 range
@@ -151,7 +151,7 @@ class TestExtractSkills:
         assert "sql" in extracted_skills
 
     def test_does_not_extract_short_skill_without_word_boundary(self):
-        # "go" should NOT match inside "googled" — the regex uses \b for short skills
+        # "go" should NOT match inside "googled" - the regex uses \b for short skills
         text_without_go_skill = "I googled the documentation."
         extracted_skills = _extract_skills(text_without_go_skill)
         assert "go" not in extracted_skills
@@ -259,7 +259,7 @@ class TestDetectTargetRole:
 
 
 # ---------------------------------------------------------------------------
-# SkillGapAnalyzer.analyze() — response structure
+# SkillGapAnalyzer.analyze() - response structure
 # ---------------------------------------------------------------------------
 
 class TestSkillGapAnalyzerResponseStructure:
@@ -370,7 +370,7 @@ class TestSkillGapAnalyzerResponseStructure:
 
 
 # ---------------------------------------------------------------------------
-# SkillGapAnalyzer.analyze() — ROI ordering
+# SkillGapAnalyzer.analyze() - ROI ordering
 # ---------------------------------------------------------------------------
 
 class TestSkillGapAnalyzerROIOrdering:
@@ -415,7 +415,7 @@ class TestSkillGapAnalyzerROIOrdering:
 
 
 # ---------------------------------------------------------------------------
-# SkillGapAnalyzer.analyze() — learning path phase mapping
+# SkillGapAnalyzer.analyze() - learning path phase mapping
 # ---------------------------------------------------------------------------
 
 class TestSkillGapAnalyzerLearningPathPhases:
@@ -438,7 +438,7 @@ class TestSkillGapAnalyzerLearningPathPhases:
         learning_path_phases = analysis_result["recommended_learning_path"]
         foundation_phases = [p for p in learning_path_phases if p["phase"] == "Foundation"]
         if not foundation_phases:
-            pytest.skip("No Foundation phase present — candidate may already have all high-priority skills")
+            pytest.skip("No Foundation phase present - candidate may already have all high-priority skills")
         for skill_entry in foundation_phases[0]["skills"]:
             assert skill_entry["priority"] == "high", (
                 f"Skill '{skill_entry['name']}' in Foundation phase has priority '{skill_entry['priority']}'"
@@ -453,7 +453,7 @@ class TestSkillGapAnalyzerLearningPathPhases:
         learning_path_phases = analysis_result["recommended_learning_path"]
         intermediate_phases = [p for p in learning_path_phases if p["phase"] == "Intermediate"]
         if not intermediate_phases:
-            pytest.skip("No Intermediate phase — candidate may already have all medium-priority skills")
+            pytest.skip("No Intermediate phase - candidate may already have all medium-priority skills")
         for skill_entry in intermediate_phases[0]["skills"]:
             assert skill_entry["priority"] == "medium", (
                 f"Skill '{skill_entry['name']}' in Intermediate phase has priority '{skill_entry['priority']}'"
@@ -468,7 +468,7 @@ class TestSkillGapAnalyzerLearningPathPhases:
         learning_path_phases = analysis_result["recommended_learning_path"]
         advanced_phases = [p for p in learning_path_phases if p["phase"] == "Advanced"]
         if not advanced_phases:
-            pytest.skip("No Advanced phase — candidate may already have all low-priority skills")
+            pytest.skip("No Advanced phase - candidate may already have all low-priority skills")
         for skill_entry in advanced_phases[0]["skills"]:
             assert skill_entry["priority"] == "low", (
                 f"Skill '{skill_entry['name']}' in Advanced phase has priority '{skill_entry['priority']}'"
@@ -501,7 +501,7 @@ class TestSkillGapAnalyzerLearningPathPhases:
 
 
 # ---------------------------------------------------------------------------
-# SkillGapAnalyzer.analyze() — explicit target_role
+# SkillGapAnalyzer.analyze() - explicit target_role
 # ---------------------------------------------------------------------------
 
 class TestSkillGapAnalyzerExplicitTargetRole:
@@ -572,7 +572,7 @@ class TestSkillGapAnalyzerExplicitTargetRole:
 
 
 # ---------------------------------------------------------------------------
-# SkillGapAnalyzer.analyze() — job description augmentation
+# SkillGapAnalyzer.analyze() - job description augmentation
 # ---------------------------------------------------------------------------
 
 class TestSkillGapAnalyzerJobDescriptionAugmentation:
@@ -638,7 +638,7 @@ class TestSkillGapAnalyzerJobDescriptionAugmentation:
 
 
 # ---------------------------------------------------------------------------
-# SkillGapAnalyzer.analyze() — edge cases
+# SkillGapAnalyzer.analyze() - edge cases
 # ---------------------------------------------------------------------------
 
 class TestSkillGapAnalyzerEdgeCases:
@@ -760,7 +760,7 @@ class TestSkillGapAnalyzerEdgeCases:
 
 
 # ---------------------------------------------------------------------------
-# SkillGapAnalyzer.analyze() — summary text content
+# SkillGapAnalyzer.analyze() - summary text content
 # ---------------------------------------------------------------------------
 
 class TestSkillGapAnalyzerSummaryText:
@@ -821,7 +821,7 @@ class TestSkillGapAnalyzerSummaryText:
 
 
 # ---------------------------------------------------------------------------
-# SkillGapAnalyzer.analyze() — data scientist role
+# SkillGapAnalyzer.analyze() - data scientist role
 # ---------------------------------------------------------------------------
 
 class TestSkillGapAnalyzerDataScientistRole:
@@ -861,7 +861,7 @@ class TestSkillGapAnalyzerDataScientistRole:
 
 
 # ---------------------------------------------------------------------------
-# SkillGapAnalyzer._build_learning_path() — internal method
+# SkillGapAnalyzer._build_learning_path() - internal method
 # ---------------------------------------------------------------------------
 
 class TestBuildLearningPath:
@@ -936,7 +936,7 @@ class TestBuildLearningPath:
 
 
 # ---------------------------------------------------------------------------
-# FastAPI endpoint smoke test — /api/ml/skill-gap-analysis
+# FastAPI endpoint smoke test - /api/ml/skill-gap-analysis
 # ---------------------------------------------------------------------------
 
 class TestSkillGapEndpoint:
@@ -1030,7 +1030,7 @@ class TestSkillGapEndpoint:
             ROLE_ALIASES=ROLE_ALIASES,
         )
 
-        # skill_gap package stubs — use the real SkillGapAnalyzer so the
+        # skill_gap package stubs - use the real SkillGapAnalyzer so the
         # endpoint exercises real business logic
         skill_gap_analyzer_stub = make_stub(
             "skill_gap.analyzer",
@@ -1057,7 +1057,7 @@ class TestSkillGapEndpoint:
         sys.modules["utils"] = make_stub("utils")
         sys.modules["utils.serializers"] = make_stub("utils.serializers", serialize_objectid=MagicMock(side_effect=lambda x: x))
 
-        # jwt stub (PyJWT — used in main.py parse_cv endpoint)
+        # jwt stub (PyJWT - used in main.py parse_cv endpoint)
         sys.modules["jwt"] = make_stub("jwt", decode=MagicMock(return_value={"userId": "test-user"}), exceptions=MagicMock())
 
         # ---- Evict and reload main ----

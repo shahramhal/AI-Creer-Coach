@@ -1,11 +1,11 @@
 """
-Score Calculator — Computes CV quality scores across 5 categories.
+Score Calculator - Computes CV quality scores across 5 categories.
 Uses rule-based analysis with weighted scoring.
 
 DEPRECATION NOTICE: This module's 5-category scoring (including keywordsMatch)
 is being superseded by:
-  - cv_overview_scorer.py — job-agnostic 4-category CV quality scores
-  - ats_scorer.py — job-specific ATS keyword matching
+  - cv_overview_scorer.py - job-agnostic 4-category CV quality scores
+  - ats_scorer.py - job-specific ATS keyword matching
 This module is retained for backward compatibility with the legacy analyze() method.
 """
 
@@ -324,7 +324,7 @@ class ScoreCalculator:
             elif quant_ratio > 0:
                 score += 8
 
-        # Specific responsibilities — average bullet length suggests detail (+20)
+        # Specific responsibilities - average bullet length suggests detail (+20)
         if all_bullets:
             avg_words = sum(len(b.split()) for b in all_bullets) / len(all_bullets)
             if 10 <= avg_words <= 30:

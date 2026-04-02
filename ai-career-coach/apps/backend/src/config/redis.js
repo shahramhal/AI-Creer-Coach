@@ -4,9 +4,9 @@
 const Redis = require('ioredis');
 const Bull = require('bull');
 
-// =====================================================
+ 
 // REDIS CLIENT CONFIGURATION
-// =====================================================
+ 
 
 // Main Redis client for caching
 const redis = new Redis({
@@ -40,9 +40,9 @@ const pubClient = new Redis({
 
 const subClient = pubClient.duplicate();
 
-// =====================================================
+
 // CACHE KEY PATTERNS
-// =====================================================
+
 
 const cacheKeys = {
     // User-related caching
@@ -84,9 +84,9 @@ const cacheKeys = {
     resetToken: (token) => `reset:token:${token}`
 };
 
-// =====================================================
+ 
 // CACHE UTILITIES
-// =====================================================
+ 
 
 class CacheManager {
     constructor(redisClient) {
@@ -181,9 +181,9 @@ class CacheManager {
 // Create cache manager instance
 const cache = new CacheManager(redis);
 
-// =====================================================
+ 
 // SESSION MANAGEMENT
-// =====================================================
+ 
 
 class SessionManager {
     constructor(redisClient) {
@@ -250,9 +250,9 @@ class SessionManager {
 // Create session manager instance
 const sessionManager = new SessionManager(sessionRedis);
 
-// =====================================================
+
 // JOB QUEUE CONFIGURATION (Bull)
-// =====================================================
+
 
 // CV parsing queue
 const cvParsingQueue = new Bull('cv-parsing', {
@@ -330,9 +330,9 @@ const emailQueue = new Bull('email-notifications', {
     }
 });
 
-// =====================================================
+
 // RATE LIMITING
-// =====================================================
+
 
 class RateLimiter {
     constructor(redisClient) {
@@ -367,9 +367,9 @@ class RateLimiter {
 
 const rateLimiter = new RateLimiter(redis);
 
-// =====================================================
+
 // REAL-TIME FEATURES (Pub/Sub)
-// =====================================================
+
 
 class RealtimeManager {
     constructor(publisher, subscriber) {
@@ -406,9 +406,9 @@ class RealtimeManager {
 
 const realtime = new RealtimeManager(pubClient, subClient);
 
-// =====================================================
+
 // VECTOR STORAGE FOR EMBEDDINGS
-// =====================================================
+ 
 
 class VectorStore {
     constructor(redisClient) {
@@ -450,10 +450,9 @@ class VectorStore {
 }
 
 const vectorStore = new VectorStore(redis);
-
-// =====================================================
+ 
 // EXPORT ALL COMPONENTS
-// =====================================================
+ 
 
 module.exports = {
     // Redis clients

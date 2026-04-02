@@ -157,7 +157,7 @@ describe('AuthService', () => {
 
       mockPrismaInstance.user.findUnique.mockResolvedValue(storedUserRecord);
 
-      // bcrypt.compare returns false — wrong password
+      // bcrypt.compare returns false - wrong password
       const bcrypt = await import('bcrypt');
       vi.mocked((bcrypt as any).default.compare).mockResolvedValueOnce(false);
 
@@ -182,7 +182,7 @@ describe('AuthService', () => {
       };
 
       mockPrismaInstance.user.findUnique.mockResolvedValue(authenticatedUserRecord);
-      // bcrypt.compare returns true — correct password
+      // bcrypt.compare returns true - correct password
       const bcrypt = await import('bcrypt');
       vi.mocked((bcrypt as any).default.compare).mockResolvedValueOnce(true);
 

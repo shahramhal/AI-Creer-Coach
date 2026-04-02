@@ -82,7 +82,7 @@ async function fetchMLService(path: string, body: Record<string, any>): Promise<
 
 /**
  * ATS check with raw job description text
- * No Job or Application record needed — user pastes job description directly
+ * No Job or Application record needed - user pastes job description directly
  */
 router.post(
   '/ats-check',

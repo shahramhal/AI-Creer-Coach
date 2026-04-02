@@ -228,7 +228,7 @@ export class MlService {
     // Step 5: Invalidate user caches (CV list + job matching)
     await cache.del(`cvs:user:${userId}`);
     await cache.delByPattern(`match:user:${userId}:*`);
-    console.log(`📦 [Cache] Invalidated CV list + matching caches for user: ${userId}`);
+    console.log(` [Cache] Invalidated CV list + matching caches for user: ${userId}`);
 
     logUserActivity(userId, 'cv_upload', 'CV Uploaded', cvRecord.filename);
 
@@ -245,7 +245,7 @@ export class MlService {
     const cacheKey = `cvs:user:${userId}`;
     const cachedResponse = await cache.get(cacheKey);
     if (cachedResponse) {
-      console.log(`📦 [Cache] CV list cache HIT for user: ${userId}`);
+      console.log(` [Cache] CV list cache HIT for user: ${userId}`);
       return cachedResponse;
     }
 
@@ -364,7 +364,7 @@ export class MlService {
 
     await cache.del(`cvs:user:${userId}`);
     await cache.delByPattern(`match:user:${userId}:*`);
-    console.log(`📦 [Cache] Invalidated CV list + matching caches for user: ${userId}`);
+    console.log(` [Cache] Invalidated CV list + matching caches for user: ${userId}`);
 
     logUserActivity(userId, 'cv_delete', 'CV Deleted', cv.filename);
   }
@@ -447,7 +447,7 @@ export class MlService {
     // Return cached analysis if it exists (skip ML call entirely)
     const cachedResult = cv.overviewData ?? cv.analysisData;
     if (cachedResult && !forceReanalyze) {
-      console.log(`📦 [Cache] Returning cached analysis for CV: ${cvId}`);
+      console.log(` [Cache] Returning cached analysis for CV: ${cvId}`);
       return { data: cachedResult, message: 'CV analysis loaded from cache' };
     }
 
@@ -541,7 +541,7 @@ export class MlService {
 
     console.log(`Analysis stored for CV: ${cvId}, score: ${analysisData.overallScore}/100`);
 
-    logUserActivity(userId, 'cv_analyze', 'CV Analyzed', `${cv.filename} — Score: ${analysisData.overallScore}/100`);
+    logUserActivity(userId, 'cv_analyze', 'CV Analyzed', `${cv.filename} - Score: ${analysisData.overallScore}/100`);
 
     return { data: analysisData, message: 'CV analyzed successfully' };
   }

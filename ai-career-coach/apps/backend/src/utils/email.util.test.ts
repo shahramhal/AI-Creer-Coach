@@ -14,7 +14,7 @@ let mockTransporter: { sendMail: ReturnType<typeof vi.fn> };
 describe('Email Utility Functions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Create a fresh transporter mock each time — clearAllMocks wipes implementations
+    // Create a fresh transporter mock each time - clearAllMocks wipes implementations
     mockTransporter = {
       sendMail: vi.fn().mockResolvedValue({ messageId: 'mock-message-id-123' }),
     };
@@ -125,7 +125,7 @@ describe('Email Utility Functions', () => {
       expect(sendMailCallArgs.html).toContain(userFirstName);
     });
 
-    it('should not throw when welcome email sending fails — it is non-critical', async () => {
+    it('should not throw when welcome email sending fails - it is non-critical', async () => {
       mockTransporter.sendMail.mockRejectedValueOnce(new Error('SMTP error - welcome email failed'));
 
       // sendWelcomeEmail catches errors internally and does not re-throw

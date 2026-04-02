@@ -121,7 +121,7 @@ export interface Project {
 }
 
 /**
- * CV analysis data — comprehensive analysis result
+ * CV analysis data - comprehensive analysis result
  */
 export interface AnalysisData {
   overallScore: number;
@@ -169,7 +169,7 @@ export interface Recommendation {
 }
 
 /**
- * CV Overview Data — Job-agnostic quality assessment (4 categories)
+ * CV Overview Data - Job-agnostic quality assessment (4 categories)
  */
 export interface CVOverviewData {
   overallScore: number;
@@ -190,7 +190,7 @@ export interface CVOverviewData {
 }
 
 /**
- * ATS Score Data — Job-specific keyword matching result
+ * ATS Score Data - Job-specific keyword matching result
  */
 export interface ATSScoreData {
   atsScore: number;

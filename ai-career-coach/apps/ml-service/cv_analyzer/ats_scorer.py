@@ -1,5 +1,5 @@
 """
-ATS Scorer — Job-specific ATS keyword matching.
+ATS Scorer - Job-specific ATS keyword matching.
 Compares a CV against a specific job description to produce
 keyword match, semantic similarity, and skills coverage scores.
 """
@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Shared model instance — set from main.py to avoid double memory usage
+# Shared model instance - set from main.py to avoid double memory usage
 _shared_sentence_model = None
 
 

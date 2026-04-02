@@ -1,7 +1,7 @@
 """
-CV Analyzer — Main orchestrator.
+CV Analyzer - Main orchestrator.
 Coordinates keyword analysis, ATS checks, scoring, and recommendations.
-No external API calls — fully local analysis.
+No external API calls - fully local analysis.
 """
 
 import logging

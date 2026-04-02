@@ -205,7 +205,7 @@ export default function LearningPage() {
                       <label className="text-sm font-medium text-foreground mb-1 block">
                         Target Role
                       </label>
-                      {/* Read-only display — the target role comes from Settings and can only be changed there */}
+                      {/* Read-only display - the target role comes from Settings and can only be changed there */}
                       <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-input bg-muted/30">
                         {settingsLoading ? (
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

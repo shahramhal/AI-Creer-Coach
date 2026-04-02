@@ -123,7 +123,7 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
 
 /**
  * Send notification email when an admin disables a user account.
- * Non-throwing — email failure should not block the disable action.
+ * Non-throwing - email failure should not block the disable action.
  */
 export const sendAccountDisabledEmail = async (email: string, firstName: string) => {
   const transporter = createTransporter();

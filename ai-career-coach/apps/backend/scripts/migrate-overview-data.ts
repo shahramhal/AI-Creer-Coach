@@ -7,7 +7,7 @@
  * Usage:
  *   npx tsx scripts/migrate-overview-data.ts
  *
- * Safe to run multiple times — only updates CVs where overviewData is null.
+ * Safe to run multiple times - only updates CVs where overviewData is null.
  */
 
 import { Prisma, PrismaClient } from '@prisma/client';

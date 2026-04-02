@@ -25,7 +25,7 @@ export function BentoShowcase() {
         </AnimatedSection>
 
         <div className="grid md:grid-cols-2 gap-4">
-          {/* Large card — CV Analysis */}
+          {/* Large card - CV Analysis */}
           <AnimatedElement delay={0} className="md:row-span-2">
             <div className="h-full relative group p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden hover:border-white/[0.1] transition-all duration-500">
               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/[0.05] rounded-full blur-[80px] group-hover:bg-primary/[0.08] transition-colors duration-700" />
@@ -79,7 +79,7 @@ export function BentoShowcase() {
             </div>
           </AnimatedElement>
 
-          {/* Top right — Job Matching */}
+          {/* Top right - Job Matching */}
           <AnimatedElement delay={0.1}>
             <div className="relative group p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden hover:border-white/[0.1] transition-all duration-500">
               <div className="absolute bottom-0 left-0 w-48 h-48 bg-[hsl(280,65%,60%)]/[0.05] rounded-full blur-[60px] group-hover:bg-[hsl(280,65%,60%)]/[0.08] transition-colors duration-700" />
@@ -110,7 +110,7 @@ export function BentoShowcase() {
             </div>
           </AnimatedElement>
 
-          {/* Bottom right — Learning */}
+          {/* Bottom right - Learning */}
           <AnimatedElement delay={0.2}>
             <div className="relative group p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden hover:border-white/[0.1] transition-all duration-500">
               <div className="absolute top-0 right-0 w-48 h-48 bg-[hsl(173,80%,40%)]/[0.05] rounded-full blur-[60px] group-hover:bg-[hsl(173,80%,40%)]/[0.08] transition-colors duration-700" />

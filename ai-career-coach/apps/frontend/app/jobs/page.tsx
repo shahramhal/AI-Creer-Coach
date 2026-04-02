@@ -140,7 +140,7 @@ export default function JobMatchesPage() {
           defaultFilters.min_salary = preferences.salaryMin;
         }
       } catch {
-        // No preferences saved — use default unfiltered mode
+        // No preferences saved - use default unfiltered mode
       }
 
       if (Object.keys(defaultFilters).length > 0) {
@@ -193,7 +193,7 @@ export default function JobMatchesPage() {
 
       const friendlyMessages: Record<MatchingErrorCode, string> = {
         NO_CV: 'No CV found for your account. Please upload your CV first to get personalised job matches.',
-        NO_JOBS: 'No jobs are currently in the database. Check back soon — new listings are added daily.',
+        NO_JOBS: 'No jobs are currently in the database. Check back soon - new listings are added daily.',
         ML_SERVICE_ERROR: 'The matching service is temporarily unavailable. Please try again in a moment.',
         DB_CONNECTION_ERROR: 'A database error occurred. Please retry in a few seconds.',
         AUTH_ERROR: 'Your session has expired. Please log in again.',

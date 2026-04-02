@@ -1,5 +1,5 @@
 """
-Recommendation Engine — Generates prioritized CV improvement recommendations.
+Recommendation Engine - Generates prioritized CV improvement recommendations.
 Based on analysis scores, ATS checks, and keyword gaps.
 """
 

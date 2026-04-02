@@ -37,10 +37,10 @@ vi.mock('mongoose', async (importOriginal) => {
   };
 });
 
-// Import the module — this triggers the schema definition and mongoose.model() call
+// Import the module - this triggers the schema definition and mongoose.model() call
 import { ParsedCV } from './ParsedCV.js';
 
-describe('ParsedCV Mongoose Model — Schema Validation', () => {
+describe('ParsedCV Mongoose Model - Schema Validation', () => {
   it('should register the model with name "ParsedCV"', () => {
     expect(captured.modelName).toBe('ParsedCV');
   });

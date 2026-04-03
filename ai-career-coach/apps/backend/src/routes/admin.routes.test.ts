@@ -2,7 +2,7 @@
 //
 // Integration-style tests verifying that admin routes enforce
 // authenticate + requireAdmin middleware and delegate to the correct handlers.
-// All service dependencies are mocked - no real DB or Redis calls.
+// All service dependencies are mocked — no real DB or Redis calls.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
@@ -12,7 +12,7 @@ import { PrismaClient } from '@prisma/client';
 
 const mockPrismaInstance = new PrismaClient() as any;
 
-// ─── Hoisted mock service instance ────────────────────────────────────────────
+//  Hoisted mock service instance 
 // vi.mock() factories are hoisted to the top of the file by Vitest, so any
 // variables they reference must also be hoisted via vi.hoisted().
 
@@ -56,7 +56,7 @@ const sharedMockAdminServiceInstance = vi.hoisted(() => ({
   getAuditLogs: vi.fn().mockResolvedValue({ logs: [], pagination: {} }),
 }));
 
-// ─── Mock AdminService before importing routes ────────────────────────────────
+//  Mock AdminService before importing routes 
 // Must use `function` (not arrow) so `new AdminService()` works as a constructor.
 
 vi.mock('../services/admin.service.js', () => {
@@ -74,7 +74,7 @@ vi.mock('../utils/audit.util.js', () => ({
 // Import router AFTER mocks are set up
 import adminRouter from './admin.routes.js';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+//  Helpers 
 
 function createTestApp() {
   const testApp = express();
@@ -100,9 +100,9 @@ function buildAdminUserRecord(overrides: Record<string, unknown> = {}) {
   };
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+//  Tests 
 
-describe('Admin Routes - middleware enforcement', () => {
+describe('Admin Routes — middleware enforcement', () => {
   let testApp: express.Application;
 
   beforeEach(() => {
@@ -135,7 +135,7 @@ describe('Admin Routes - middleware enforcement', () => {
     testApp = createTestApp();
   });
 
-  // ─── Authentication guard ──────────────────────────────────────────────────
+  //  Authentication guard 
 
   describe('authentication enforcement', () => {
     it('should return 401 when no Authorization header is provided on GET /admin/dashboard/stats', async () => {
@@ -168,7 +168,7 @@ describe('Admin Routes - middleware enforcement', () => {
     });
   });
 
-  // ─── Admin role guard ──────────────────────────────────────────────────────
+  //  Admin role guard 
 
   describe('admin role enforcement', () => {
     it('should return 403 with ADMIN_REQUIRED when an authenticated USER role accesses GET /admin/dashboard/stats', async () => {
@@ -225,7 +225,7 @@ describe('Admin Routes - middleware enforcement', () => {
     });
   });
 
-  // ─── Successful admin access ───────────────────────────────────────────────
+  //  Successful admin access 
 
   describe('successful admin access', () => {
     it('should return 200 from GET /admin/dashboard/stats for a valid admin user', async () => {

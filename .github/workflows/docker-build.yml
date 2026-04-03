@@ -1,0 +1,180 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ai-career-coach/apps/backend/**'
+      - 'ai-career-coach/apps/frontend/**'
+      - 'ai-career-coach/apps/ml-service/**'
+      - 'ai-career-coach/apps/job-api-service/**'
+      - 'ai-career-coach/docker-compose.yml'
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to build (comma-separated: backend,frontend,ml-service,job-api-service or "all")'
+        required: false
+        default: 'all'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/ai-career-coach
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.check.outputs.backend }}
+      frontend: ${{ steps.check.outputs.frontend }}
+      ml-service: ${{ steps.check.outputs.ml-service }}
+      job-api: ${{ steps.check.outputs.job-api }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Determine services to build
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SERVICES="${{ github.event.inputs.services }}"
+            if [[ "$SERVICES" == "all" ]]; then
+              echo "backend=true" >> $GITHUB_OUTPUT
+              echo "frontend=true" >> $GITHUB_OUTPUT
+              echo "ml-service=true" >> $GITHUB_OUTPUT
+              echo "job-api=true" >> $GITHUB_OUTPUT
+            else
+              echo "backend=$([[ "$SERVICES" == *backend* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+              echo "frontend=$([[ "$SERVICES" == *frontend* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+              echo "ml-service=$([[ "$SERVICES" == *ml-service* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+              echo "job-api=$([[ "$SERVICES" == *job-api* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+            fi
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD)
+            echo "backend=$([[ "$CHANGED" == *apps/backend* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "frontend=$([[ "$CHANGED" == *apps/frontend* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "ml-service=$([[ "$CHANGED" == *apps/ml-service* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "job-api=$([[ "$CHANGED" == *apps/job-api* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          fi
+
+  build-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ai-career-coach/apps/backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend:${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+  build-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ai-career-coach/apps/frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:4000' }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  build-ml-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.ml-service == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ML service
+        uses: docker/build-push-action@v6
+        with:
+          context: ai-career-coach/apps/ml-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-ml-service:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-ml-service:${{ github.sha }}
+          cache-from: type=gha,scope=ml-service
+          cache-to: type=gha,mode=max,scope=ml-service
+
+  build-job-api:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.job-api == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Job API
+        uses: docker/build-push-action@v6
+        with:
+          context: ai-career-coach/apps/job-api-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-job-api:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-job-api:${{ github.sha }}
+          cache-from: type=gha,scope=job-api
+          cache-to: type=gha,mode=max,scope=job-api

@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.turbo
+.env
+.env.*
+*.test.ts
+vitest.config.ts
+src/test-setup.ts
+.claude

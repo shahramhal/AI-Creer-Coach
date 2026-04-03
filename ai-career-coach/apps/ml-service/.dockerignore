@@ -1,37 +1,8 @@
-# Python virtual environment 
-venv/
-env/
-ENV/
-.venv/
-
-# Python cache
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.pytest_cache/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Git
-.git/
-.gitignore
-
-# Test files
-test_*.py
-*_test.py
-tests/
+venv
+__pycache__
+*.pyc
+.env
 *.pdf
-*.docx
+debug_pdfs
 parsed_cv.json
-
-# Node (if any)
-node_modules/
-EOF
+.claude

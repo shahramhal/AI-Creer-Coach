@@ -1,0 +1,81 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [Docker Build & Push]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/ai-career-coach
+
+jobs:
+  deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment || 'staging' }}
+      url: ${{ vars.APP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine deploy target
+        id: target
+        run: |
+          ENV="${{ inputs.environment || 'staging' }}"
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "Deploying to: $ENV"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ vars.DEPLOY_PATH || '/opt/ai-career-coach' }}
+
+            echo "Pulling latest images..."
+            docker compose pull
+
+            echo "Applying database migrations..."
+            docker compose run --rm backend npx prisma migrate deploy
+
+            echo "Restarting services..."
+            docker compose up -d --remove-orphans
+
+            echo "Waiting for health checks..."
+            sleep 10
+
+            echo "Verifying services..."
+            docker compose ps
+
+            echo "Cleaning up old images..."
+            docker image prune -f
+
+      - name: Verify deployment
+        if: vars.APP_URL != ''
+        run: |
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.APP_URL }}" || true)
+            if [[ "$STATUS" == "200" ]]; then
+              echo "Deployment verified - ${{ vars.APP_URL }} returned 200"
+              exit 0
+            fi
+            echo "Attempt $i: got status $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "WARNING: Could not verify deployment (status: $STATUS)"
+          exit 1

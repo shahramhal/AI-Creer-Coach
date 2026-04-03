@@ -1,0 +1,251 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.vscode/**'
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.vscode/**'
+
+defaults:
+  run:
+    working-directory: ai-career-coach
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      ml-service: ${{ steps.filter.outputs.ml-service }}
+      job-api: ${{ steps.filter.outputs.job-api }}
+      shared: ${{ steps.filter.outputs.shared }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'ai-career-coach/apps/backend/**'
+              - 'ai-career-coach/packages/**'
+              - 'ai-career-coach/package.json'
+              - 'ai-career-coach/turbo.json'
+            frontend:
+              - 'ai-career-coach/apps/frontend/**'
+              - 'ai-career-coach/packages/**'
+              - 'ai-career-coach/package.json'
+              - 'ai-career-coach/turbo.json'
+            ml-service:
+              - 'ai-career-coach/apps/ml-service/**'
+            job-api:
+              - 'ai-career-coach/apps/job-api-service/**'
+            shared:
+              - 'ai-career-coach/packages/**'
+              - 'ai-career-coach/package.json'
+              - 'ai-career-coach/turbo.json'
+
+  backend-ci:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ai-career-coach/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+        working-directory: ai-career-coach/apps/backend
+
+      - name: Lint
+        run: npx turbo run lint --filter=backend
+
+      - name: Type check
+        run: npx tsc --noEmit
+        working-directory: ai-career-coach/apps/backend
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        working-directory: ai-career-coach/apps/backend
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: ai-career-coach/apps/backend/coverage/
+          retention-days: 7
+
+      - name: Build
+        run: npm run build
+        working-directory: ai-career-coach/apps/backend
+
+  frontend-ci:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ai-career-coach/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+        working-directory: ai-career-coach/apps/frontend
+
+      - name: Type check
+        run: npx tsc --noEmit
+        working-directory: ai-career-coach/apps/frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: ai-career-coach/apps/frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+
+  ml-service-ci:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.ml-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: ai-career-coach/apps/ml-service/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install --no-cache-dir \
+            --index-url https://download.pytorch.org/whl/cpu \
+            --extra-index-url https://pypi.org/simple \
+            -r requirements.txt
+          python -m spacy download en_core_web_sm
+        working-directory: ai-career-coach/apps/ml-service
+
+      - name: Lint with ruff (non-blocking)
+        continue-on-error: true
+        run: |
+          pip install ruff
+          ruff check . --output-format=github
+        working-directory: ai-career-coach/apps/ml-service
+
+      - name: Verify imports
+        run: python -c "from main import app; print('FastAPI app loaded successfully')"
+        working-directory: ai-career-coach/apps/ml-service
+
+  job-api-ci:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.job-api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: ai-career-coach/apps/job-api-service/requirements.txt
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r requirements.txt
+        working-directory: ai-career-coach/apps/job-api-service
+
+      - name: Lint with ruff (non-blocking)
+        continue-on-error: true
+        run: |
+          pip install ruff
+          ruff check . --output-format=github
+        working-directory: ai-career-coach/apps/job-api-service
+
+      - name: Verify imports
+        run: python -c "from main import app; print('FastAPI app loaded successfully')"
+        working-directory: ai-career-coach/apps/job-api-service
+
+  docker-validate:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.backend == 'true' ||
+      needs.detect-changes.outputs.frontend == 'true' ||
+      needs.detect-changes.outputs.job-api == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            context: ai-career-coach/apps/backend
+          - service: frontend
+            context: ai-career-coach/apps/frontend
+            build-args: NEXT_PUBLIC_API_URL=http://localhost:4000
+          - service: job-api-service
+            context: ai-career-coach/apps/job-api-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Dockerfile (${{ matrix.service }})
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          load: false
+          build-args: ${{ matrix.build-args || '' }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  ci-status:
+    if: always()
+    needs: [backend-ci, frontend-ci, ml-service-ci, job-api-ci, docker-validate]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Check CI results
+        run: |
+          echo "Backend: ${{ needs.backend-ci.result }}"
+          echo "Frontend: ${{ needs.frontend-ci.result }}"
+          echo "ML Service: ${{ needs.ml-service-ci.result }}"
+          echo "Job API: ${{ needs.job-api-ci.result }}"
+          echo "Docker: ${{ needs.docker-validate.result }}"
+
+          if [[ "${{ needs.backend-ci.result }}" == "failure" ]] || \
+             [[ "${{ needs.frontend-ci.result }}" == "failure" ]] || \
+             [[ "${{ needs.ml-service-ci.result }}" == "failure" ]] || \
+             [[ "${{ needs.job-api-ci.result }}" == "failure" ]] || \
+             [[ "${{ needs.docker-validate.result }}" == "failure" ]]; then
+            echo "One or more CI jobs failed"
+            exit 1
+          fi
+          echo "All CI checks passed (or were skipped)"

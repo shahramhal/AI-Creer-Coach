@@ -25,7 +25,8 @@ process.env.MONGODB_URL = 'mongodb://localhost:27017/test';
 process.env.REDIS_HOST = 'localhost';
 process.env.REDIS_PORT = '6379';
 
-// Mock ioredis 
+// Mock ioredis
+// Must use a class (not an arrow function) so `new Redis(...)` works as a constructor.
 vi.mock('ioredis', () => {
   const mockRedisInstance = {
     get: vi.fn().mockResolvedValue(null),
@@ -40,21 +41,25 @@ vi.mock('ioredis', () => {
     status: 'ready',
   };
 
-  const RedisMock = vi.fn().mockImplementation(() => mockRedisInstance);
+  function RedisMock(this: any) {
+    Object.assign(this, mockRedisInstance);
+  }
+
   return { default: RedisMock };
 });
 
-//  Mock Bull queues 
+// Mock Bull queues
+// Must use a named function constructor so `new Bull(...)` works.
 vi.mock('bull', () => {
-  const BullMock = vi.fn().mockImplementation(() => ({
-    add: vi.fn().mockResolvedValue({ id: 'mock-job-id' }),
-    process: vi.fn(),
-    on: vi.fn().mockReturnThis(),
-    close: vi.fn().mockResolvedValue(undefined),
-    getJob: vi.fn().mockResolvedValue(null),
-    getJobs: vi.fn().mockResolvedValue([]),
-    clean: vi.fn().mockResolvedValue([]),
-  }));
+  function BullMock(this: any) {
+    this.add = vi.fn().mockResolvedValue({ id: 'mock-job-id' });
+    this.process = vi.fn();
+    this.on = vi.fn().mockReturnThis();
+    this.close = vi.fn().mockResolvedValue(undefined);
+    this.getJob = vi.fn().mockResolvedValue(null);
+    this.getJobs = vi.fn().mockResolvedValue([]);
+    this.clean = vi.fn().mockResolvedValue([]);
+  }
   return { default: BullMock };
 });
 
@@ -88,9 +93,28 @@ vi.mock('@prisma/client', () => {
       updateMany: vi.fn(),
       delete: vi.fn(),
     },
+    application: {
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      count: vi.fn(),
+      groupBy: vi.fn(),
+    },
+    userActivity: {
+      create: vi.fn(),
+    },
     $connect: vi.fn().mockResolvedValue(undefined),
     $disconnect: vi.fn().mockResolvedValue(undefined),
     $queryRaw: vi.fn().mockResolvedValue([{ 1: 1 }]),
+    $transaction: vi.fn().mockImplementation(async (arg: any) => {
+      if (typeof arg === 'function') {
+        return arg(sharedMockPrismaInstance);
+      }
+      return Promise.all(arg);
+    }),
   };
 
   // Constructor function (not arrow function) so `new PrismaClient()` works

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import fs from 'fs';
+import { promises as fsp } from 'fs';
 import path from 'path';
 import { prisma, cache } from '../config/database.js';
 import { logUserActivity } from '../utils/activity.util.js';
@@ -163,18 +163,18 @@ export class MlService {
     console.log(` Saving to: ${uploadDir}`);
 
     // Create directory
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
+    await fsp.mkdir(uploadDir, { recursive: true });
 
     // Save file
     const filePath = path.join(uploadDir, filename);
-    fs.writeFileSync(filePath, file.buffer);
+    await fsp.writeFile(filePath, file.buffer);
 
     console.log(` File saved: ${filePath}`);
 
     // Verify
-    if (!fs.existsSync(filePath)) {
+    try {
+      await fsp.access(filePath);
+    } catch {
       throw new Error('File save failed');
     }
 

@@ -67,13 +67,15 @@ export class AdminService {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    const users = await prisma.user.findMany({
-      where: { createdAt: { gte: startDate } },
-      select: { createdAt: true },
-      orderBy: { createdAt: 'asc' },
-    });
+    const rows = await prisma.$queryRaw<{ date: string; count: bigint }[]>`
+      SELECT DATE("createdAt")::text AS date, COUNT(*)::bigint AS count
+      FROM "User"
+      WHERE "createdAt" >= ${startDate}
+      GROUP BY DATE("createdAt")
+      ORDER BY DATE("createdAt") ASC
+    `;
 
-    // Group by day
+    // Build a full zero-filled series then merge query results
     const dailyCounts: Record<string, number> = {};
     for (let i = 0; i < days; i++) {
       const date = new Date();
@@ -81,10 +83,9 @@ export class AdminService {
       dailyCounts[date.toISOString().split('T')[0]!] = 0;
     }
 
-    for (const user of users) {
-      const dateKey = user.createdAt.toISOString().split('T')[0];
-      if (dateKey && dailyCounts[dateKey] !== undefined) {
-        dailyCounts[dateKey]++;
+    for (const row of rows) {
+      if (row.date && dailyCounts[row.date] !== undefined) {
+        dailyCounts[row.date] = Number(row.count);
       }
     }
 

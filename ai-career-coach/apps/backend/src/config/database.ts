@@ -228,11 +228,17 @@ class CacheManager {
    */
   async delByPattern(pattern: string): Promise<number> {
     try {
-      const keys = await this.redis.keys(pattern);
-      if (keys.length > 0) {
-        await this.redis.del(...keys);
-      }
-      return keys.length;
+      let cursor = '0';
+      let total = 0;
+      do {
+        const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = nextCursor;
+        if (keys.length > 0) {
+          await this.redis.del(...keys);
+          total += keys.length;
+        }
+      } while (cursor !== '0');
+      return total;
     } catch (error) {
       console.error(`Cache delByPattern error for ${pattern}:`, error);
       return 0;

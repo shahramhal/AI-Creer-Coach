@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import fs from 'fs';
+import { promises as fsp } from 'fs';
 import { MlService } from '../services/ml.service.js';
 
 const mlService = new MlService();
@@ -92,7 +92,9 @@ export const downloadCV = async (req: Request, res: Response, next: NextFunction
     const filePath = await mlService.getCVFilePath(userId, cvId);
 
     console.log(`File path: ${filePath}`);
-    if (!fs.existsSync(filePath)) {
+    try {
+      await fsp.access(filePath);
+    } catch {
       console.log(` File not found!`);
       res.status(404).json({
         success: false,

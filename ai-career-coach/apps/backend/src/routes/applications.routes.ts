@@ -441,7 +441,6 @@ router.post(
       res.status(500).json({
         success: false,
         message: 'Failed to check ATS score',
-        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -544,7 +543,6 @@ router.post(
       res.status(500).json({
         success: false,
         message: 'Failed to preview ATS score',
-        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -685,7 +683,6 @@ router.post(
       res.status(500).json({
         success: false,
         message: 'Failed to calculate ATS score',
-        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }

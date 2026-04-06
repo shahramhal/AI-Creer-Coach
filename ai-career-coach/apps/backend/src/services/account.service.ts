@@ -15,10 +15,14 @@ export class AccountService {
 
     // Delete from Redis cache
     try {
-      const cacheKeys = await redis.keys(`*${userId}*`);
-      if (cacheKeys.length > 0) {
-        await redis.del(...cacheKeys);
-      }
+      let cursor = '0';
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', `*${userId}*`, 'COUNT', 100);
+        cursor = nextCursor;
+        if (keys.length > 0) {
+          await redis.del(...keys);
+        }
+      } while (cursor !== '0');
     } catch (error) {
       console.error('Failed to clear Redis cache for user:', error);
     }

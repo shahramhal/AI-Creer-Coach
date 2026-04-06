@@ -89,25 +89,26 @@ app.use('/api/skill-gap', skillGapRoutes);
 // Dashboard routes
 app.use('/api/dashboard', dashboardRoutes);
 
-// Debug: List all registered routes
-app.get('/api/debug/routes', (req: Request, res: Response) => {
-  const routes: string[] = [];
-  app._router.stack.forEach((middleware: any) => {
-    if (middleware.route) {
-      routes.push(`${Object.keys(middleware.route.methods).join(',')} ${middleware.route.path}`);
-    } else if (middleware.name === 'router') {
-      middleware.handle.stack.forEach((handler: any) => {
-        if (handler.route) {
-          const path = middleware.regexp.toString().includes('matching') ? '/api/matching' :
-                       middleware.regexp.toString().includes('auth') ? '/api/auth' :
-                       middleware.regexp.toString().includes('ml') ? '/api/ml' : '';
-          routes.push(`${Object.keys(handler.route.methods).join(',')} ${path}${handler.route.path}`);
-        }
-      });
-    }
+if (process.env.NODE_ENV === 'development') {
+  app.get('/api/debug/routes', (req: Request, res: Response) => {
+    const routes: string[] = [];
+    app._router.stack.forEach((middleware: any) => {
+      if (middleware.route) {
+        routes.push(`${Object.keys(middleware.route.methods).join(',')} ${middleware.route.path}`);
+      } else if (middleware.name === 'router') {
+        middleware.handle.stack.forEach((handler: any) => {
+          if (handler.route) {
+            const path = middleware.regexp.toString().includes('matching') ? '/api/matching' :
+                         middleware.regexp.toString().includes('auth') ? '/api/auth' :
+                         middleware.regexp.toString().includes('ml') ? '/api/ml' : '';
+            routes.push(`${Object.keys(handler.route.methods).join(',')} ${path}${handler.route.path}`);
+          }
+        });
+      }
+    });
+    res.json({ routes, matchingLoaded: !!matchingRoutes });
   });
-  res.json({ routes, matchingLoaded: !!matchingRoutes });
-});
+}
 
 // Swagger UI
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

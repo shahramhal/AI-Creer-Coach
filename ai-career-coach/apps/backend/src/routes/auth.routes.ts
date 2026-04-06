@@ -1,6 +1,7 @@
 // apps/backend/src/routes/auth.routes.ts
 
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import {
   register,
   login,
@@ -21,27 +22,55 @@ import { authenticate } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-/**
- * Public routes (no authentication required)
- */
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { success: false, message: 'Too many login attempts, please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: { success: false, message: 'Too many accounts created from this IP, please try again after an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 1,
+  message: { success: false, message: 'Too many password reset requests, please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { success: false, message: 'Too many token refresh requests.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // POST /api/auth/register - Register new user
-router.post('/register', registerValidation, register);
+router.post('/register', registerLimiter, registerValidation, register);
 
 // POST /api/auth/login - Login user
-router.post('/login', loginValidation, login);
+router.post('/login', loginLimiter, loginValidation, login);
 
 // GET /api/auth/verify-email?token=xxx - Verify email
 router.get('/verify-email', verifyEmail);
 
 // POST /api/auth/forgot-password - Request password reset
-router.post('/forgot-password', forgotPasswordValidation, forgotPassword);
+router.post('/forgot-password', forgotPasswordLimiter, forgotPasswordValidation, forgotPassword);
 
 // POST /api/auth/reset-password - Reset password with token
 router.post('/reset-password', resetPasswordValidation, resetPassword);
 
 // POST /api/auth/refresh - Refresh access token
-router.post('/refresh', refreshToken);
+router.post('/refresh', refreshLimiter, refreshToken);
 
 /**
  * Protected routes (authentication required)

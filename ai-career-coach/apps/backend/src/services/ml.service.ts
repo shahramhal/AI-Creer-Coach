@@ -92,7 +92,8 @@ export class MlService {
     file: { buffer: Buffer; originalname: string; mimetype: string },
     authHeader?: string
   ): Promise<{ cvId: string; filename: string; parsedData: Record<string, unknown>; createdAt: Date }> {
-    const filename = file.originalname;
+    const safeBasename = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filename = `${Date.now()}-${safeBasename}`;
 
     console.log(` Processing CV: ${filename} for user: ${userId}`);
 

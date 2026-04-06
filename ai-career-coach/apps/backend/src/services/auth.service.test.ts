@@ -210,10 +210,15 @@ describe('AuthService', () => {
     });
 
     it('should mark email as verified and clear the token on success', async () => {
+      const validEmailToken = jwt.sign(
+        { userId: 'user-uuid-verify', email: 'verify@test.com' },
+        process.env.JWT_SECRET!,
+        { expiresIn: '24h' }
+      );
       const userWithVerifyToken = {
         id: 'user-uuid-verify',
         email: 'verify@test.com',
-        emailVerifyToken: 'valid-verify-token',
+        emailVerifyToken: validEmailToken,
         isEmailVerified: false,
       };
 
@@ -224,7 +229,7 @@ describe('AuthService', () => {
         emailVerifyToken: null,
       });
 
-      const verifyEmailResult = await authService.verifyEmail('valid-verify-token');
+      const verifyEmailResult = await authService.verifyEmail(validEmailToken);
 
       expect(verifyEmailResult.message).toContain('Email verified successfully');
       expect(mockPrismaInstance.user.update).toHaveBeenCalledWith(
@@ -293,12 +298,17 @@ describe('AuthService', () => {
     });
 
     it('should update password hash and clear reset token fields on successful reset', async () => {
+      const validResetToken = jwt.sign(
+        { userId: 'user-uuid-pw-reset', email: 'pwreset@test.com' },
+        process.env.JWT_SECRET!,
+        { expiresIn: '1h' }
+      );
       const userWithValidResetToken = {
         id: 'user-uuid-pw-reset',
         email: 'pwreset@test.com',
         passwordHash: 'old-password-hash',
-        resetPasswordToken: 'valid-reset-token',
-        resetPasswordExpires: new Date(Date.now() + 3600000), // 1 hour from now
+        resetPasswordToken: validResetToken,
+        resetPasswordExpires: new Date(Date.now() + 3600000),
       };
 
       mockPrismaInstance.user.findFirst.mockResolvedValue(userWithValidResetToken);
@@ -309,7 +319,7 @@ describe('AuthService', () => {
         resetPasswordExpires: null,
       });
 
-      const resetResult = await authService.resetPassword('valid-reset-token', 'NewPassword123');
+      const resetResult = await authService.resetPassword(validResetToken, 'NewPassword123');
 
       expect(resetResult.message).toContain('Password reset successfully');
       expect(mockPrismaInstance.user.update).toHaveBeenCalledWith(

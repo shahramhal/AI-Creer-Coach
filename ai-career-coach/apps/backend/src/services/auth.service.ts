@@ -8,6 +8,8 @@ import {
   generateEmailVerifyToken,
   generatePasswordResetToken,
   verifyRefreshToken,
+  verifyEmailToken,
+  verifyPasswordResetToken,
 } from '../utils/jwt.util.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/email.util.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
@@ -146,7 +148,13 @@ export class AuthService {
    * Verify email with token
    */
   async verifyEmail(token: string) {
-    // Find user with this token
+    // Verify JWT signature and expiry before touching the database
+    try {
+      verifyEmailToken(token);
+    } catch {
+      throw new AppError('Invalid or expired verification token', 401, ErrorCodes.TOKEN_INVALID);
+    }
+
     const user = await prisma.user.findUnique({
       where: { emailVerifyToken: token },
     });
@@ -207,11 +215,17 @@ export class AuthService {
    * Reset password with token
    */
   async resetPassword(token: string, newPassword: string) {
-    // Find user with valid token
+    // Verify JWT signature and expiry before touching the database
+    try {
+      verifyPasswordResetToken(token);
+    } catch {
+      throw new AppError('Invalid or expired reset token', 401, ErrorCodes.TOKEN_INVALID);
+    }
+
     const user = await prisma.user.findFirst({
       where: {
         resetPasswordToken: token,
-        resetPasswordExpires: { gte: new Date() }, // Token not expired
+        resetPasswordExpires: { gte: new Date() },
       },
     });
 

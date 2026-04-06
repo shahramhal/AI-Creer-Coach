@@ -110,6 +110,38 @@ export const generateEmailVerifyToken = (payload: TokenPayload): string => {
 };
 
 /**
+ * Verifies an email verification token and returns its payload.
+ * Throws if the token is invalid or expired.
+ */
+export const verifyEmailToken = (token: string): DecodedToken => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET not configured');
+  try {
+    return jwt.verify(token, secret) as DecodedToken;
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) throw new Error('Verification token expired');
+    if (error instanceof jwt.JsonWebTokenError) throw new Error('Invalid verification token');
+    throw error;
+  }
+};
+
+/**
+ * Verifies a password reset token and returns its payload.
+ * Throws if the token is invalid or expired.
+ */
+export const verifyPasswordResetToken = (token: string): DecodedToken => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET not configured');
+  try {
+    return jwt.verify(token, secret) as DecodedToken;
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) throw new Error('Reset token expired');
+    if (error instanceof jwt.JsonWebTokenError) throw new Error('Invalid reset token');
+    throw error;
+  }
+};
+
+/**
  * Generates password reset token (1h expiry)
  */
 export const generatePasswordResetToken = (payload: TokenPayload): string => {

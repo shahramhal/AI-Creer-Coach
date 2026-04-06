@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { prisma, cache } from '../config/database.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
+import { type IParsedCV } from '../models/ParsedCV.js';
 
 const ADZUNA_BASE_URL = 'https://api.adzuna.com/v1/api';
 const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID || '';
@@ -713,11 +714,11 @@ export class SalaryService {
 
     // Fetch user CV data from MongoDB
     let cvSkills: string[] = [];
-    let cvExperience: any[] = [];
-    let cvEducation: any[] = [];
+    let cvExperience: IParsedCV['experience'] = [];
+    let cvEducation: IParsedCV['education'] = [];
 
     if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
-      const cvCollection = mongoose.connection.db.collection('parsed_cvs');
+      const cvCollection = mongoose.connection.db.collection<IParsedCV>('parsed_cvs');
       const userCV = await cvCollection.findOne(
         { user_id: userId },
         { sort: { created_at: -1 } }

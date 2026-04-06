@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { cache } from '../config/database.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
+import { type IParsedCV } from '../models/ParsedCV.js';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
 
@@ -43,30 +44,7 @@ interface JobDocument {
   expiration_date?: string;
 }
 
-interface CVDocument {
-  user_id: string;
-  cv_id?: string;
-  raw_text?: string;
-  metadata?: {
-    raw_text?: string;
-  };
-  personal_info?: {
-    name?: string;
-  };
-  summary?: string;
-  skills?: string[];
-  experience?: Array<{
-    title?: string;
-    company?: string;
-    description?: string;
-  }>;
-  education?: Array<{
-    degree?: string;
-    institution?: string;
-    field?: string;
-  }>;
-  created_at?: Date;
-}
+type CVDocument = IParsedCV;
 
 export interface FindJobMatchesResult {
   matched_jobs: any[];

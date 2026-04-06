@@ -7,7 +7,7 @@ export class AccountService {
     try {
       const mongoDb = mongoose.connection.db;
       if (mongoDb) {
-        await mongoDb.collection('parsed_cvs').deleteMany({ userId });
+        await mongoDb.collection('parsed_cvs').deleteMany({ user_id: userId });
       }
     } catch (error) {
       console.error('Failed to delete MongoDB data for user:', error);

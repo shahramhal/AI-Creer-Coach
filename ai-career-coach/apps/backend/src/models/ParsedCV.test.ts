@@ -1,12 +1,5 @@
-// apps/backend/src/models/ParsedCV.test.ts
-//
-// Strategy: Override the global mongoose mock with a partial mock that uses the
-// REAL Schema class but stubs out mongoose.model() to capture the schema argument.
-// This lets us test the actual schema definition without hitting MongoDB.
-
 import { describe, it, expect, vi } from 'vitest';
 
-// Use vi.hoisted() so these are initialized before the vi.mock factory runs
 const captured = vi.hoisted(() => ({ schema: null as any, modelName: '' }));
 
 vi.mock('mongoose', async (importOriginal) => {
@@ -15,12 +8,11 @@ vi.mock('mongoose', async (importOriginal) => {
     default: {
       ...realMongoose,
       Schema: realMongoose.Schema,
+      models: {},
       model: vi.fn((name: string, schema: any) => {
         captured.modelName = name;
         captured.schema = schema;
-        // Return a minimal model-like constructor backed by the real schema
-        const ModelConstructor = realMongoose.model(name, schema);
-        return ModelConstructor;
+        return realMongoose.model(name, schema);
       }),
       connection: {
         readyState: 1,
@@ -37,7 +29,6 @@ vi.mock('mongoose', async (importOriginal) => {
   };
 });
 
-// Import the module - this triggers the schema definition and mongoose.model() call
 import { ParsedCV } from './ParsedCV.js';
 
 describe('ParsedCV Mongoose Model - Schema Validation', () => {
@@ -45,101 +36,124 @@ describe('ParsedCV Mongoose Model - Schema Validation', () => {
     expect(captured.modelName).toBe('ParsedCV');
   });
 
-  it('should define userId as a required String field', () => {
-    const userIdPath = captured.schema.path('userId');
-    expect(userIdPath).toBeDefined();
-    expect(userIdPath.instance).toBe('String');
-    expect(userIdPath.isRequired).toBe(true);
+  it('should define user_id as a required String field', () => {
+    const path = captured.schema.path('user_id');
+    expect(path).toBeDefined();
+    expect(path.instance).toBe('String');
+    expect(path.isRequired).toBe(true);
   });
 
-  it('should define cvId as an optional String field', () => {
-    const cvIdPath = captured.schema.path('cvId');
-    expect(cvIdPath).toBeDefined();
-    expect(cvIdPath.instance).toBe('String');
-    expect(cvIdPath.isRequired).toBeFalsy();
+  it('should define cv_id as an optional String field', () => {
+    const path = captured.schema.path('cv_id');
+    expect(path).toBeDefined();
+    expect(path.instance).toBe('String');
+    expect(path.isRequired).toBeFalsy();
   });
 
   it('should define filename as a String field', () => {
-    const filenamePath = captured.schema.path('filename');
-    expect(filenamePath).toBeDefined();
-    expect(filenamePath.instance).toBe('String');
+    const path = captured.schema.path('filename');
+    expect(path).toBeDefined();
+    expect(path.instance).toBe('String');
   });
 
-  it('should define contact_info subdocument with name, email, phone, location', () => {
+  it('should define raw_text as a String field', () => {
+    const path = captured.schema.path('raw_text');
+    expect(path).toBeDefined();
+    expect(path.instance).toBe('String');
+  });
+
+  it('should define contact_info subdocument with extended fields', () => {
     expect(captured.schema.path('contact_info.name')).toBeDefined();
     expect(captured.schema.path('contact_info.email')).toBeDefined();
     expect(captured.schema.path('contact_info.phone')).toBeDefined();
     expect(captured.schema.path('contact_info.location')).toBeDefined();
+    expect(captured.schema.path('contact_info.linkedin')).toBeDefined();
+    expect(captured.schema.path('contact_info.github')).toBeDefined();
+    expect(captured.schema.path('contact_info.website')).toBeDefined();
   });
 
   it('should define skills as an Array', () => {
-    const skillsPath = captured.schema.path('skills');
-    expect(skillsPath).toBeDefined();
-    expect(skillsPath.instance).toBe('Array');
+    const path = captured.schema.path('skills');
+    expect(path).toBeDefined();
+    expect(path.instance).toBe('Array');
   });
 
-  it('should define experience as an Array with nested title, company, location, dates, responsibilities', () => {
-    const experiencePath = captured.schema.path('experience');
-    expect(experiencePath).toBeDefined();
-    expect(experiencePath.instance).toBe('Array');
+  it('should define experience as an Array with all expected nested fields', () => {
+    const path = captured.schema.path('experience');
+    expect(path).toBeDefined();
+    expect(path.instance).toBe('Array');
 
-    const experienceSchema = experiencePath.schema;
-    expect(experienceSchema.path('title')).toBeDefined();
-    expect(experienceSchema.path('company')).toBeDefined();
-    expect(experienceSchema.path('location')).toBeDefined();
-    expect(experienceSchema.path('dates')).toBeDefined();
-    expect(experienceSchema.path('responsibilities')).toBeDefined();
+    const expSchema = path.schema;
+    expect(expSchema.path('title')).toBeDefined();
+    expect(expSchema.path('company')).toBeDefined();
+    expect(expSchema.path('location')).toBeDefined();
+    expect(expSchema.path('dates')).toBeDefined();
+    expect(expSchema.path('startDate')).toBeDefined();
+    expect(expSchema.path('endDate')).toBeDefined();
+    expect(expSchema.path('responsibilities')).toBeDefined();
+    expect(expSchema.path('achievements')).toBeDefined();
+    expect(expSchema.path('description')).toBeDefined();
   });
 
-  it('should define education as an Array with nested degree, field, institution, location, dates', () => {
-    const educationPath = captured.schema.path('education');
-    expect(educationPath).toBeDefined();
-    expect(educationPath.instance).toBe('Array');
+  it('should define education as an Array with all expected nested fields', () => {
+    const path = captured.schema.path('education');
+    expect(path).toBeDefined();
+    expect(path.instance).toBe('Array');
 
-    const educationSchema = educationPath.schema;
-    expect(educationSchema.path('degree')).toBeDefined();
-    expect(educationSchema.path('field')).toBeDefined();
-    expect(educationSchema.path('institution')).toBeDefined();
-    expect(educationSchema.path('location')).toBeDefined();
-    expect(educationSchema.path('dates')).toBeDefined();
+    const eduSchema = path.schema;
+    expect(eduSchema.path('degree')).toBeDefined();
+    expect(eduSchema.path('field')).toBeDefined();
+    expect(eduSchema.path('institution')).toBeDefined();
+    expect(eduSchema.path('location')).toBeDefined();
+    expect(eduSchema.path('dates')).toBeDefined();
+    expect(eduSchema.path('startDate')).toBeDefined();
+    expect(eduSchema.path('endDate')).toBeDefined();
+    expect(eduSchema.path('gpa')).toBeDefined();
+  });
+
+  it('should define certifications, languages, and projects as Arrays', () => {
+    expect(captured.schema.path('certifications').instance).toBe('Array');
+    expect(captured.schema.path('languages').instance).toBe('Array');
+    expect(captured.schema.path('projects').instance).toBe('Array');
   });
 
   it('should define summary as an optional String field', () => {
-    const summaryPath = captured.schema.path('summary');
-    expect(summaryPath).toBeDefined();
-    expect(summaryPath.instance).toBe('String');
-    expect(summaryPath.isRequired).toBeFalsy();
+    const path = captured.schema.path('summary');
+    expect(path).toBeDefined();
+    expect(path.instance).toBe('String');
+    expect(path.isRequired).toBeFalsy();
   });
 
-  it('should define parsedAt as a Date field with a default value', () => {
-    const parsedAtPath = captured.schema.path('parsedAt');
-    expect(parsedAtPath).toBeDefined();
-    expect(parsedAtPath.instance).toBe('Date');
-    expect(parsedAtPath.defaultValue).toBeDefined();
+  it('should define created_at as a Date field with a default value', () => {
+    const path = captured.schema.path('created_at');
+    expect(path).toBeDefined();
+    expect(path.instance).toBe('Date');
+    expect(path.defaultValue).toBeDefined();
   });
 
-  it('should have timestamps enabled (createdAt, updatedAt)', () => {
-    expect(captured.schema.options.timestamps).toBe(true);
+  it('should not have automatic timestamps (uses created_at manually)', () => {
+    expect(captured.schema.options.timestamps).toBeFalsy();
   });
 
-  it('should reject a document missing the required userId field', () => {
-    const invalidDocument = new ParsedCV({
+  it('should target the parsed_cvs collection', () => {
+    expect(captured.schema.options.collection).toBe('parsed_cvs');
+  });
+
+  it('should reject a document missing the required user_id field', () => {
+    const doc = new ParsedCV({
       filename: 'test.pdf',
-      contact_info: { name: 'John' },
       skills: [],
-      experience: [],
-      education: [],
     });
-
-    const validationError = invalidDocument.validateSync();
-    expect(validationError).toBeDefined();
-    expect(validationError!.errors.userId).toBeDefined();
+    const err = doc.validateSync();
+    expect(err).toBeDefined();
+    expect(err!.errors.user_id).toBeDefined();
   });
 
   it('should accept a valid document with all required fields', () => {
-    const validDocument = new ParsedCV({
-      userId: 'user-uuid-123',
+    const doc = new ParsedCV({
+      user_id: 'user-uuid-123',
       filename: 'resume.pdf',
+      raw_text: 'John Doe, Software Engineer',
       contact_info: { name: 'Jane Doe', email: 'jane@example.com' },
       skills: ['JavaScript', 'TypeScript'],
       experience: [{
@@ -159,7 +173,7 @@ describe('ParsedCV Mongoose Model - Schema Validation', () => {
       summary: 'Experienced engineer',
     });
 
-    const validationError = validDocument.validateSync();
-    expect(validationError).toBeUndefined();
+    const err = doc.validateSync();
+    expect(err).toBeUndefined();
   });
 });

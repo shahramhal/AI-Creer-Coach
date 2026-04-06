@@ -2,20 +2,13 @@ import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { SkillGapService } from '../services/skillGap.service.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
+import { type IParsedCV } from '../models/ParsedCV.js';
 
 const skillGapService = new SkillGapService();
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-interface CVDocument {
-  user_id: string;
-  raw_text?: string;
-  metadata?: { raw_text?: string };
-  skills?: string[];
-  experience?: Array<{ title?: string; company?: string; description?: string }>;
-  education?: Array<{ degree?: string; institution?: string; field?: string }>;
-  summary?: string;
-}
+type CVDocument = IParsedCV;
 
 async function fetchUserCV(userId: string): Promise<CVDocument | null> {
   if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) return null;

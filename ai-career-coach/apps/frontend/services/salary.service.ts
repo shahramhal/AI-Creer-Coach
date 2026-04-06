@@ -14,12 +14,12 @@ class SalaryService {
       location,
       country,
     });
-    const response = await api.get(`/api/salary/insights?${params}`);
+    const response = await api.get(`/api/v1/salary/insights?${params}`);
     return response.data;
   }
 
   async savePreferences(jobTitle: string, location?: string): Promise<void> {
-    await api.patch('/api/salary/preferences', {
+    await api.patch('/api/v1/salary/preferences', {
       jobTitle,
       location,
     });

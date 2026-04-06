@@ -57,7 +57,7 @@ export default function AvatarUpload({ currentAvatar, onUpload }: AvatarUploadPr
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const response = await api.post('/api/profile/avatar', formData, {
+      const response = await api.post('/api/v1/profile/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       onUpload(response.data.data.avatarUrl);
@@ -81,7 +81,7 @@ export default function AvatarUpload({ currentAvatar, onUpload }: AvatarUploadPr
     setError(null);
 
     try {
-      await api.delete('/api/profile/avatar');
+      await api.delete('/api/v1/profile/avatar');
       setPreview(null);
       onUpload('');
     } catch (err: unknown) {

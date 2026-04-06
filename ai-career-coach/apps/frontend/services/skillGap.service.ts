@@ -8,7 +8,7 @@ import type {
 
 class SkillGapServiceClient {
   async analyze(targetRole?: string, targetJobDescription?: string): Promise<SkillGapResponse> {
-    const response = await api.post('/api/skill-gap/analyze', {
+    const response = await api.post('/api/v1/skill-gap/analyze', {
       targetRole,
       targetJobDescription,
     });
@@ -16,12 +16,12 @@ class SkillGapServiceClient {
   }
 
   async getLearningPaths(): Promise<LearningPathsResponse> {
-    const response = await api.get('/api/skill-gap/learning-paths');
+    const response = await api.get('/api/v1/skill-gap/learning-paths');
     return response.data;
   }
 
   async getLearningPathDetails(learningPathId: string): Promise<{ success: boolean; data: LearningPathRecord }> {
-    const response = await api.get(`/api/skill-gap/learning-paths/${learningPathId}`);
+    const response = await api.get(`/api/v1/skill-gap/learning-paths/${learningPathId}`);
     return response.data;
   }
 
@@ -29,7 +29,7 @@ class SkillGapServiceClient {
     learningPathId: string,
     progressPercentage: number,
   ): Promise<{ success: boolean; data: LearningPathRecord }> {
-    const response = await api.patch(`/api/skill-gap/learning-paths/${learningPathId}/progress`, {
+    const response = await api.patch(`/api/v1/skill-gap/learning-paths/${learningPathId}/progress`, {
       progressPercentage,
     });
     return response.data;
@@ -40,7 +40,7 @@ class SkillGapServiceClient {
     progress: number,
     status: string,
   ): Promise<{ success: boolean; data: any }> {
-    const response = await api.patch(`/api/skill-gap/courses/${courseId}/progress`, {
+    const response = await api.patch(`/api/v1/skill-gap/courses/${courseId}/progress`, {
       progress,
       status,
     });
@@ -48,7 +48,7 @@ class SkillGapServiceClient {
   }
 
   async getProgressSummary(): Promise<ProgressSummaryResponse> {
-    const response = await api.get('/api/skill-gap/summary');
+    const response = await api.get('/api/v1/skill-gap/summary');
     return response.data;
   }
 }

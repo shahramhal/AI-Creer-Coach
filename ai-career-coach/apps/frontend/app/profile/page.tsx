@@ -34,7 +34,7 @@ export default function ProfilePage() {
     if (!user) return;
 
     try {
-      const response = await api.get(`/api/profile/${user.id}`);
+      const response = await api.get(`/api/v1/profile/${user.id}`);
       setProfile(response.data.data);
     } catch (error) {
       console.error('Failed to load profile:', error);

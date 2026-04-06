@@ -5,11 +5,11 @@ import api from '../library/api';
 class AdminService {
   // Dashboard
   getDashboardStats() {
-    return api.get('/api/admin/dashboard/stats');
+    return api.get('/api/v1/admin/dashboard/stats');
   }
 
   getUserGrowthTrend(days: number = 30) {
-    return api.get(`/api/admin/dashboard/user-growth?days=${days}`);
+    return api.get(`/api/v1/admin/dashboard/user-growth?days=${days}`);
   }
 
   // User Management
@@ -28,31 +28,31 @@ class AdminService {
     if (params.role) searchParams.set('role', params.role);
     if (params.sortBy) searchParams.set('sortBy', params.sortBy);
     if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
-    return api.get(`/api/admin/users?${searchParams.toString()}`);
+    return api.get(`/api/v1/admin/users?${searchParams.toString()}`);
   }
 
   getUserDetail(userId: string) {
-    return api.get(`/api/admin/users/${userId}`);
+    return api.get(`/api/v1/admin/users/${userId}`);
   }
 
   toggleUserStatus(userId: string, disabled: boolean) {
-    return api.patch(`/api/admin/users/${userId}/status`, { disabled });
+    return api.patch(`/api/v1/admin/users/${userId}/status`, { disabled });
   }
 
   promoteUser(userId: string) {
-    return api.post(`/api/admin/users/${userId}/promote`);
+    return api.post(`/api/v1/admin/users/${userId}/promote`);
   }
 
   demoteUser(userId: string) {
-    return api.post(`/api/admin/users/${userId}/demote`);
+    return api.post(`/api/v1/admin/users/${userId}/demote`);
   }
 
   forceResetPassword(userId: string) {
-    return api.post(`/api/admin/users/${userId}/force-reset-password`);
+    return api.post(`/api/v1/admin/users/${userId}/force-reset-password`);
   }
 
   deleteUser(userId: string) {
-    return api.delete(`/api/admin/users/${userId}`);
+    return api.delete(`/api/v1/admin/users/${userId}`);
   }
 
   // Job Management
@@ -71,40 +71,40 @@ class AdminService {
     if (params.country) searchParams.set('country', params.country);
     if (params.sortBy) searchParams.set('sortBy', params.sortBy);
     if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
-    return api.get(`/api/admin/jobs?${searchParams.toString()}`);
+    return api.get(`/api/v1/admin/jobs?${searchParams.toString()}`);
   }
 
   getJobStats() {
-    return api.get('/api/admin/jobs/stats');
+    return api.get('/api/v1/admin/jobs/stats');
   }
 
   triggerJobFetch(data: { keywords: string; country: string; location?: string }) {
-    return api.post('/api/admin/jobs/fetch', data);
+    return api.post('/api/v1/admin/jobs/fetch', data);
   }
 
   triggerJobCleanup() {
-    return api.post('/api/admin/jobs/cleanup');
+    return api.post('/api/v1/admin/jobs/cleanup');
   }
 
   deleteJob(jobId: string) {
-    return api.delete(`/api/admin/jobs/${jobId}`);
+    return api.delete(`/api/v1/admin/jobs/${jobId}`);
   }
 
   // System
   getServiceHealth() {
-    return api.get('/api/admin/system/health');
+    return api.get('/api/v1/admin/system/health');
   }
 
   getCacheStats() {
-    return api.get('/api/admin/system/cache');
+    return api.get('/api/v1/admin/system/cache');
   }
 
   getQueueStatus() {
-    return api.get('/api/admin/system/queues');
+    return api.get('/api/v1/admin/system/queues');
   }
 
   getDatabaseStats() {
-    return api.get('/api/admin/system/database');
+    return api.get('/api/v1/admin/system/database');
   }
 
   // Audit Logs
@@ -113,7 +113,7 @@ class AdminService {
     if (params.page) searchParams.set('page', String(params.page));
     if (params.limit) searchParams.set('limit', String(params.limit));
     if (params.action) searchParams.set('action', params.action);
-    return api.get(`/api/admin/audit-logs?${searchParams.toString()}`);
+    return api.get(`/api/v1/admin/audit-logs?${searchParams.toString()}`);
   }
 }
 

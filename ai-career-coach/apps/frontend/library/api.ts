@@ -35,7 +35,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    const skipRefreshEndpoints = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh'];
+    const skipRefreshEndpoints = ['/api/v1/auth/login', '/api/v1/auth/register', '/api/v1/auth/refresh'];
     const shouldSkipRefresh = skipRefreshEndpoints.some((endpoint) =>
       originalRequest.url?.includes(endpoint)
     );
@@ -82,25 +82,25 @@ export const authAPI = {
     password: string;
     firstName?: string;
     lastName?: string;
-  }) => api.post('/api/auth/register', data),
+  }) => api.post('/api/v1/auth/register', data),
 
   login: (email: string, password: string) =>
-    api.post('/api/auth/login', { email, password }),
+    api.post('/api/v1/auth/login', { email, password }),
 
-  logout: () => api.post('/api/auth/logout'),
+  logout: () => api.post('/api/v1/auth/logout'),
 
   verifyEmail: (token: string) =>
-    api.get(`/api/auth/verify-email?token=${token}`),
+    api.get(`/api/v1/auth/verify-email?token=${token}`),
 
   forgotPassword: (email: string) =>
-    api.post('/api/auth/forgot-password', { email }),
+    api.post('/api/v1/auth/forgot-password', { email }),
 
   resetPassword: (token: string, password: string) =>
-    api.post('/api/auth/reset-password', { token, password }),
+    api.post('/api/v1/auth/reset-password', { token, password }),
 
-  getCurrentUser: () => api.get('/api/auth/me'),
+  getCurrentUser: () => api.get('/api/v1/auth/me'),
 
-  refreshToken: () => api.post('/api/auth/refresh'),
+  refreshToken: () => api.post('/api/v1/auth/refresh'),
 };
 
 export default api;

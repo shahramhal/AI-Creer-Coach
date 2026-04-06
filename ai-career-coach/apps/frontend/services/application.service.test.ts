@@ -49,7 +49,7 @@ describe('ApplicationService', () => {
 
       const result = await applicationService.getApplications();
 
-      expect(mockApi.get).toHaveBeenCalledWith('/api/applications', { params: undefined });
+      expect(mockApi.get).toHaveBeenCalledWith('/api/v1/applications', { params: undefined });
       expect(result).toEqual(expectedResponse);
     });
 
@@ -59,7 +59,7 @@ describe('ApplicationService', () => {
 
       await applicationService.getApplications('interview');
 
-      expect(mockApi.get).toHaveBeenCalledWith('/api/applications', {
+      expect(mockApi.get).toHaveBeenCalledWith('/api/v1/applications', {
         params: { status: 'interview' },
       });
     });
@@ -86,7 +86,7 @@ describe('ApplicationService', () => {
 
       const result = await applicationService.getStats();
 
-      expect(mockApi.get).toHaveBeenCalledWith('/api/applications/stats');
+      expect(mockApi.get).toHaveBeenCalledWith('/api/v1/applications/stats');
       expect(result.data.total).toBe(5);
       expect(result.data.responseRate).toBe(40);
     });
@@ -100,7 +100,7 @@ describe('ApplicationService', () => {
 
       const result = await applicationService.createApplication(createPayload);
 
-      expect(mockApi.post).toHaveBeenCalledWith('/api/applications', createPayload);
+      expect(mockApi.post).toHaveBeenCalledWith('/api/v1/applications', createPayload);
       expect(result.success).toBe(true);
     });
 
@@ -116,7 +116,7 @@ describe('ApplicationService', () => {
 
       await applicationService.createApplication(createPayloadWithExtras);
 
-      expect(mockApi.post).toHaveBeenCalledWith('/api/applications', createPayloadWithExtras);
+      expect(mockApi.post).toHaveBeenCalledWith('/api/v1/applications', createPayloadWithExtras);
     });
   });
 
@@ -131,7 +131,7 @@ describe('ApplicationService', () => {
       const result = await applicationService.updateStatus(applicationId, newStatus);
 
       expect(mockApi.patch).toHaveBeenCalledWith(
-        `/api/applications/${applicationId}/status`,
+        `/api/v1/applications/${applicationId}/status`,
         { status: newStatus }
       );
       expect(result.success).toBe(true);
@@ -145,7 +145,7 @@ describe('ApplicationService', () => {
 
       const result = await applicationService.deleteApplication(applicationId);
 
-      expect(mockApi.delete).toHaveBeenCalledWith(`/api/applications/${applicationId}`);
+      expect(mockApi.delete).toHaveBeenCalledWith(`/api/v1/applications/${applicationId}`);
       expect(result.success).toBe(true);
     });
   });

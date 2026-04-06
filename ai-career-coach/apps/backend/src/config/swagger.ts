@@ -18,7 +18,7 @@ const options: swaggerJsdoc.Options = {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
-          description: 'Access token obtained from POST /api/auth/login',
+          description: 'Access token obtained from POST /api/v1/auth/login',
         },
       },
       schemas: {
@@ -214,7 +214,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'System', description: 'Health and debug endpoints' },
     ],
     paths: {
-      '/api/auth/register': {
+      '/api/v1/auth/register': {
         post: {
           tags: ['Auth'],
           summary: 'Register a new user',
@@ -270,7 +270,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/auth/login': {
+      '/api/v1/auth/login': {
         post: {
           tags: ['Auth'],
           summary: 'Login and receive access token',
@@ -320,7 +320,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/auth/verify-email': {
+      '/api/v1/auth/verify-email': {
         get: {
           tags: ['Auth'],
           summary: 'Verify email address',
@@ -339,7 +339,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/auth/forgot-password': {
+      '/api/v1/auth/forgot-password': {
         post: {
           tags: ['Auth'],
           summary: 'Request a password reset email',
@@ -363,7 +363,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/auth/reset-password': {
+      '/api/v1/auth/reset-password': {
         post: {
           tags: ['Auth'],
           summary: 'Reset password using token from email',
@@ -393,7 +393,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/auth/refresh': {
+      '/api/v1/auth/refresh': {
         post: {
           tags: ['Auth'],
           summary: 'Refresh access token',
@@ -424,7 +424,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/auth/logout': {
+      '/api/v1/auth/logout': {
         post: {
           tags: ['Auth'],
           summary: 'Logout (clears refresh token cookie)',
@@ -435,7 +435,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/auth/me': {
+      '/api/v1/auth/me': {
         get: {
           tags: ['Auth'],
           summary: 'Get currently authenticated user',
@@ -462,7 +462,7 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      '/api/profile/preferences': {
+      '/api/v1/profile/preferences': {
         get: {
           tags: ['Profile'],
           summary: 'Get career preferences',
@@ -527,7 +527,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/profile/export': {
+      '/api/v1/profile/export': {
         get: {
           tags: ['Profile'],
           summary: 'Export all user data (GDPR)',
@@ -538,7 +538,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/profile/account': {
+      '/api/v1/profile/account': {
         delete: {
           tags: ['Profile'],
           summary: 'Delete user account permanently',
@@ -549,7 +549,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/profile': {
+      '/api/v1/profile': {
         put: {
           tags: ['Profile'],
           summary: 'Update profile fields',
@@ -596,7 +596,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/profile/avatar': {
+      '/api/v1/profile/avatar': {
         post: {
           tags: ['Profile'],
           summary: 'Upload profile avatar',
@@ -635,7 +635,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/profile/{userId}': {
+      '/api/v1/profile/{userId}': {
         get: {
           tags: ['Profile'],
           summary: 'Get public profile by user ID',
@@ -678,7 +678,7 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      '/api/ml/parse-cv': {
+      '/api/v1/ml/parse-cv': {
         post: {
           tags: ['CV'],
           summary: 'Upload and parse a CV file',
@@ -725,7 +725,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/ml/cvs': {
+      '/api/v1/ml/cvs': {
         get: {
           tags: ['CV'],
           summary: 'List all CVs for the authenticated user',
@@ -753,7 +753,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/ml/cvs/{cvId}': {
+      '/api/v1/ml/cvs/{cvId}': {
         get: {
           tags: ['CV'],
           summary: 'Get a single CV with parsed data',
@@ -788,7 +788,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/ml/cvs/{cvId}/primary': {
+      '/api/v1/ml/cvs/{cvId}/primary': {
         patch: {
           tags: ['CV'],
           summary: 'Set a CV as the primary CV',
@@ -803,7 +803,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/ml/cvs/{cvId}/download': {
+      '/api/v1/ml/cvs/{cvId}/download': {
         get: {
           tags: ['CV'],
           summary: 'Download original CV file',
@@ -818,7 +818,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/ml/cvs/{cvId}/analyze': {
+      '/api/v1/ml/cvs/{cvId}/analyze': {
         post: {
           tags: ['CV'],
           summary: 'Trigger full CV analysis (ATS + quality scoring)',
@@ -842,7 +842,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/ml/health': {
+      '/api/v1/ml/health': {
         get: {
           tags: ['System'],
           summary: 'ML service health check (no auth required)',
@@ -852,7 +852,7 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      '/api/jobs/search': {
+      '/api/v1/jobs/search': {
         get: {
           tags: ['Jobs'],
           summary: 'Search jobs by keywords and location',
@@ -886,7 +886,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/jobs/stats': {
+      '/api/v1/jobs/stats': {
         get: {
           tags: ['Jobs'],
           summary: 'Job database statistics',
@@ -899,7 +899,7 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      '/api/matching/find-jobs': {
+      '/api/v1/matching/find-jobs': {
         post: {
           tags: ['Matching'],
           summary: 'Get personalised job recommendations',
@@ -952,7 +952,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/matching/diagnostics': {
+      '/api/v1/matching/diagnostics': {
         get: {
           tags: ['Matching'],
           summary: 'Diagnostics for troubleshooting matching issues',
@@ -965,7 +965,7 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      '/api/applications/ats-check': {
+      '/api/v1/applications/ats-check': {
         post: {
           tags: ['Applications'],
           summary: 'Check ATS score against a pasted job description',
@@ -1017,7 +1017,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/applications/jobs/{jobId}/ats-preview': {
+      '/api/v1/applications/jobs/{jobId}/ats-preview': {
         post: {
           tags: ['Applications'],
           summary: 'Preview ATS score for a job in the database',
@@ -1065,7 +1065,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/applications/{applicationId}/ats-score': {
+      '/api/v1/applications/{applicationId}/ats-score': {
         post: {
           tags: ['Applications'],
           summary: 'Calculate and persist ATS score for an application',
@@ -1119,7 +1119,7 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      '/api/salary/insights': {
+      '/api/v1/salary/insights': {
         get: {
           tags: ['Salary'],
           summary: 'Get salary insights for the user',
@@ -1136,7 +1136,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/salary/preferences': {
+      '/api/v1/salary/preferences': {
         patch: {
           tags: ['Salary'],
           summary: 'Save salary preferences for future insight queries',
@@ -1167,7 +1167,7 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      '/api/skill-gap/analyze': {
+      '/api/v1/skill-gap/analyze': {
         post: {
           tags: ['Skill Gap'],
           summary: 'Analyse skill gap for a target role',
@@ -1199,7 +1199,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/skill-gap/learning-paths': {
+      '/api/v1/skill-gap/learning-paths': {
         get: {
           tags: ['Skill Gap'],
           summary: "List the user's learning paths",
@@ -1230,7 +1230,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/skill-gap/learning-paths/{learningPathId}': {
+      '/api/v1/skill-gap/learning-paths/{learningPathId}': {
         get: {
           tags: ['Skill Gap'],
           summary: 'Get learning path details with course list',
@@ -1250,7 +1250,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/skill-gap/learning-paths/{learningPathId}/progress': {
+      '/api/v1/skill-gap/learning-paths/{learningPathId}/progress': {
         patch: {
           tags: ['Skill Gap'],
           summary: 'Update learning path progress',
@@ -1287,7 +1287,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/skill-gap/courses/{courseId}/progress': {
+      '/api/v1/skill-gap/courses/{courseId}/progress': {
         patch: {
           tags: ['Skill Gap'],
           summary: 'Update course enrollment progress',
@@ -1324,7 +1324,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/skill-gap/summary': {
+      '/api/v1/skill-gap/summary': {
         get: {
           tags: ['Skill Gap'],
           summary: 'Progress summary across all learning paths',
@@ -1336,7 +1336,7 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      '/api/dashboard/recent-activity': {
+      '/api/v1/dashboard/recent-activity': {
         get: {
           tags: ['Dashboard'],
           summary: 'Get recent user activity feed',
@@ -1376,7 +1376,7 @@ const options: swaggerJsdoc.Options = {
         },
       },
 
-      '/api/admin/dashboard/stats': {
+      '/api/v1/admin/dashboard/stats': {
         get: {
           tags: ['Admin'],
           summary: 'Admin dashboard statistics',
@@ -1388,7 +1388,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/dashboard/user-growth': {
+      '/api/v1/admin/dashboard/user-growth': {
         get: {
           tags: ['Admin'],
           summary: 'User growth trend data',
@@ -1399,7 +1399,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/users': {
+      '/api/v1/admin/users': {
         get: {
           tags: ['Admin'],
           summary: 'List all users (paginated)',
@@ -1448,7 +1448,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/users/{userId}': {
+      '/api/v1/admin/users/{userId}': {
         get: {
           tags: ['Admin'],
           summary: 'Get full user detail',
@@ -1476,7 +1476,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/users/{userId}/status': {
+      '/api/v1/admin/users/{userId}/status': {
         patch: {
           tags: ['Admin'],
           summary: 'Enable or disable a user account',
@@ -1504,7 +1504,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/users/{userId}/promote': {
+      '/api/v1/admin/users/{userId}/promote': {
         post: {
           tags: ['Admin'],
           summary: 'Promote user to ADMIN role',
@@ -1519,7 +1519,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/users/{userId}/demote': {
+      '/api/v1/admin/users/{userId}/demote': {
         post: {
           tags: ['Admin'],
           summary: 'Demote user from ADMIN to USER role',
@@ -1533,7 +1533,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/users/{userId}/force-reset-password': {
+      '/api/v1/admin/users/{userId}/force-reset-password': {
         post: {
           tags: ['Admin'],
           summary: 'Force a password reset for a user',
@@ -1548,7 +1548,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/jobs': {
+      '/api/v1/admin/jobs': {
         get: {
           tags: ['Admin'],
           summary: 'List jobs (paginated)',
@@ -1564,7 +1564,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/jobs/stats': {
+      '/api/v1/admin/jobs/stats': {
         get: {
           tags: ['Admin'],
           summary: 'Job statistics by source, platform, country',
@@ -1575,7 +1575,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/jobs/fetch': {
+      '/api/v1/admin/jobs/fetch': {
         post: {
           tags: ['Admin'],
           summary: 'Manually trigger a job fetch from external APIs',
@@ -1586,7 +1586,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/jobs/cleanup': {
+      '/api/v1/admin/jobs/cleanup': {
         post: {
           tags: ['Admin'],
           summary: 'Manually trigger cleanup of expired jobs',
@@ -1597,7 +1597,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/jobs/{jobId}': {
+      '/api/v1/admin/jobs/{jobId}': {
         delete: {
           tags: ['Admin'],
           summary: 'Delete a job by ID',
@@ -1612,7 +1612,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/system/health': {
+      '/api/v1/admin/system/health': {
         get: {
           tags: ['Admin'],
           summary: 'All-service health check (Postgres, MongoDB, Redis, ML service)',
@@ -1623,7 +1623,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/system/cache': {
+      '/api/v1/admin/system/cache': {
         get: {
           tags: ['Admin'],
           summary: 'Redis cache statistics',
@@ -1634,7 +1634,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/system/queues': {
+      '/api/v1/admin/system/queues': {
         get: {
           tags: ['Admin'],
           summary: 'Bull queue status (waiting, active, completed, failed)',
@@ -1645,7 +1645,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/system/database': {
+      '/api/v1/admin/system/database': {
         get: {
           tags: ['Admin'],
           summary: 'Database statistics (row counts, sizes)',
@@ -1656,7 +1656,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
-      '/api/admin/audit-logs': {
+      '/api/v1/admin/audit-logs': {
         get: {
           tags: ['Admin'],
           summary: 'Admin audit log (paginated)',

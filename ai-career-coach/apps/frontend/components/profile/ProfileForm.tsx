@@ -46,7 +46,7 @@ export default function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
   const onSubmit = async (formData: ProfileFormData) => {
     setMessage('');
     try {
-      await api.put('/api/profile', formData);
+      await api.put('/api/v1/profile', formData);
       setMessage('Profile updated successfully!');
       onUpdate();
     } catch (error: unknown) {

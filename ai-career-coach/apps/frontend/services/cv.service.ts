@@ -36,7 +36,7 @@ class CVService {
     formData.append('file', file);
 
     // axios automatically adds Authorization header via interceptor
-    const response = await api.post('/api/ml/parse-cv', formData, {
+    const response = await api.post('/api/v1/ml/parse-cv', formData, {
       headers: {
         'Content-Type': 'multipart/form-data', // Important for file upload
       },
@@ -61,7 +61,7 @@ class CVService {
     // - Adding Authorization header
     // - Refreshing token on 401
     // - Retrying request with new token
-    const response = await api.get('/api/ml/cvs');
+    const response = await api.get('/api/v1/ml/cvs');
     return response.data;
   }
 
@@ -72,7 +72,7 @@ class CVService {
    * @returns CV detail
    */
   async getCVById(cvId: string): Promise<CVDetailResponse> {
-    const response = await api.get(`/api/ml/cvs/${cvId}`);
+    const response = await api.get(`/api/v1/ml/cvs/${cvId}`);
     return response.data;
   }
 
@@ -84,7 +84,7 @@ class CVService {
    * @returns Updated CV
    */
   async updateCV(cvId: string, payload: CVUpdatePayload): Promise<CVUpdateResponse> {
-    const response = await api.patch(`/api/ml/cvs/${cvId}`, payload);
+    const response = await api.patch(`/api/v1/ml/cvs/${cvId}`, payload);
     return response.data;
   }
 
@@ -101,7 +101,7 @@ class CVService {
    */
   async setPrimaryCV(cvId: string): Promise<SetPrimaryCVResponse> {
     
-    const response = await api.patch(`/api/ml/cvs/${cvId}/primary`);
+    const response = await api.patch(`/api/v1/ml/cvs/${cvId}/primary`);
     return response.data;
   }
 
@@ -111,7 +111,7 @@ class CVService {
    * @param cvId - CV identifier
    */
   async deleteCV(cvId: string): Promise<void> {
-    await api.delete(`/api/ml/cvs/${cvId}`);
+    await api.delete(`/api/v1/ml/cvs/${cvId}`);
     
     // axios returns response.data, but we don't need it for delete
   }
@@ -136,7 +136,7 @@ class CVService {
   async downloadCV(cvId: string, filename: string): Promise<void> {
     // responseType: 'blob' is CRITICAL for file downloads
     // Without it, axios will try to parse as JSON and fail
-    const response = await api.get(`/api/ml/cvs/${cvId}/download`, {
+    const response = await api.get(`/api/v1/ml/cvs/${cvId}/download`, {
       responseType: 'blob', // Tell axios this is binary data
     });
 
@@ -164,7 +164,7 @@ class CVService {
    * Runs locally via ML service (no external API calls)
    */
   async analyzeCV(cvId: string, targetRole?: string): Promise<{ success: boolean; data: CVOverviewData }> {
-    const response = await api.post(`/api/ml/cvs/${cvId}/analyze`, {
+    const response = await api.post(`/api/v1/ml/cvs/${cvId}/analyze`, {
       targetRole: targetRole || undefined,
     });
     return response.data;
@@ -175,7 +175,7 @@ class CVService {
    * Persists the result on the Application record
    */
   async calculateATSScore(applicationId: string, cvId?: string): Promise<{ success: boolean; data: ATSScoreData }> {
-    const response = await api.post(`/api/applications/${applicationId}/ats-score`, {
+    const response = await api.post(`/api/v1/applications/${applicationId}/ats-score`, {
       cvId: cvId || undefined,
     });
     return response.data;
@@ -186,7 +186,7 @@ class CVService {
    * No Job or Application record needed
    */
   async checkATSScore(jobDescription: string, cvId?: string): Promise<{ success: boolean; data: ATSScoreData }> {
-    const response = await api.post('/api/applications/ats-check', {
+    const response = await api.post('/api/v1/applications/ats-check', {
       jobDescription,
       cvId: cvId || undefined,
     });
@@ -198,7 +198,7 @@ class CVService {
    * Uses the user's primary CV by default
    */
   async previewATSScore(jobId: string, cvId?: string): Promise<{ success: boolean; data: ATSScoreData }> {
-    const response = await api.post(`/api/applications/jobs/${jobId}/ats-preview`, {
+    const response = await api.post(`/api/v1/applications/jobs/${jobId}/ats-preview`, {
       cvId: cvId || undefined,
     });
     return response.data;

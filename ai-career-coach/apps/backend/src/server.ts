@@ -5,6 +5,9 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import compression from 'compression';
+import pinoHttp from 'pino-http';
+import { randomUUID } from 'crypto';
+import { logger } from './utils/logger.js';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes.js';
 import profileRoutes from "./routes/profile.routes.js";
@@ -37,6 +40,23 @@ app.use(helmet());
 // Gzip compression
 app.use(compression() as RequestHandler);
 
+// Structured request logging with correlation IDs
+app.use(pinoHttp({
+  logger,
+  genReqId: () => randomUUID(),
+  customSuccessMessage: (req, res) =>
+    `${req.method} ${(req as Request).path} ${res.statusCode}`,
+  customErrorMessage: (req, res) =>
+    `${req.method} ${(req as Request).path} ${res.statusCode}`,
+  customAttributeKeys: { reqId: 'requestId' },
+}) as RequestHandler);
+
+// Expose request ID in response header for client-side tracing
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('x-request-id', (req as any).id ?? '');
+  next();
+});
+
 // CORS - Allow frontend to make requests
 app.use(
   cors({
@@ -54,14 +74,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Parse cookies (for refresh token)
 app.use(cookieParser() as RequestHandler);
 
-// Request logging in development
-if (process.env.NODE_ENV === 'development') {
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    console.log(`${req.method} ${req.path}`);
-    next();
-  });
-}
-
 /**
  * Routes
  */
@@ -72,35 +84,35 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // Auth routes
-app.use('/api/auth', authRoutes);
+app.use('/api/v1/auth', authRoutes);
 
 // Profile routes
-app.use('/api/profile', profileRoutes);
+app.use('/api/v1/profile', profileRoutes);
 
 // ML service routes
-app.use('/api/ml', mlRoutes);
+app.use('/api/v1/ml', mlRoutes);
 // Job routes
-app.use('/api/jobs', jobRoutes);
+app.use('/api/v1/jobs', jobRoutes);
 
 // Upload routes (static files)
 app.use('/uploads', express.static('public/uploads'));
 
-app.use('/api/matching', matchingRoutes);
+app.use('/api/v1/matching', matchingRoutes);
 
 // Salary insights routes
-app.use('/api/salary', salaryRoutes);
+app.use('/api/v1/salary', salaryRoutes);
 
 // Application routes (ATS scoring)
-app.use('/api/applications', applicationRoutes);
+app.use('/api/v1/applications', applicationRoutes);
 
 // Admin routes
-app.use('/api/admin', adminRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // Skill gap & learning path routes
-app.use('/api/skill-gap', skillGapRoutes);
+app.use('/api/v1/skill-gap', skillGapRoutes);
 
 // Dashboard routes
-app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
 
 if (process.env.NODE_ENV === 'development') {
   app.get('/api/debug/routes', (req: Request, res: Response) => {
@@ -153,10 +165,7 @@ async function startServer() {
     
     // Start HTTP server
     const server = app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
-      console.log(`🤖 ML Service URL: ${process.env.ML_SERVICE_URL}`);
+      logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'Server started');
     });
 
     // Increase server timeout for long-running ML operations (3 minutes)
@@ -165,16 +174,16 @@ async function startServer() {
 
     // Graceful shutdown - single SIGTERM handler that closes HTTP then DB
     process.on('SIGTERM', () => {
-      console.log('SIGTERM received, shutting down gracefully');
+      logger.info('SIGTERM received, shutting down gracefully');
       server.close(async () => {
-        console.log('Server closed');
+        logger.info('Server closed');
         await closeDatabaseConnections();
         process.exit(0);
       });
     });
 
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error(error, 'Failed to start server');
     process.exit(1);
   }
 }

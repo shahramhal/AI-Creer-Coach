@@ -6,7 +6,7 @@ const ML_JOB_ANALYSIS_LIMIT = 1000;
 
 class MatchingService {
   async findMatches(filters?: MatchFilters, topK: number = ML_TOP_K_RESULTS, signal?: AbortSignal, jobLimit: number = ML_JOB_ANALYSIS_LIMIT): Promise<JobMatchResponse> {
-    const response = await api.post('/api/matching/find-jobs', {
+    const response = await api.post('/api/v1/matching/find-jobs', {
       filters,
       top_k: topK,
       job_limit: jobLimit,

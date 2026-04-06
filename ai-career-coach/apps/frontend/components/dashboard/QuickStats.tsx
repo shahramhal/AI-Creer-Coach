@@ -6,6 +6,8 @@ interface QuickStatsProps {
   matchCount?: number;
   skillsToLearn?: number;
   inProgressSkills?: number;
+  activeApplications?: number;
+  responseRate?: number;
   isLoading: boolean;
 }
 
@@ -52,7 +54,7 @@ function StatCard({ title, value, change, changeType = "neutral", icon: Icon, is
   );
 }
 
-export function QuickStats({ matchCount, skillsToLearn, inProgressSkills, isLoading }: QuickStatsProps) {
+export function QuickStats({ matchCount, skillsToLearn, inProgressSkills, activeApplications, responseRate, isLoading }: QuickStatsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <StatCard
@@ -73,17 +75,19 @@ export function QuickStats({ matchCount, skillsToLearn, inProgressSkills, isLoad
       />
       <StatCard
         title="Active Applications"
-        value="--"
-        change="Coming soon"
+        value={activeApplications ?? "--"}
+        change={activeApplications !== undefined ? "Excludes rejected" : undefined}
         changeType="neutral"
         icon={Briefcase}
+        isLoading={isLoading}
       />
       <StatCard
         title="Response Rate"
-        value="--"
-        change="Coming soon"
-        changeType="neutral"
+        value={responseRate !== undefined ? `${responseRate}%` : "--"}
+        change={responseRate !== undefined ? "Interview or offer" : undefined}
+        changeType={responseRate !== undefined && responseRate > 0 ? "positive" : "neutral"}
         icon={TrendingUp}
+        isLoading={isLoading}
       />
     </div>
   );

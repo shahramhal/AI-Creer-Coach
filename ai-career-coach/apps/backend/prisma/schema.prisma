@@ -171,6 +171,8 @@ model Application {
   jobTitle        String    @map("job_title") @db.VarChar(255)
   status          String    @default("applied") @db.VarChar(50) // applied, interview, offer, rejected
   appliedDate     DateTime  @default(now()) @map("applied_date") @db.Timestamp()
+  sourceUrl       String?   @map("source_url") @db.VarChar(500)
+  location        String?   @db.VarChar(255)
   notes           String?   @db.Text
   followUpDate    DateTime? @map("follow_up_date") @db.Date
   atsScore        Int?      @map("ats_score")

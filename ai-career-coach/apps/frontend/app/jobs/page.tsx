@@ -9,6 +9,7 @@ import { JobFilters } from '@/components/jobs/JobFilters';
 import { JobMatchPagination } from '@/components/jobs/JobMatchPagination';
 import { matchingService } from '@/services/matching.service';
 import { settingsService } from '@/services/settings.service';
+import { useApplications } from '@/hooks/queries';
 import type { MatchedJob, MatchFilters, SortOption } from '@/types/matching.types';
 import { Button } from '@/components/ui/button';
 import {
@@ -73,6 +74,15 @@ function sortJobs(jobsList: MatchedJob[], sortOption: SortOption): MatchedJob[] 
 export default function JobMatchesPage() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+
+  const applicationsQuery = useApplications(undefined, isAuthenticated && !authLoading);
+  const appliedKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const app of applicationsQuery.data?.data ?? []) {
+      set.add(`${app.company.toLowerCase()}::${app.jobTitle.toLowerCase()}`);
+    }
+    return set;
+  }, [applicationsQuery.data]);
 
   const [jobs, setJobs] = useState<MatchedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -421,7 +431,11 @@ export default function JobMatchesPage() {
                   <>
                     <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2">
                       {paginatedJobs.map((job) => (
-                        <JobMatchCard key={job.job_id} job={job} />
+                        <JobMatchCard
+                          key={job.job_id}
+                          job={job}
+                          alreadyApplied={appliedKeys.has(`${job.company.toLowerCase()}::${job.title.toLowerCase()}`)}
+                        />
                       ))}
                     </div>
 

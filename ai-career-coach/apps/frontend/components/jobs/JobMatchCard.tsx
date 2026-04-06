@@ -9,20 +9,69 @@ import {
   CheckCircle2,
   XCircle,
   Briefcase,
+  Loader2,
 } from "lucide-react";
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import axios from 'axios';
+import { applicationService } from '@/services/application.service';
+import { queryKeys } from '@/hooks/queries';
 import type { MatchedJob } from '@/types/matching.types';
 
 interface JobMatchCardProps {
   job: MatchedJob;
+  alreadyApplied?: boolean;
 }
 
-export function JobMatchCard({ job }: JobMatchCardProps) {
+export function JobMatchCard({ job, alreadyApplied = false }: JobMatchCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isApplied, setIsApplied] = useState(alreadyApplied);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleApplyClick = () => {
+    if (/^https?:\/\//i.test(job.source_url)) {
+      window.open(job.source_url, '_blank', 'noopener,noreferrer');
+    }
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmApplication = async () => {
+    setIsSubmitting(true);
+    try {
+      await applicationService.createApplication({
+        company: job.company,
+        jobTitle: job.title,
+        sourceUrl: job.source_url,
+        location: job.location,
+      });
+      setIsApplied(true);
+      queryClient.invalidateQueries({ queryKey: queryKeys.applications() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.applicationStats });
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        setIsApplied(true);
+      }
+    } finally {
+      setIsSubmitting(false);
+      setShowConfirmDialog(false);
+    }
+  };
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-600 dark:text-green-400";
@@ -107,14 +156,20 @@ export function JobMatchCard({ job }: JobMatchCardProps) {
       <CardContent className="px-5 pb-5 pt-0">
         <div className="mt-4 flex flex-wrap gap-2">
           {/* Primary Actions */}
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => window.open(job.source_url, '_blank')}
-            className="gap-2"
-          >
-            Apply Now <ExternalLink className="h-3 w-3" />
-          </Button>
+          {isApplied ? (
+            <Button variant="outline" size="sm" className="gap-2 text-green-600 border-green-200 dark:text-green-400 dark:border-green-800" disabled>
+              <CheckCircle2 className="h-3 w-3" /> Applied
+            </Button>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleApplyClick}
+              className="gap-2"
+            >
+              Apply Now <ExternalLink className="h-3 w-3" />
+            </Button>
+          )}
 
           <Button
             variant="ghost"
@@ -217,6 +272,35 @@ export function JobMatchCard({ job }: JobMatchCardProps) {
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Did you apply for this job?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-medium text-foreground">{job.title}</span> at{' '}
+              <span className="font-medium text-foreground">{job.company}</span>
+              <br />
+              <span className="mt-2 block">
+                If you submitted your application, we&apos;ll track it for you.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>No, not yet</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmApplication} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Yes, I applied"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

@@ -3,7 +3,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
-import { prisma, cache } from '../config/database.js';
+import { prisma } from '../config/database.js';
 import { logUserActivity } from '../utils/activity.util.js';
 
 const router = Router();
@@ -75,10 +75,275 @@ async function fetchMLService(path: string, body: Record<string, any>): Promise<
   }
 }
 
-// 
-// IMPORTANT: Static routes MUST come before parameterised routes
+const VALID_STATUSES = ['applied', 'interview', 'offer', 'rejected'];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Create a new application (track that the user applied for a job)
+ */
+router.post(
+  '/',
+  authenticate,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { company, jobTitle, sourceUrl, location, notes } = req.body;
+
+      if (!company || typeof company !== 'string' || !company.trim()) {
+        res.status(400).json({ success: false, message: 'Company is required' });
+        return;
+      }
+      if (!jobTitle || typeof jobTitle !== 'string' || !jobTitle.trim()) {
+        res.status(400).json({ success: false, message: 'Job title is required' });
+        return;
+      }
+      if (company.trim().length > 255) {
+        res.status(400).json({ success: false, message: 'Company name must be under 255 characters' });
+        return;
+      }
+      if (jobTitle.trim().length > 255) {
+        res.status(400).json({ success: false, message: 'Job title must be under 255 characters' });
+        return;
+      }
+      if (notes && typeof notes === 'string' && notes.length > 5000) {
+        res.status(400).json({ success: false, message: 'Notes must be under 5000 characters' });
+        return;
+      }
+
+      const trimmedCompany = company.trim();
+      const trimmedTitle = jobTitle.trim();
+
+      const application = await prisma.$transaction(async (tx) => {
+        const existing = await tx.application.findFirst({
+          where: {
+            userId,
+            company: { equals: trimmedCompany, mode: 'insensitive' },
+            jobTitle: { equals: trimmedTitle, mode: 'insensitive' },
+          },
+        });
+
+        if (existing) return null;
+
+        return tx.application.create({
+          data: {
+            userId,
+            company: trimmedCompany,
+            jobTitle: trimmedTitle,
+            sourceUrl: sourceUrl?.trim() || null,
+            location: location?.trim() || null,
+            notes: notes?.trim() || null,
+            status: 'applied',
+          },
+        });
+      });
+
+      if (!application) {
+        res.status(409).json({
+          success: false,
+          message: 'You have already tracked an application for this position',
+        });
+        return;
+      }
+
+      logUserActivity(userId, 'application', 'Application Tracked', `${jobTitle} at ${company}`);
+
+      res.status(201).json({
+        success: true,
+        message: 'Application tracked successfully',
+        data: application,
+      });
+    } catch (error) {
+      console.error('Error creating application:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create application',
+      });
+    }
+  }
+);
+
+/**
+ * List all applications for the authenticated user
+ */
+router.get(
+  '/',
+  authenticate,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { status } = req.query;
+
+      const where: any = { userId };
+      if (status && typeof status === 'string' && VALID_STATUSES.includes(status)) {
+        where.status = status;
+      }
+
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const skip = (page - 1) * limit;
+
+      const [applications, total] = await prisma.$transaction([
+        prisma.application.findMany({
+          where,
+          orderBy: { appliedDate: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.application.count({ where }),
+      ]);
+
+      res.json({
+        success: true,
+        message: 'Applications retrieved',
+        data: applications,
+        meta: { total, page, limit, pages: Math.ceil(total / limit) },
+      });
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch applications',
+      });
+    }
+  }
+);
+
+/**
+ * Get application stats for the dashboard
+ */
+router.get(
+  '/stats',
+  authenticate,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+
+      const applications = await prisma.application.groupBy({
+        by: ['status'],
+        where: { userId },
+        _count: { status: true },
+      });
+
+      const byStatus = { applied: 0, interview: 0, offer: 0, rejected: 0 };
+      let total = 0;
+      for (const group of applications) {
+        const key = group.status as keyof typeof byStatus;
+        if (key in byStatus) {
+          byStatus[key] = group._count.status;
+        }
+        total += group._count.status;
+      }
+
+      const responseRate = total > 0
+        ? Math.round(((byStatus.interview + byStatus.offer) / total) * 100)
+        : 0;
+
+      res.json({
+        success: true,
+        message: 'Application stats retrieved',
+        data: { total, byStatus, responseRate },
+      });
+    } catch (error) {
+      console.error('Error fetching application stats:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch application stats',
+      });
+    }
+  }
+);
+
+/**
+ * Update application status
+ */
+router.patch(
+  '/:id/status',
+  authenticate,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!UUID_RE.test(id)) {
+        res.status(404).json({ success: false, message: 'Application not found' });
+        return;
+      }
+
+      if (!status || !VALID_STATUSES.includes(status)) {
+        res.status(400).json({
+          success: false,
+          message: `Status must be one of: ${VALID_STATUSES.join(', ')}`,
+        });
+        return;
+      }
+
+      const application = await prisma.application.findUnique({ where: { id } });
+      if (!application || application.userId !== userId) {
+        res.status(404).json({ success: false, message: 'Application not found' });
+        return;
+      }
+
+      const updated = await prisma.application.update({
+        where: { id },
+        data: { status },
+      });
+
+      res.json({
+        success: true,
+        message: 'Application status updated',
+        data: updated,
+      });
+    } catch (error) {
+      console.error('Error updating application status:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update application status',
+      });
+    }
+  }
+);
+
+/**
+ * Delete an application
+ */
+router.delete(
+  '/:id',
+  authenticate,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      if (!UUID_RE.test(id)) {
+        res.status(404).json({ success: false, message: 'Application not found' });
+        return;
+      }
+
+      const application = await prisma.application.findUnique({ where: { id } });
+      if (!application || application.userId !== userId) {
+        res.status(404).json({ success: false, message: 'Application not found' });
+        return;
+      }
+
+      await prisma.application.delete({ where: { id } });
+
+      res.json({
+        success: true,
+        message: 'Application deleted',
+      });
+    } catch (error) {
+      console.error('Error deleting application:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete application',
+      });
+    }
+  }
+);
+
+// Static ATS routes MUST come before parameterised routes
 // Otherwise Express matches "/ats-check" as ":applicationId"
-// 
 
 /**
  * ATS check with raw job description text

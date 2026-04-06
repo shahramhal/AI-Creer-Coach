@@ -16,6 +16,8 @@ import {
   useRecentActivity,
   useJobMatches,
   useSalaryInsights,
+  useApplications,
+  useApplicationStats,
 } from '@/hooks/queries';
 import { useEffect } from 'react';
 
@@ -49,6 +51,8 @@ export default function DashboardPage() {
   const preferencesQuery = useCareerPreferences(isReady);
   const activityQuery = useRecentActivity(isReady);
   const matchesQuery = useJobMatches(100, isReady);
+  const applicationsQuery = useApplications(undefined, isReady);
+  const appStatsQuery = useApplicationStats(isReady);
 
   const preferences = preferencesQuery.data;
   const salaryQuery = useSalaryInsights(
@@ -88,6 +92,12 @@ export default function DashboardPage() {
   const strongMatchCount = allMatchedJobs?.filter((job) => job.match_score >= 55).length;
   const salaryData = salaryQuery.data?.success ? salaryQuery.data.data : null;
 
+  const appStats = appStatsQuery.data?.success ? appStatsQuery.data.data : undefined;
+  const allApplications = applicationsQuery.data?.data;
+  const activeApplications = appStats
+    ? appStats.total - (appStats.byStatus.rejected ?? 0)
+    : undefined;
+
   const isLoadingInitial =
     cvsQuery.isLoading || progressQuery.isLoading || preferencesQuery.isLoading || activityQuery.isLoading;
 
@@ -108,6 +118,8 @@ export default function DashboardPage() {
           matchCount={strongMatchCount}
           skillsToLearn={progressSummary?.totalPaths}
           inProgressSkills={progressSummary?.inProgressPaths}
+          activeApplications={activeApplications}
+          responseRate={appStats?.responseRate}
           isLoading={isLoadingInitial}
         />
 
@@ -129,8 +141,8 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-6 lg:col-span-2">
-            <ApplicationChart />
-            <ApplicationKanban />
+            <ApplicationChart stats={appStats} isLoading={appStatsQuery.isLoading} />
+            <ApplicationKanban applications={allApplications} isLoading={applicationsQuery.isLoading} />
           </div>
         </div>
 

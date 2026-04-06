@@ -3,11 +3,13 @@ import express from 'express';
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes.js';
 import profileRoutes from "./routes/profile.routes.js";
 import mlRoutes from "./routes/ml.routes.js";
-import { connectMongoDB } from './config/database.js';
+import { connectMongoDB, closeDatabaseConnections } from './config/database.js';
 import jobRoutes from './routes/jobs.routes.js';
 import matchingRoutes from './routes/matching.routes.js';
 import salaryRoutes from './routes/salary.routes.js';
@@ -28,6 +30,12 @@ const PORT = process.env.PORT || 4000;
 /**
  * Middleware setup
  */
+
+// Security headers
+app.use(helmet());
+
+// Gzip compression
+app.use(compression() as RequestHandler);
 
 // CORS - Allow frontend to make requests
 app.use(
@@ -57,6 +65,11 @@ if (process.env.NODE_ENV === 'development') {
 /**
  * Routes
  */
+
+// Load balancer health check - no auth required
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
 
 // Auth routes
 app.use('/api/auth', authRoutes);
@@ -150,11 +163,12 @@ async function startServer() {
     server.timeout = 180000;
     server.keepAliveTimeout = 180000;
 
-    // Graceful shutdown
+    // Graceful shutdown - single SIGTERM handler that closes HTTP then DB
     process.on('SIGTERM', () => {
       console.log('SIGTERM received, shutting down gracefully');
-      server.close(() => {
+      server.close(async () => {
         console.log('Server closed');
+        await closeDatabaseConnections();
         process.exit(0);
       });
     });

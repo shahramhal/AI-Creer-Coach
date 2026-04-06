@@ -1,7 +1,7 @@
 // apps/backend/src/services/admin.service.ts
 
 import mongoose from 'mongoose';
-import { prisma, redis, queues, checkDatabaseHealth } from '../config/database.js';
+import { prisma, redis, checkDatabaseHealth } from '../config/database.js';
 import crypto from 'crypto';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 import { accountService } from './account.service.js';
@@ -503,23 +503,9 @@ export class AdminService {
   }
 
   async getQueueStatus() {
-    const queueStats = [];
-
-    for (const [name, queue] of Object.entries(queues)) {
-      try {
-        const [waiting, active, completed, failed] = await Promise.all([
-          queue.getWaitingCount(),
-          queue.getActiveCount(),
-          queue.getCompletedCount(),
-          queue.getFailedCount(),
-        ]);
-        queueStats.push({ name, waiting, active, completed, failed });
-      } catch {
-        queueStats.push({ name, waiting: 0, active: 0, completed: 0, failed: 0, error: true });
-      }
-    }
-
-    return queueStats;
+    // Bull queues have been removed - all processing is synchronous or handled directly.
+    // Return an empty list to keep the admin endpoint functional.
+    return [];
   }
 
   async getDatabaseStats() {

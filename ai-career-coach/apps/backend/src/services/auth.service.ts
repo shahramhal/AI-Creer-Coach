@@ -1,7 +1,8 @@
 // apps/backend/src/services/auth.service.ts
 
 import bcrypt from 'bcrypt';
-import { prisma } from '../config/database.js';
+import crypto from 'crypto';
+import { prisma, redis } from '../config/database.js';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -34,6 +35,13 @@ interface LoginResponse {
     isEmailVerified: boolean;
     role: string;
   };
+}
+
+const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
+
+function tokenKey(token: string): string {
+  const hash = crypto.createHash('sha256').update(token).digest('hex');
+  return `rt:${hash}`;
 }
 
 export class AuthService {
@@ -129,6 +137,9 @@ export class AuthService {
     const tokenPayload = { userId: user.id, email: user.email };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
+
+    // Store refresh token in Redis for revocation support
+    await redis.setex(tokenKey(refreshToken), REFRESH_TOKEN_TTL, user.id);
 
     return {
       accessToken,
@@ -253,8 +264,14 @@ export class AuthService {
    * Refresh access token using refresh token
    */
   async refreshAccessToken(refreshToken: string) {
-    // Verify refresh token
+    // Verify JWT signature and expiry
     const decoded = verifyRefreshToken(refreshToken);
+
+    // Check token is still valid in Redis (catches revoked tokens)
+    const storedUserId = await redis.get(tokenKey(refreshToken));
+    if (!storedUserId) {
+      throw new AppError('Refresh token has been revoked', 401, ErrorCodes.TOKEN_INVALID);
+    }
 
     // Check if user still exists
     const user = await prisma.user.findUnique({
@@ -272,5 +289,9 @@ export class AuthService {
     });
 
     return { accessToken: newAccessToken };
+  }
+
+  async revokeRefreshToken(refreshToken: string): Promise<void> {
+    await redis.del(tokenKey(refreshToken));
   }
 }

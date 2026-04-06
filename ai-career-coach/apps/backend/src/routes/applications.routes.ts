@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { prisma } from '../config/database.js';
 import { logUserActivity } from '../utils/activity.util.js';
+import { buildCVText } from '../utils/cv-text.util.js';
 
 const router = Router();
 
@@ -28,7 +29,6 @@ async function fetchCVDataFromMongo(mongoDocId: string): Promise<{
   });
   if (!doc) return null;
 
-  let rawText = doc.raw_text || doc.metadata?.raw_text || '';
   const parsedData = {
     contact_info: doc.contact_info || {},
     summary: doc.summary || '',
@@ -39,21 +39,7 @@ async function fetchCVDataFromMongo(mongoDocId: string): Promise<{
     projects: doc.projects || [],
   };
 
-  // If no raw_text stored, build from parsed fields
-  if (!rawText) {
-    const textParts: string[] = [];
-    if (parsedData.summary) textParts.push(parsedData.summary);
-    if (parsedData.skills?.length) textParts.push(`Skills: ${parsedData.skills.join(', ')}`);
-    for (const exp of parsedData.experience as any[]) {
-      const parts = [exp.title, exp.company, ...(exp.responsibilities || [])].filter(Boolean);
-      if (parts.length) textParts.push(parts.join(' - '));
-    }
-    for (const edu of parsedData.education as any[]) {
-      const parts = [edu.degree, edu.institution, edu.field].filter(Boolean);
-      if (parts.length) textParts.push(parts.join(' - '));
-    }
-    rawText = textParts.join('\n');
-  }
+  const rawText = buildCVText(doc);
 
   return { rawText, parsedData };
 }

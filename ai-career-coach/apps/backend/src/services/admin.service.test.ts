@@ -7,7 +7,7 @@ import { PrismaClient } from '@prisma/client';
 const mockPrismaInstance = new PrismaClient() as any;
 
 //  Mock ../config/database before importing admin.service 
-// admin.service imports redis, queues, and checkDatabaseHealth from config/database.
+// admin.service imports redis and checkDatabaseHealth from config/database.
 // The real database.ts creates Redis and Bull instances at module-load time.
 // We provide lightweight stubs to prevent that from happening in tests.
 //
@@ -29,22 +29,8 @@ const mockDatabaseModule = vi.hoisted(() => {
     status: 'ready',
   };
 
-  const queueStub = {
-    getWaitingCount: vi.fn().mockResolvedValue(0),
-    getActiveCount: vi.fn().mockResolvedValue(0),
-    getCompletedCount: vi.fn().mockResolvedValue(0),
-    getFailedCount: vi.fn().mockResolvedValue(0),
-  };
-
   return {
     redis: redisStub,
-    queues: {
-      cvParsing: queueStub,
-      jobScraping: queueStub,
-      jobMatching: queueStub,
-      emailNotification: queueStub,
-      salaryPrediction: queueStub,
-    },
     checkDatabaseHealth: vi.fn().mockResolvedValue({
       postgres: true,
       mongodb: true,

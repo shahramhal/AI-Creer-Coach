@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { SkillGapService } from '../services/skillGap.service.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 import { type IParsedCV } from '../models/ParsedCV.js';
+import { buildCVText } from '../utils/cv-text.util.js';
 
 const skillGapService = new SkillGapService();
 
@@ -14,28 +15,6 @@ async function fetchUserCV(userId: string): Promise<CVDocument | null> {
   if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) return null;
   const cvCollection = mongoose.connection.db.collection<CVDocument>('parsed_cvs');
   return cvCollection.findOne({ user_id: userId }, { sort: { created_at: -1 } });
-}
-
-function buildCVText(cv: CVDocument): string {
-  let rawText = cv.raw_text || cv.metadata?.raw_text || '';
-  if (rawText) return rawText;
-
-  const textParts: string[] = [];
-  if (cv.summary) textParts.push(cv.summary);
-  if (cv.skills?.length) textParts.push(`Skills: ${cv.skills.join(', ')}`);
-  if (cv.experience?.length) {
-    cv.experience.forEach((exp) => {
-      const expText = [exp.title, exp.company, exp.description].filter(Boolean).join(' - ');
-      if (expText) textParts.push(expText);
-    });
-  }
-  if (cv.education?.length) {
-    cv.education.forEach((edu) => {
-      const eduText = [edu.degree, edu.institution, edu.field].filter(Boolean).join(' - ');
-      if (eduText) textParts.push(eduText);
-    });
-  }
-  return textParts.join('\n');
 }
 
 export const analyzeSkillGap = async (req: Request, res: Response): Promise<void> => {

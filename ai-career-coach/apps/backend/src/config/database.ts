@@ -2,7 +2,6 @@
 import { PrismaClient } from '@prisma/client';
 import mongoose from 'mongoose';
 import Redis from 'ioredis';
-import Bull from 'bull';
 
 
 // PRISMA (PostgreSQL) CLIENT
@@ -105,33 +104,6 @@ redis.on('connect', () => {
 redis.on('error', (err) => {
   console.error('❌ Redis connection error:', err);
 });
-
-
-// BULL QUEUES
-
-
-/**
- * Queue configurations for background jobs
- */
-const queueConfig = {
-  redis: {
-    host: process.env.REDIS_HOST || 'redis',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    ...(process.env.REDIS_PASSWORD && { password: process.env.REDIS_PASSWORD }),
-    db: 3,
-  },
-};
-
-/**
- * Job queues for async processing
- */
-export const queues = {
-  cvParsing: new Bull('cv-parsing', queueConfig),
-  jobScraping: new Bull('job-scraping', queueConfig),
-  jobMatching: new Bull('job-matching', queueConfig),
-  emailNotification: new Bull('email-notifications', queueConfig),
-  salaryPrediction: new Bull('salary-prediction', queueConfig),
-};
 
 
 // CACHE MANAGER
@@ -343,25 +315,14 @@ export async function closeDatabaseConnections(): Promise<void> {
     sessionRedis.disconnect();
     console.log('Redis disconnected');
 
-    // Close Bull queues
-    await Promise.all(
-      Object.values(queues).map(queue => queue.close())
-    );
-    console.log('Job queues closed');
-
   } catch (error) {
     console.error('Error during shutdown:', error);
     process.exit(1);
   }
 }
 
-// Handle process termination signals
+// Handle SIGINT for development (Ctrl+C)
 process.on('SIGINT', async () => {
-  await closeDatabaseConnections();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
   await closeDatabaseConnections();
   process.exit(0);
 });

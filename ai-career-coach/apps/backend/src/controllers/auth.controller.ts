@@ -211,6 +211,12 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
 export const logout = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const isProduction = process.env.NODE_ENV === 'production';
+    const token = req.cookies.refreshToken;
+
+    // Revoke token in Redis so it can't be used even if the cookie lingers
+    if (token) {
+      await authService.revokeRefreshToken(token);
+    }
 
     // Clear refresh token cookie - options must match what was set on login
     res.clearCookie('refreshToken', {

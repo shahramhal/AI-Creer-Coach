@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { cache } from '../config/database.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 import { type IParsedCV } from '../models/ParsedCV.js';
+import { buildCVText } from '../utils/cv-text.util.js';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
 
@@ -124,36 +125,9 @@ class MatchingService {
 
     console.log(`📊 [Matching] Found ${jobCount} jobs in database`);
 
-    let cvRawText = userCV.raw_text || userCV.metadata?.raw_text || '';
-
-    if (!cvRawText) {
-      console.log(`⚠️ [Matching] No raw_text, building from CV fields...`);
-      const textParts: string[] = [];
-
-      if (userCV.summary) {
-        textParts.push(userCV.summary);
-      }
-
-      if (userCV.skills && Array.isArray(userCV.skills)) {
-        textParts.push(`Skills: ${userCV.skills.join(', ')}`);
-      }
-
-      if (userCV.experience && Array.isArray(userCV.experience)) {
-        userCV.experience.forEach((exp: any) => {
-          const expText = [exp.title, exp.company, exp.description].filter(Boolean).join(' - ');
-          if (expText) textParts.push(expText);
-        });
-      }
-
-      if (userCV.education && Array.isArray(userCV.education)) {
-        userCV.education.forEach((edu: any) => {
-          const eduText = [edu.degree, edu.institution, edu.field].filter(Boolean).join(' - ');
-          if (eduText) textParts.push(eduText);
-        });
-      }
-
-      cvRawText = textParts.join('\n');
-      console.log(` [Matching] Built CV text from fields (${cvRawText.length} chars)`);
+    const cvRawText = buildCVText(userCV);
+    if (!userCV.raw_text && !userCV.metadata?.raw_text) {
+      console.log(`⚠️ [Matching] No raw_text, built from CV fields (${cvRawText.length} chars)`);
     }
 
     if (!cvRawText || cvRawText.length < 10) {

@@ -3,6 +3,7 @@ import { promises as fsp } from 'fs';
 import path from 'path';
 import { prisma, cache } from '../config/database.js';
 import { logUserActivity } from '../utils/activity.util.js';
+import { buildCVText } from '../utils/cv-text.util.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
@@ -475,7 +476,7 @@ export class MlService {
     }
 
     // Extract raw text and parsed data
-    let rawText = mongoDoc.raw_text || mongoDoc.metadata?.raw_text || '';
+    const rawText = buildCVText(mongoDoc);
     const parsedData = {
       contact_info: mongoDoc.contact_info || {},
       summary: mongoDoc.summary || '',
@@ -485,22 +486,6 @@ export class MlService {
       certifications: mongoDoc.certifications || [],
       projects: mongoDoc.projects || [],
     };
-
-    // If no raw_text stored, build from parsed fields
-    if (!rawText) {
-      const textParts: string[] = [];
-      if (parsedData.summary) textParts.push(parsedData.summary);
-      if (parsedData.skills?.length) textParts.push(`Skills: ${parsedData.skills.join(', ')}`);
-      for (const exp of parsedData.experience as any[]) {
-        const parts = [exp.title, exp.company, ...(exp.responsibilities || [])].filter(Boolean);
-        if (parts.length) textParts.push(parts.join(' - '));
-      }
-      for (const edu of parsedData.education as any[]) {
-        const parts = [edu.degree, edu.institution, edu.field].filter(Boolean);
-        if (parts.length) textParts.push(parts.join(' - '));
-      }
-      rawText = textParts.join('\n');
-    }
 
     console.log(`Analyzing CV: ${cv.filename} for user: ${userId} (text: ${rawText.length} chars)`);
 

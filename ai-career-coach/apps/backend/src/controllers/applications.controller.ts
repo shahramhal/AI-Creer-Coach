@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { ApplicationsService, VALID_STATUSES, UUID_RE } from '../services/applications.service.js';
 import { logUserActivity } from '../utils/activity.util.js';
+import { logger } from '../utils/logger.js';
 
 const applicationsService = new ApplicationsService();
 
@@ -8,27 +9,6 @@ export const createApplication = async (req: Request, res: Response): Promise<vo
   try {
     const userId = req.user!.id;
     const { company, jobTitle, sourceUrl, location, notes } = req.body;
-
-    if (!company || typeof company !== 'string' || !company.trim()) {
-      res.status(400).json({ success: false, message: 'Company is required' });
-      return;
-    }
-    if (!jobTitle || typeof jobTitle !== 'string' || !jobTitle.trim()) {
-      res.status(400).json({ success: false, message: 'Job title is required' });
-      return;
-    }
-    if (company.trim().length > 255) {
-      res.status(400).json({ success: false, message: 'Company name must be under 255 characters' });
-      return;
-    }
-    if (jobTitle.trim().length > 255) {
-      res.status(400).json({ success: false, message: 'Job title must be under 255 characters' });
-      return;
-    }
-    if (notes && typeof notes === 'string' && notes.length > 5000) {
-      res.status(400).json({ success: false, message: 'Notes must be under 5000 characters' });
-      return;
-    }
 
     const application = await applicationsService.createApplication(userId, {
       company,
@@ -54,7 +34,7 @@ export const createApplication = async (req: Request, res: Response): Promise<vo
       data: application,
     });
   } catch (error) {
-    console.error('Error creating application:', error);
+    logger.error(error, 'Error creating application');
     res.status(500).json({ success: false, message: 'Failed to create application' });
   }
 };
@@ -68,7 +48,7 @@ export const listApplications = async (req: Request, res: Response): Promise<voi
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
 
     const { applications, total } = await applicationsService.listApplications(userId, {
-      status: typeof status === 'string' ? status : undefined,
+      ...(typeof status === 'string' ? { status } : {}),
       page,
       limit,
     });
@@ -80,7 +60,7 @@ export const listApplications = async (req: Request, res: Response): Promise<voi
       meta: { total, page, limit, pages: Math.ceil(total / limit) },
     });
   } catch (error) {
-    console.error('Error fetching applications:', error);
+    logger.error(error, 'Error fetching applications');
     res.status(500).json({ success: false, message: 'Failed to fetch applications' });
   }
 };
@@ -96,7 +76,7 @@ export const getApplicationStats = async (req: Request, res: Response): Promise<
       data: stats,
     });
   } catch (error) {
-    console.error('Error fetching application stats:', error);
+    logger.error(error, 'Error fetching application stats');
     res.status(500).json({ success: false, message: 'Failed to fetch application stats' });
   }
 };
@@ -104,19 +84,11 @@ export const getApplicationStats = async (req: Request, res: Response): Promise<
 export const updateApplicationStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const { id } = req.params;
+    const id = req.params['id']!;
     const { status } = req.body;
 
     if (!UUID_RE.test(id)) {
       res.status(404).json({ success: false, message: 'Application not found' });
-      return;
-    }
-
-    if (!status || !VALID_STATUSES.includes(status)) {
-      res.status(400).json({
-        success: false,
-        message: `Status must be one of: ${VALID_STATUSES.join(', ')}`,
-      });
       return;
     }
 
@@ -128,7 +100,7 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
 
     res.json({ success: true, message: 'Application status updated', data: updated });
   } catch (error) {
-    console.error('Error updating application status:', error);
+    logger.error(error, 'Error updating application status');
     res.status(500).json({ success: false, message: 'Failed to update application status' });
   }
 };
@@ -136,7 +108,7 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
 export const deleteApplication = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const { id } = req.params;
+    const id = req.params['id']!;
 
     if (!UUID_RE.test(id)) {
       res.status(404).json({ success: false, message: 'Application not found' });
@@ -151,7 +123,7 @@ export const deleteApplication = async (req: Request, res: Response): Promise<vo
 
     res.json({ success: true, message: 'Application deleted' });
   } catch (error) {
-    console.error('Error deleting application:', error);
+    logger.error(error, 'Error deleting application');
     res.status(500).json({ success: false, message: 'Failed to delete application' });
   }
 };
@@ -160,19 +132,6 @@ export const atsCheck = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
     const { jobDescription, cvId } = req.body;
-
-    if (
-      !jobDescription ||
-      typeof jobDescription !== 'string' ||
-      jobDescription.trim().length < 20 ||
-      jobDescription.length > 10_000
-    ) {
-      res.status(400).json({
-        success: false,
-        message: 'Job description must be between 20 and 10,000 characters',
-      });
-      return;
-    }
 
     const result = await applicationsService.atsCheck(userId, jobDescription, cvId);
 
@@ -185,7 +144,7 @@ export const atsCheck = async (req: Request, res: Response): Promise<void> => {
 
     res.json({ success: true, message: 'ATS score calculated', data: result.data });
   } catch (error) {
-    console.error('Error in ATS check:', error);
+    logger.error(error, 'Error in ATS check');
     res.status(500).json({ success: false, message: 'Failed to check ATS score' });
   }
 };
@@ -209,7 +168,7 @@ export const atsPreview = async (req: Request, res: Response): Promise<void> => 
 
     res.json({ success: true, message: 'ATS preview calculated', data: result.data });
   } catch (error) {
-    console.error('Error previewing ATS score:', error);
+    logger.error(error, 'Error previewing ATS score');
     res.status(500).json({ success: false, message: 'Failed to preview ATS score' });
   }
 };
@@ -233,7 +192,7 @@ export const atsScore = async (req: Request, res: Response): Promise<void> => {
 
     res.json({ success: true, message: 'ATS score calculated successfully', data: result.data });
   } catch (error) {
-    console.error('Error calculating ATS score:', error);
+    logger.error(error, 'Error calculating ATS score');
     res.status(500).json({ success: false, message: 'Failed to calculate ATS score' });
   }
 };

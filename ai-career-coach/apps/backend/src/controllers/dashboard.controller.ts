@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { logger } from '../utils/logger.js';
 import { DashboardService } from '../services/dashboard.service.js';
 
 const dashboardService = new DashboardService();
@@ -19,7 +20,7 @@ export const getRecentActivity = async (req: Request, res: Response) => {
       data: activities,
     });
   } catch (error) {
-    console.error('Get recent activity error:', error);
+    logger.error(error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch recent activity',

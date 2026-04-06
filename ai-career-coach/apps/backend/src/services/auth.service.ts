@@ -1,6 +1,7 @@
 // apps/backend/src/services/auth.service.ts
 
 import bcrypt from 'bcrypt';
+import { logger } from '../utils/logger.js';
 import crypto from 'crypto';
 import { prisma, redis } from '../config/database.js';
 import {
@@ -90,7 +91,7 @@ export class AuthService {
 
     // Send verification email (async, don't block response)
     sendVerificationEmail(user.email, verifyToken).catch((error) => {
-      console.error('Failed to send verification email:', error);
+      logger.error(error);
     });
 
     return {

@@ -1,6 +1,7 @@
 // apps/backend/src/utils/email.util.ts
 
 import nodemailer from 'nodemailer';
+import { logger } from './logger.js';
 
 /**
  * Email transporter configuration
@@ -67,9 +68,9 @@ export const sendVerificationEmail = async (email: string, token: string) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Verification email sent to ${email}`);
+    logger.info(`Verification email sent to ${email}`);
   } catch (error) {
-    console.error('Error sending verification email:', error);
+    logger.error(error);
     throw new Error('Failed to send verification email');
   }
 };
@@ -114,9 +115,9 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Password reset email sent to ${email}`);
+    logger.info(`Password reset email sent to ${email}`);
   } catch (error) {
-    console.error('Error sending password reset email:', error);
+    logger.error(error);
     throw new Error('Failed to send password reset email');
   }
 };
@@ -160,9 +161,9 @@ export const sendAccountDisabledEmail = async (email: string, firstName: string)
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Account disabled email sent to ${email}`);
+    logger.info(`Account disabled email sent to ${email}`);
   } catch (error) {
-    console.error('Error sending account disabled email:', error);
+    logger.error(error);
     // Don't throw - notification email is not critical
   }
 };
@@ -198,9 +199,9 @@ export const sendWelcomeEmail = async (email: string, firstName: string) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Welcome email sent to ${email}`);
+    logger.info(`Welcome email sent to ${email}`);
   } catch (error) {
-    console.error('Error sending welcome email:', error);
+    logger.error(error);
     // Don't throw - welcome email is not critical
   }
 };

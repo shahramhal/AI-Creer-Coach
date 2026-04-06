@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { logger } from '../utils/logger.js';
 import { prisma, redis } from '../config/database.js';
 
 export class AccountService {
@@ -10,7 +11,7 @@ export class AccountService {
         await mongoDb.collection('parsed_cvs').deleteMany({ user_id: userId });
       }
     } catch (error) {
-      console.error('Failed to delete MongoDB data for user:', error);
+      logger.error(error);
     }
 
     // Delete from Redis cache
@@ -24,7 +25,7 @@ export class AccountService {
         }
       } while (cursor !== '0');
     } catch (error) {
-      console.error('Failed to clear Redis cache for user:', error);
+      logger.error(error);
     }
 
     // Prisma cascade handles all related Postgres records

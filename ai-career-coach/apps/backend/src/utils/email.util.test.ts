@@ -44,7 +44,7 @@ describe('Email Utility Functions', () => {
 
       await sendVerificationEmail(recipientEmail, verificationToken);
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0][0];
+      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
       expect(sendMailCallArgs.html).toContain(expectedVerificationUrl);
     });
 
@@ -80,7 +80,7 @@ describe('Email Utility Functions', () => {
 
       await sendPasswordResetEmail(recipientEmail, resetToken);
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0][0];
+      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
       expect(sendMailCallArgs.html).toContain(expectedResetUrl);
     });
 
@@ -95,7 +95,7 @@ describe('Email Utility Functions', () => {
     it('should mention 1-hour expiry in the email HTML body', async () => {
       await sendPasswordResetEmail('user@example.com', 'token-expiry-check');
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0][0];
+      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
       expect(sendMailCallArgs.html).toContain('1 hour');
     });
   });
@@ -121,7 +121,7 @@ describe('Email Utility Functions', () => {
 
       await sendWelcomeEmail(recipientEmail, userFirstName);
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0][0];
+      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
       expect(sendMailCallArgs.html).toContain(userFirstName);
     });
 
@@ -137,7 +137,7 @@ describe('Email Utility Functions', () => {
     it('should include the dashboard URL in the welcome email', async () => {
       await sendWelcomeEmail('dashboard@example.com', 'Dave');
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0][0];
+      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
       expect(sendMailCallArgs.html).toContain('dashboard');
     });
   });

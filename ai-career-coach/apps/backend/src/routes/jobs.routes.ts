@@ -7,6 +7,7 @@
  */
 
 import express from 'express';
+import { logger } from '../utils/logger.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -59,7 +60,7 @@ router.get('/search', authenticate, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Job search error:', error);
+    logger.error(error);
     res.status(500).json({
       success: false,
       message: 'Failed to search jobs'
@@ -87,7 +88,7 @@ router.get('/stats', authenticate, async (req, res) => {
     res.json(data)
     
   } catch (error) {
-    console.error('Job stats error:', error);
+    logger.error(error);
     res.status(500).json({
       success: false,
       message: 'Failed to get job statistics'

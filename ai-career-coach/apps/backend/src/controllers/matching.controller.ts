@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { logger } from '../utils/logger.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 import { matchingService } from '../services/matching.service.js';
 
@@ -20,7 +21,7 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     const result = await matchingService.findJobMatches(userId, { cv_id, filters, top_k, job_limit });
     const duration = Date.now() - startTime;
 
-    console.log(` [Matching] Complete! Matched ${result.matched_jobs.length} jobs in ${duration}ms`);
+    logger.info(` [Matching] Complete! Matched ${result.matched_jobs.length} jobs in ${duration}ms`);
 
     res.json({
       success: true,
@@ -39,7 +40,7 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
     const duration = Date.now() - startTime;
 
     if (error instanceof AppError) {
-      console.error(` [Matching] ${error.code}: ${error.message}`);
+      logger.error(` [Matching] ${error.code}: ${error.message}`);
       res.status(error.statusCode).json({
         success: false,
         message: error.message,
@@ -49,7 +50,7 @@ export const getJobMatches = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    console.error(' [Matching] Unexpected error:', error);
+    logger.error(error);
     res.status(500).json({
       success: false,
       message: 'An unexpected error occurred while matching jobs. Please try again.',
@@ -70,7 +71,7 @@ export const getMatchingDiagnostics = async (req: Request, res: Response): Promi
     const diagnostics = await matchingService.getDiagnostics(userId);
     res.json({ success: true, data: diagnostics });
   } catch (error) {
-    console.error(' [Diagnostics] Error:', error);
+    logger.error(error);
     res.status(500).json({
       success: false,
       message: 'Failed to get diagnostics',

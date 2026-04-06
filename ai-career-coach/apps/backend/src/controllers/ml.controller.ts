@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { promises as fsp } from 'fs';
+import { logger } from '../utils/logger.js';
+import fs, { promises as fsp } from 'fs';
 import { MlService } from '../services/ml.service.js';
 
 const mlService = new MlService();
@@ -87,15 +88,15 @@ export const downloadCV = async (req: Request, res: Response, next: NextFunction
     const cvId = req.params.cvId!;
     const userId = req.user!.id;
 
-    console.log(` Download: CV ${cvId}`);
+    logger.info(` Download: CV ${cvId}`);
 
     const filePath = await mlService.getCVFilePath(userId, cvId);
 
-    console.log(`File path: ${filePath}`);
+    logger.info(`File path: ${filePath}`);
     try {
       await fsp.access(filePath);
     } catch {
-      console.log(` File not found!`);
+      logger.info(` File not found!`);
       res.status(404).json({
         success: false,
         message: 'File not found on server',
@@ -103,12 +104,12 @@ export const downloadCV = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    console.log(` Streaming file...`);
+    logger.info(` Streaming file...`);
     // Stream file
     const fileStream = fs.createReadStream(filePath);
 
     fileStream.on('error', (error) => {
-      console.error('Stream error:', error);
+      logger.error(error);
       if (!res.headersSent) {
         res.status(500).json({
           success: false,
@@ -120,7 +121,7 @@ export const downloadCV = async (req: Request, res: Response, next: NextFunction
     fileStream.pipe(res);
 
     fileStream.on('end', () => {
-      console.log(` Download complete`);
+      logger.info(` Download complete`);
     });
   } catch (error) {
     if (!res.headersSent) {
@@ -153,7 +154,7 @@ export const healthCheck = async (_req: Request, res: Response): Promise<void> =
     const result = await mlService.checkHealth();
     res.status(result.status).json(result.data);
   } catch (error) {
-    console.error('ML service health check failed:', error);
+    logger.error(error);
     res.status(503).json({
       success: false,
       message: 'ML service unavailable',

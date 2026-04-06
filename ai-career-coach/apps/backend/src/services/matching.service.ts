@@ -150,7 +150,7 @@ class MatchingService {
         matched_jobs: cachedMatchResult,
         total_analyzed: jobCount,
         user_cv: {
-          name: userCV.personal_info?.name,
+          name: userCV.contact_info?.name,
           uploaded_at: userCV.created_at,
         },
         cached: true,
@@ -167,7 +167,7 @@ class MatchingService {
       matched_jobs: matchedJobs,
       total_analyzed: jobCount,
       user_cv: {
-        name: userCV.personal_info?.name,
+        name: userCV.contact_info?.name,
         uploaded_at: userCV.created_at,
       },
       cached: false,

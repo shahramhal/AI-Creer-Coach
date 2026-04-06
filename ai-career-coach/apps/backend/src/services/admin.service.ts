@@ -1,6 +1,7 @@
 // apps/backend/src/services/admin.service.ts
 
 import mongoose from 'mongoose';
+import { logger } from '../utils/logger.js';
 import { prisma, redis, checkDatabaseHealth } from '../config/database.js';
 import crypto from 'crypto';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
@@ -497,7 +498,7 @@ export class AdminService {
         },
       };
     } catch (error) {
-      console.error('Failed to get cache stats:', error);
+      logger.error(error);
       return { keyCount: 0, hitRate: { hits: 0, misses: 0 }, memory: { used: '0B', peak: '0B' } };
     }
   }
@@ -543,7 +544,7 @@ export class AdminService {
         );
       }
     } catch (error) {
-      console.error('Failed to get MongoDB stats:', error);
+      logger.error(error);
     }
 
     return {

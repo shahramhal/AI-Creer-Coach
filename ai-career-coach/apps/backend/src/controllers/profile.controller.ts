@@ -4,6 +4,7 @@ import type { Request, Response } from 'express';
 import { ProfileService } from '../services/profile.service.js';
 import { accountService } from '../services/account.service.js';
 import { logUserActivity } from '../utils/activity.util.js';
+import { logger } from '../utils/logger.js';
 
 const profileService = new ProfileService();
 
@@ -37,7 +38,7 @@ export const getProfile = async (req: Request, res: Response) => {
       data: profile
     });
   } catch (error) {
-    console.error('Get profile error:', error);
+    logger.error(error, 'Get profile error');
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch profile'
@@ -85,7 +86,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       message: 'Profile updated successfully'
     });
   } catch (error) {
-    console.error('Update profile error:', error);
+    logger.error(error, 'Update profile error');
     return res.status(500).json({
       success: false,
       message: 'Failed to update profile'
@@ -107,7 +108,7 @@ export const getCareerPreferences = async (req: Request, res: Response) => {
       data: preferences
     });
   } catch (error) {
-    console.error('Get career preferences error:', error);
+    logger.error(error, 'Get career preferences error');
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch career preferences'
@@ -135,7 +136,7 @@ export const updateCareerPreferences = async (req: Request, res: Response) => {
       message: 'Career preferences updated successfully'
     });
   } catch (error) {
-    console.error('Update career preferences error:', error);
+    logger.error(error, 'Update career preferences error');
     return res.status(500).json({
       success: false,
       message: 'Failed to update career preferences'
@@ -160,7 +161,7 @@ export const exportData = async (req: Request, res: Response) => {
       data
     });
   } catch (error) {
-    console.error('Export data error:', error);
+    logger.error(error, 'Export data error');
     return res.status(500).json({
       success: false,
       message: 'Failed to export data'
@@ -208,7 +209,7 @@ export const deleteAccount = async (req: Request, res: Response) => {
       message: 'Account deleted successfully'
     });
   } catch (error) {
-    console.error('Delete account error:', error);
+    logger.error(error, 'Delete account error');
     return res.status(500).json({
       success: false,
       message: 'Failed to delete account'
@@ -242,7 +243,7 @@ export const uploadAvatar = async (req: Request, res: Response) => {
       message: 'Avatar uploaded successfully'
     });
   } catch (error) {
-    console.error('Upload avatar error:', error);
+    logger.error(error, 'Upload avatar error');
     return res.status(500).json({
       success: false,
       message: 'Failed to upload avatar'
@@ -270,7 +271,7 @@ export const deleteAvatar = async (req: Request, res: Response) => {
       try {
         await fs.unlink(filePath);
       } catch (fileError) {
-        console.error('Failed to delete avatar file:', fileError);
+        logger.warn(fileError, 'Failed to delete avatar file from disk');
       }
     }
 
@@ -284,7 +285,7 @@ export const deleteAvatar = async (req: Request, res: Response) => {
       message: 'Avatar deleted successfully'
     });
   } catch (error) {
-    console.error('Delete avatar error:', error);
+    logger.error(error, 'Delete avatar error');
     return res.status(500).json({
       success: false,
       message: 'Failed to delete avatar'

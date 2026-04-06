@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { logger } from '../utils/logger.js';
 import { prisma } from '../config/database.js';
 import { buildCVText } from '../utils/cv-text.util.js';
 
@@ -186,7 +187,7 @@ export class ApplicationsService {
       return { error: 'Parsed CV data not found in database', status: 404 };
     }
 
-    console.log(`ATS check: CV ${cvRecord.id}, raw job description (${jobDescription.length} chars)`);
+    logger.info(`ATS check: CV ${cvRecord.id}, raw job description (${jobDescription.length} chars)`);
 
     const mlResponse = await fetchMLService('/api/ml/ats-score', {
       cv_text: cvData.rawText,
@@ -199,7 +200,7 @@ export class ApplicationsService {
     const mlData = await mlResponse.json();
 
     if (!mlResponse.ok || !mlData.success) {
-      console.error('ATS check error:', mlData);
+      logger.error(mlData.error || 'ATS check failed');
       return { error: mlData.error || 'ATS check failed', status: 500 };
     }
 
@@ -242,7 +243,7 @@ export class ApplicationsService {
     const mlData = await mlResponse.json();
 
     if (!mlResponse.ok || !mlData.success) {
-      console.error('ATS preview error:', mlData);
+      logger.error(mlData.error || 'ATS preview failed');
       return { error: mlData.error || 'ATS preview failed', status: 500 };
     }
 
@@ -291,7 +292,7 @@ export class ApplicationsService {
     const rawSkills = Array.isArray(application.job.skills) ? application.job.skills : [];
     const jobSkills = rawSkills.filter((s): s is string => typeof s === 'string');
 
-    console.log(
+    logger.info(
       `ATS scoring: Application ${applicationId}, CV ${cvRecord.id}, Job ${application.job.id}`
     );
 
@@ -306,7 +307,7 @@ export class ApplicationsService {
     const mlData = await mlResponse.json();
 
     if (!mlResponse.ok || !mlData.success) {
-      console.error('ATS scoring error:', mlData);
+      logger.error(mlData.error || 'ATS scoring failed');
       return { error: mlData.error || 'ATS scoring failed', status: 500 };
     }
 
@@ -324,7 +325,7 @@ export class ApplicationsService {
       },
     });
 
-    console.log(`ATS score stored: Application ${applicationId}, score=${atsResult.atsScore}/100`);
+    logger.info(`ATS score stored: Application ${applicationId}, score=${atsResult.atsScore}/100`);
 
     return { data: atsResult };
   }

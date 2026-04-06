@@ -1,6 +1,8 @@
 // apps/backend/src/utils/audit.util.ts
 
 import type { Request } from 'express';
+import { Prisma } from '@prisma/client';
+import { logger } from './logger.js';
 import { prisma } from '../config/database.js';
 
 interface AuditAction {
@@ -30,11 +32,11 @@ export function logAdminAction(req: Request, auditAction: AuditAction): void {
         action: auditAction.action,
         targetType: auditAction.targetType,
         targetId: auditAction.targetId ?? null,
-        details: auditAction.details ?? undefined,
+        ...(auditAction.details !== undefined ? { details: auditAction.details as Prisma.InputJsonValue } : {}),
         ipAddress,
       },
     })
     .catch((error) => {
-      console.error('Audit log write failed:', error);
+      logger.error(error);
     });
 }

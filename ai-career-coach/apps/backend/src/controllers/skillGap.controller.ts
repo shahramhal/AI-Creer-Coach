@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { logger } from '../utils/logger.js';
 import mongoose from 'mongoose';
 import { SkillGapService } from '../services/skillGap.service.js';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
@@ -69,7 +70,7 @@ export const analyzeSkillGap = async (req: Request, res: Response): Promise<void
       res.status(error.statusCode).json({ success: false, message: error.message, code: error.code });
       return;
     }
-    console.error('[SkillGap] Analysis error:', error);
+    logger.error(error);
     res.status(500).json({ success: false, message: 'Skill gap analysis failed' });
   }
 };
@@ -88,7 +89,7 @@ export const getLearningPaths = async (req: Request, res: Response): Promise<voi
       res.status(error.statusCode).json({ success: false, message: error.message });
       return;
     }
-    console.error('[SkillGap] Get learning paths error:', error);
+    logger.error(error);
     res.status(500).json({ success: false, message: 'Failed to fetch learning paths' });
   }
 };
@@ -100,7 +101,7 @@ export const getLearningPathDetails = async (req: Request, res: Response): Promi
       throw new AppError('Not authenticated', 401, ErrorCodes.INVALID_CREDENTIALS);
     }
 
-    const { learningPathId } = req.params;
+    const learningPathId = req.params['learningPathId']!;
     if (!UUID_REGEX.test(learningPathId)) {
       throw new AppError('Invalid learningPathId format', 400, ErrorCodes.VALIDATION_ERROR);
     }
@@ -116,7 +117,7 @@ export const getLearningPathDetails = async (req: Request, res: Response): Promi
       res.status(error.statusCode).json({ success: false, message: error.message });
       return;
     }
-    console.error('[SkillGap] Get path details error:', error);
+    logger.error(error);
     res.status(500).json({ success: false, message: 'Failed to fetch learning path details' });
   }
 };
@@ -128,7 +129,7 @@ export const updateProgress = async (req: Request, res: Response): Promise<void>
       throw new AppError('Not authenticated', 401, ErrorCodes.INVALID_CREDENTIALS);
     }
 
-    const { learningPathId } = req.params;
+    const learningPathId = req.params['learningPathId']!;
     if (!UUID_REGEX.test(learningPathId)) {
       throw new AppError('Invalid learningPathId format', 400, ErrorCodes.VALIDATION_ERROR);
     }
@@ -149,7 +150,7 @@ export const updateProgress = async (req: Request, res: Response): Promise<void>
       res.status(error.statusCode).json({ success: false, message: error.message });
       return;
     }
-    console.error('[SkillGap] Update progress error:', error);
+    logger.error(error);
     res.status(500).json({ success: false, message: 'Failed to update progress' });
   }
 };
@@ -161,7 +162,7 @@ export const updateCourseProgress = async (req: Request, res: Response): Promise
       throw new AppError('Not authenticated', 401, ErrorCodes.INVALID_CREDENTIALS);
     }
 
-    const { courseId } = req.params;
+    const courseId = req.params['courseId']!;
     if (!UUID_REGEX.test(courseId)) {
       throw new AppError('Invalid courseId format', 400, ErrorCodes.VALIDATION_ERROR);
     }
@@ -186,7 +187,7 @@ export const updateCourseProgress = async (req: Request, res: Response): Promise
       res.status(error.statusCode).json({ success: false, message: error.message });
       return;
     }
-    console.error('[SkillGap] Update course progress error:', error);
+    logger.error(error);
     res.status(500).json({ success: false, message: 'Failed to update course progress' });
   }
 };
@@ -205,7 +206,7 @@ export const getProgressSummary = async (req: Request, res: Response): Promise<v
       res.status(error.statusCode).json({ success: false, message: error.message });
       return;
     }
-    console.error('[SkillGap] Get summary error:', error);
+    logger.error(error);
     res.status(500).json({ success: false, message: 'Failed to fetch progress summary' });
   }
 };

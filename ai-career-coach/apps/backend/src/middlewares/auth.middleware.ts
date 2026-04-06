@@ -3,6 +3,7 @@
 import type{ Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/database.js';
 import { verifyAccessToken } from '../utils/jwt.util.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Extends Express Request to include user data
@@ -89,7 +90,7 @@ export const authenticate = async (
 
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
+    logger.error(error, 'Authentication error');
 
     if (error instanceof Error) {
       if (error.message === 'Token expired') {

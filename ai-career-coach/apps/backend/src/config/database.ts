@@ -1,5 +1,6 @@
 // apps/backend/src/config/database.ts
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../utils/logger.js';
 import mongoose from 'mongoose';
 import Redis from 'ioredis';
 
@@ -21,10 +22,10 @@ export const prisma = new PrismaClient({
 // Handle Prisma connection
 prisma.$connect()
   .then(() => {
-    console.log('✅ PostgreSQL connected via Prisma');
+    logger.info('✅ PostgreSQL connected via Prisma');
   })
   .catch((error) => {
-    console.error('❌ PostgreSQL connection failed:', error);
+    logger.error(error);
     process.exit(1);
   });
 
@@ -47,19 +48,19 @@ export const connectMongoDB = async (): Promise<void> => {
       serverSelectionTimeoutMS: 5000,
     });
 
-    console.log('✅ MongoDB connected');
+    logger.info('✅ MongoDB connected');
 
     // Handle connection events
     mongoose.connection.on('error', (err) => {
-      console.error('MongoDB connection error:', err);
+      logger.error(err);
     });
 
     mongoose.connection.on('disconnected', () => {
-      console.log('MongoDB disconnected');
+      logger.info('MongoDB disconnected');
     });
 
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error);
+    logger.error(error);
     process.exit(1);
   }
 };
@@ -98,11 +99,11 @@ export const sessionRedis = new Redis({
 
 // Redis event handlers
 redis.on('connect', () => {
-  console.log('✅ Redis connected');
+  logger.info('✅ Redis connected');
 });
 
 redis.on('error', (err) => {
-  console.error('❌ Redis connection error:', err);
+  logger.error(err);
 });
 
 
@@ -132,40 +133,24 @@ class CacheManager {
       const value = await this.redis.get(key);
       return value ? JSON.parse(value) : null;
     } catch (error) {
-      console.error(`Cache get error for ${key}:`, error);
+      logger.error(error);
       return null;
     }
   }
 
-  /**
-   * Set cache value
-   * @param key - Cache key
-   * @param value - Value to cache
-   * @param ttl - Time to live in seconds
-   * @returns Success status
-   */
-  async set<T = any>(key: string, value: T, ttl: number = this.defaultTTL): Promise<boolean> {
+  async set(key: string, value: unknown, ttl: number = this.defaultTTL): Promise<void> {
     try {
       await this.redis.setex(key, ttl, JSON.stringify(value));
-      return true;
     } catch (error) {
-      console.error(`Cache set error for ${key}:`, error);
-      return false;
+      logger.error(error);
     }
   }
 
-  /**
-   * Delete cache entry
-   * @param key - Cache key
-   * @returns Success status
-   */
-  async del(key: string): Promise<boolean> {
+  async del(key: string): Promise<void> {
     try {
       await this.redis.del(key);
-      return true;
     } catch (error) {
-      console.error(`Cache delete error for ${key}:`, error);
-      return false;
+      logger.error(error);
     }
   }
 
@@ -212,7 +197,7 @@ class CacheManager {
       } while (cursor !== '0');
       return total;
     } catch (error) {
-      console.error(`Cache delByPattern error for ${pattern}:`, error);
+      logger.error(error);
       return 0;
     }
   }
@@ -267,7 +252,7 @@ export async function checkDatabaseHealth(): Promise<HealthStatus> {
     await prisma.$queryRaw`SELECT 1`;
     health.postgres = true;
   } catch (error) {
-    console.error('PostgreSQL health check failed:', error);
+    logger.error(error);
   }
 
   // Check MongoDB
@@ -277,7 +262,7 @@ export async function checkDatabaseHealth(): Promise<HealthStatus> {
       health.mongodb = true;
     }
   } catch (error) {
-    console.error('MongoDB health check failed:', error);
+    logger.error(error);
   }
 
   // Check Redis
@@ -285,7 +270,7 @@ export async function checkDatabaseHealth(): Promise<HealthStatus> {
     await redis.ping();
     health.redis = true;
   } catch (error) {
-    console.error('Redis health check failed:', error);
+    logger.error(error);
   }
 
   return health;
@@ -299,24 +284,24 @@ export async function checkDatabaseHealth(): Promise<HealthStatus> {
  * Close all database connections gracefully
  */
 export async function closeDatabaseConnections(): Promise<void> {
-  console.log('Closing database connections...');
+  logger.info('Closing database connections...');
 
   try {
     // Close Prisma
     await prisma.$disconnect();
-    console.log('PostgreSQL disconnected');
+    logger.info('PostgreSQL disconnected');
 
     // Close MongoDB
     await mongoose.connection.close();
-    console.log('MongoDB disconnected');
+    logger.info('MongoDB disconnected');
 
     // Close Redis
     redis.disconnect();
     sessionRedis.disconnect();
-    console.log('Redis disconnected');
+    logger.info('Redis disconnected');
 
   } catch (error) {
-    console.error('Error during shutdown:', error);
+    logger.error(error);
     process.exit(1);
   }
 }

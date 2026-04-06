@@ -1,4 +1,5 @@
 import { prisma } from '../config/database.js';
+import { logger } from './logger.js';
 
 export function logUserActivity(
   userId: string,
@@ -11,6 +12,6 @@ export function logUserActivity(
       data: { userId, type, title, description },
     })
     .catch((error) => {
-      console.error('Activity log write failed:', error);
+      logger.error(error);
     });
 }

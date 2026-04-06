@@ -176,7 +176,7 @@ export const sendWelcomeEmail = async (email: string, firstName: string) => {
     subject: 'Welcome to AI Career Coach!',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Welcome, ${firstName}!</h2>
+        <h2>Welcome, ${escapeHtml(firstName)}!</h2>
         <p>Your email has been verified. You're all set to start your career journey.</p>
         <h3>What's next?</h3>
         <ul>

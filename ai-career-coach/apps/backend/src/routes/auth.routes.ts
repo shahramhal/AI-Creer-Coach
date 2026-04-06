@@ -13,6 +13,7 @@ import {
   getCurrentUser,
 } from '../controllers/auth.controller.js';
 import {
+    validate,
     registerValidation,
     loginValidation,
     forgotPasswordValidation,
@@ -55,19 +56,19 @@ const refreshLimiter = rateLimit({
 });
 
 // POST /api/auth/register - Register new user
-router.post('/register', registerLimiter, registerValidation, register);
+router.post('/register', registerLimiter, registerValidation, validate, register);
 
 // POST /api/auth/login - Login user
-router.post('/login', loginLimiter, loginValidation, login);
+router.post('/login', loginLimiter, loginValidation, validate, login);
 
 // GET /api/auth/verify-email?token=xxx - Verify email
 router.get('/verify-email', verifyEmail);
 
 // POST /api/auth/forgot-password - Request password reset
-router.post('/forgot-password', forgotPasswordLimiter, forgotPasswordValidation, forgotPassword);
+router.post('/forgot-password', forgotPasswordLimiter, forgotPasswordValidation, validate, forgotPassword);
 
 // POST /api/auth/reset-password - Reset password with token
-router.post('/reset-password', resetPasswordValidation, resetPassword);
+router.post('/reset-password', resetPasswordValidation, validate, resetPassword);
 
 // POST /api/auth/refresh - Refresh access token
 router.post('/refresh', refreshLimiter, refreshToken);

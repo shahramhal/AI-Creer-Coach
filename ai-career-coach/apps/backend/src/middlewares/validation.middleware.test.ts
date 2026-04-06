@@ -17,7 +17,7 @@ function buildValidationTestApp(
   const testApp = express();
   testApp.use(express.json());
 
-  testApp.post('/test', validationChain, (req, res) => {
+  testApp.post('/test', validationChain, (req: express.Request, res: express.Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({

@@ -14,6 +14,7 @@ import {
   exportData,
   deleteAccount
 } from '../controllers/profile.controller.js';
+import { validate, updateProfileValidation } from '../middlewares/validation.middleware.js';
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get('/export', exportData);
 router.delete('/account', deleteAccount);
 
 // PUT /api/profile - Update profile
-router.put('/', updateProfile);
+router.put('/', updateProfileValidation, validate, updateProfile);
 
 // POST /api/profile/avatar - Upload avatar
 router.post('/avatar', upload.single('avatar'), uploadAvatar);

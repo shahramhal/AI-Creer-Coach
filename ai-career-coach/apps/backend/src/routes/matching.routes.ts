@@ -9,6 +9,7 @@
 import express from 'express';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { getJobMatches, getMatchingDiagnostics } from '../controllers/matching.controller.js';
+import { validate, findJobsValidation } from '../middlewares/validation.middleware.js';
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ const router = express.Router();
  * - ML_SERVICE_ERROR: ML service unavailable or error
  * - AUTH_ERROR: Authentication required
  */
-router.post('/find-jobs', authenticate, getJobMatches);
+router.post('/find-jobs', authenticate, findJobsValidation, validate, getJobMatches);
 
 /**
  * GET /api/matching/diagnostics

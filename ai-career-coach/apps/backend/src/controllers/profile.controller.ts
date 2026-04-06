@@ -52,7 +52,15 @@ export const getProfile = async (req: Request, res: Response) => {
 export const updateProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { firstName, lastName, ...profileUpdates } = req.body;
+    const { firstName, lastName, phoneNumber, location, linkedinUrl, githubUrl, portfolioUrl, bio, jobTitle } = req.body;
+    const profileUpdates: Record<string, string | undefined> = {};
+    if (phoneNumber !== undefined) profileUpdates.phoneNumber = phoneNumber;
+    if (location !== undefined) profileUpdates.location = location;
+    if (linkedinUrl !== undefined) profileUpdates.linkedinUrl = linkedinUrl;
+    if (githubUrl !== undefined) profileUpdates.githubUrl = githubUrl;
+    if (portfolioUrl !== undefined) profileUpdates.portfolioUrl = portfolioUrl;
+    if (bio !== undefined) profileUpdates.bio = bio;
+    if (jobTitle !== undefined) profileUpdates.jobTitle = jobTitle;
 
     if (firstName !== undefined || lastName !== undefined) {
       const userData: { firstName?: string; lastName?: string } = {};

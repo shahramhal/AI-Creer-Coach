@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
     db = mongodb_client[settings.mongodb_db_name]
     app.state.db = db
 
-    logger.info(f"✅ Connected to MongoDB: {settings.mongodb_db_name}")
+    logger.info(f" Connected to MongoDB: {settings.mongodb_db_name}")
 
     aggregator = JobAggregator(db)
 
@@ -155,7 +155,7 @@ async def fetch_jobs_task(aggregator: JobAggregator):
             )
             total_jobs += result["stored"]
 
-        logger.info(f"✅ Scheduled fetch complete: {total_jobs} jobs stored")
+        logger.info(f" Scheduled fetch complete: {total_jobs} jobs stored")
 
     except Exception as e:
         logger.error(f"❌ Scheduled fetch failed: {e}")

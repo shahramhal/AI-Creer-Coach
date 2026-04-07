@@ -33,7 +33,7 @@ print(f"Response: {response.json()}")
 
 # ### **Your current setup:**
 # ```
-# ✅ Running in Docker:
+#  Running in Docker:
 #    - postgres (accessible at localhost:5432)
 #    - mongodb (accessible at localhost:27017)
 #    - redis (accessible at localhost:6379)

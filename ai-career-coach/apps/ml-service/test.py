@@ -195,7 +195,7 @@ class ParserTester:
             self.results['by_category'][category]['avg_experience'] = round(category_exp / successful, 1)
             self.results['by_category'][category]['avg_education'] = round(category_edu / successful, 1)
         
-        print(f"\n✅ Category complete: {successful} successful, {self.results['by_category'][category]['failed']} failed")
+        print(f"\n Category complete: {successful} successful, {self.results['by_category'][category]['failed']} failed")
     
     def test_multiple_categories(self, categories, cvs_per_category=20):
         """Test multiple categories"""
@@ -297,32 +297,32 @@ class ParserTester:
         targets_missed = []
         
         if metrics['avg_skills_per_cv'] >= 10:
-            targets_met.append("✅ Skills extraction (>10)")
+            targets_met.append(" Skills extraction (>10)")
         else:
             targets_missed.append(f"❌ Skills extraction ({metrics['avg_skills_per_cv']:.1f} < 10)")
         
         if metrics['avg_experience_per_cv'] >= 2:
-            targets_met.append("✅ Experience extraction (>2)")
+            targets_met.append(" Experience extraction (>2)")
         else:
             targets_missed.append(f"❌ Experience extraction ({metrics['avg_experience_per_cv']:.1f} < 2)")
         
         if metrics['email_extraction_rate'] >= 0.70:
-            targets_met.append("✅ Email extraction (>70%)")
+            targets_met.append(" Email extraction (>70%)")
         else:
             targets_missed.append(f"❌ Email extraction ({metrics['email_extraction_rate']*100:.0f}% < 70%)")
         
         if metrics['name_extraction_rate'] >= 0.60:
-            targets_met.append("✅ Name extraction (>60%)")
+            targets_met.append(" Name extraction (>60%)")
         else:
             targets_missed.append(f"⚠️  Name extraction ({metrics['name_extraction_rate']*100:.0f}% < 60%)")
         
         parse_success_rate = self.results['successful_parses'] / self.results['total_tested']
         if parse_success_rate >= 0.95:
-            targets_met.append("✅ Parsing success rate (>95%)")
+            targets_met.append(" Parsing success rate (>95%)")
         else:
             targets_missed.append(f"❌ Parsing success rate ({parse_success_rate*100:.0f}% < 95%)")
         
-        print("\n✅ TARGETS MET:")
+        print("\n TARGETS MET:")
         for target in targets_met:
             print(f"   {target}")
         
@@ -336,7 +336,7 @@ class ParserTester:
         if len(targets_missed) == 0:
             print("🎉 EXCELLENT! All targets met. Parser is production-ready.")
         elif len(targets_missed) <= 2:
-            print("✅ GOOD! Most targets met. Minor improvements needed.")
+            print(" GOOD! Most targets met. Minor improvements needed.")
         else:
             print("⚠️  NEEDS IMPROVEMENT. Several targets missed.")
         print(f"{'='*70}")
@@ -365,7 +365,7 @@ def main():
     print("\n📥 Downloading dataset...")
     try:
         dataset_path = kagglehub.dataset_download("snehaanbhawal/resume-dataset")
-        print(f"✅ Dataset downloaded: {dataset_path}")
+        print(f" Dataset downloaded: {dataset_path}")
     except Exception as e:
         print(f"❌ Failed to download dataset: {e}")
         print("\nAlternative: Set dataset_path manually if you have it locally")
@@ -375,11 +375,11 @@ def main():
     print("\n🔧 Initializing parser...")
     try:
         parser = CVParser()
-        print("✅ Parser initialized")
+        print(" Parser initialized")
         
         # Check if spaCy loaded
         if parser.nlp:
-            print("   ✅ spaCy NER enabled")
+            print("    spaCy NER enabled")
         else:
             print("   ⚠️  spaCy not loaded (reduced accuracy)")
     except Exception as e:

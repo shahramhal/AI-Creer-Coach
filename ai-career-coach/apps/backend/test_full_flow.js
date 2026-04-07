@@ -26,7 +26,7 @@ async function testFullFlow() {
     });
     
     token = loginRes.data.data.accessToken;
-    console.log('✅ Logged in successfully');
+    console.log(' Logged in successfully');
     console.log(`User ID: ${loginRes.data.data.user.id}`);
     
     // Step 2: Upload CV to ML SERVICE (port 8000, not 4000!)
@@ -45,7 +45,7 @@ async function testFullFlow() {
       }
     );
     
-    console.log('✅ CV uploaded and parsed');
+    console.log(' CV uploaded and parsed');
     console.log(`   - Skills found: ${uploadRes.data.data?.skills?.length || 0}`);
     console.log(`   - Experience: ${uploadRes.data.data?.experience?.length || 0} positions`);
     
@@ -63,7 +63,7 @@ async function testFullFlow() {
     );
     
     const matches = matchRes.data.data.matched_jobs;
-    console.log('✅ Job matching completed');
+    console.log(' Job matching completed');
     console.log(`   - Total analyzed: ${matchRes.data.data.total_analyzed}`);
     console.log(`   - Matches returned: ${matches.length}`);
     

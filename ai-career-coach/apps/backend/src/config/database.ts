@@ -22,7 +22,7 @@ export const prisma = new PrismaClient({
 // Handle Prisma connection
 prisma.$connect()
   .then(() => {
-    logger.info('✅ PostgreSQL connected via Prisma');
+    logger.info(' PostgreSQL connected via Prisma');
   })
   .catch((error) => {
     logger.error(error);
@@ -48,7 +48,7 @@ export const connectMongoDB = async (): Promise<void> => {
       serverSelectionTimeoutMS: 5000,
     });
 
-    logger.info('✅ MongoDB connected');
+    logger.info(' MongoDB connected');
 
     // Handle connection events
     mongoose.connection.on('error', (err) => {
@@ -99,7 +99,7 @@ export const sessionRedis = new Redis({
 
 // Redis event handlers
 redis.on('connect', () => {
-  logger.info('✅ Redis connected');
+  logger.info(' Redis connected');
 });
 
 redis.on('error', (err) => {

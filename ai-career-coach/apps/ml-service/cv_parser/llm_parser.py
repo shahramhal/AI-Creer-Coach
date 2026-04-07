@@ -367,7 +367,7 @@ def test_llm_parser(cv_text: str):
     result = parser.parse(cv_text, "test.pdf")
     
     # Display results
-    print(f"\n✅ Parsed Successfully!")
+    print(f"\n Parsed Successfully!")
     print(f"\n📋 Results:")
     print(f"   Name:          {result['contact_info'].get('name', 'N/A')}")
     print(f"   Email:         {result['contact_info'].get('email', 'N/A')}")

@@ -100,7 +100,7 @@ class ReedAPI:
                 normalized = self._normalize_job(raw_job, keywords, location, full_description)
                 jobs.append(normalized)
 
-            logger.info(f"✅ Reed: {len(jobs)} jobs for '{keywords}' in '{location}'")
+            logger.info(f" Reed: {len(jobs)} jobs for '{keywords}' in '{location}'")
             return jobs
 
         except Exception as e:

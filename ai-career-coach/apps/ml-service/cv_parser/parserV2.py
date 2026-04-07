@@ -184,7 +184,7 @@ def test_with_file(filepath: str):
     result = parser.parse(file_content, filename)
     
     # Display results
-    print(f"\n✅ SUCCESS!")
+    print(f"\n SUCCESS!")
     print(f"\n📋 CONTACT INFO:")
     contact = result['contact_info']
     print(f"   Name:     {contact.get('name', 'N/A')}")

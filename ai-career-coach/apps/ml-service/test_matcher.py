@@ -90,7 +90,7 @@ def test_job_matching():
         result = response.json()
         
         # Display results
-        print("\n✅ SUCCESS!")
+        print("\n SUCCESS!")
         print("=" * 70)
         print(f"Total jobs analyzed: {result['total_analyzed']}")
         print(f"Matched jobs returned: {len(result['matched_jobs'])}")
@@ -108,7 +108,7 @@ def test_job_matching():
             print(f"   Skill Coverage: {breakdown['skill_coverage']:.1f}%")
             
             if breakdown['matched_skills']:
-                print(f"   ✅ Matched Skills: {', '.join(breakdown['matched_skills'])}")
+                print(f"    Matched Skills: {', '.join(breakdown['matched_skills'])}")
             
             if breakdown['missing_skills']:
                 print(f"   ❌ Missing Skills: {', '.join(breakdown['missing_skills'])}")
@@ -121,10 +121,10 @@ def test_job_matching():
         print("\n📊 VERIFICATION:")
         if len(result['matched_jobs']) > 0:
             top_job = result['matched_jobs'][0]
-            print(f"✅ Top match: {top_job['title']} ({top_job['match_score']:.1f}%)")
+            print(f" Top match: {top_job['title']} ({top_job['match_score']:.1f}%)")
             
             if "Python" in top_job['title']:
-                print("✅ Top match is a Python job (as expected)")
+                print(" Top match is a Python job (as expected)")
             else:
                 print("⚠️  Top match is NOT a Python job (unexpected)")
         

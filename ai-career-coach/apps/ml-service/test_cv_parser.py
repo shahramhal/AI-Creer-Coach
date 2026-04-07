@@ -46,7 +46,7 @@ def test_parser():
     # === EXPERIENCE ===
     print_separator("WORK EXPERIENCE")
     if 'experience' in result and result['experience']:
-        print(f"✅ Found {len(result['experience'])} position(s)\n")
+        print(f" Found {len(result['experience'])} position(s)\n")
         
         for i, exp in enumerate(result['experience'], 1):
             print(f"Position {i}:")
@@ -67,7 +67,7 @@ def test_parser():
     # === EDUCATION ===
     print_separator("EDUCATION")
     if 'education' in result and result['education']:
-        print(f"✅ Found {len(result['education'])} education entry(ies)\n")
+        print(f" Found {len(result['education'])} education entry(ies)\n")
         
         for i, edu in enumerate(result['education'], 1):
             print(f"Education {i}:")
@@ -83,7 +83,7 @@ def test_parser():
     # === SKILLS ===
     print_separator("SKILLS")
     if 'skills' in result and result['skills']:
-        print(f"✅ Found {len(result['skills'])} skill(s)\n")
+        print(f" Found {len(result['skills'])} skill(s)\n")
         
         # Group skills by category for better display
         skills = result['skills']
@@ -126,7 +126,7 @@ def test_parser():
     total = len(checks)
     
     for check, status in checks.items():
-        icon = "✅" if status else "❌"
+        icon = "" if status else "❌"
         print(f"{icon} {check}")
     
     print(f"\nValidation Score: {passed}/{total} ({int(passed/total*100)}%)")
@@ -144,7 +144,7 @@ def test_parser():
     # Save to file
     with open('parsed_cv.json', 'w') as f:
         json.dump(export_data, f, indent=2)
-    print(f"\n✅ Full data saved to: parsed_cv.json")
+    print(f"\n Full data saved to: parsed_cv.json")
     
     return result, passed == total
 

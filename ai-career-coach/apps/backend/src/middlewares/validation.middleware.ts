@@ -228,7 +228,7 @@ export const updateProfileValidation = [
 ];
 
 export const salaryInsightsValidation = [
-  query('title')
+  query('jobTitle')
     .notEmpty()
     .withMessage('Job title is required')
     .isString()

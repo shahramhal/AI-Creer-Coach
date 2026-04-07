@@ -18,6 +18,7 @@ export interface MatchedJob {
   source_url: string;
   posted_date?: string;
   match_score: number;
+  match_label?: string;
   match_breakdown: MatchBreakdown;
   job_type?: string;
   remote_type?: string;

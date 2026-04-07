@@ -32,9 +32,9 @@ function formatSalary(salaryMin?: number, salaryMax?: number): string {
 }
 
 function getMatchColor(score: number) {
-  if (score >= 90) return "text-metric-excellent";
-  if (score >= 70) return "text-metric-good";
-  if (score >= 50) return "text-metric-average";
+  if (score >= 80) return "text-metric-excellent";
+  if (score >= 60) return "text-metric-good";
+  if (score >= 30) return "text-metric-average";
   return "text-metric-poor";
 }
 
@@ -125,7 +125,9 @@ export function JobMatchPreview({ jobs, isLoading }: JobMatchPreviewProps) {
                         <span className={`font-mono text-2xl font-bold ${getMatchColor(matchScore)}`}>
                           {matchScore}%
                         </span>
-                        <span className="text-xs text-muted-foreground">match</span>
+                        <span className={`text-xs font-medium ${getMatchColor(matchScore)}`}>
+                          {job.match_label ?? 'match'}
+                        </span>
                       </div>
                       <Progress value={matchScore} className="mt-2 h-1.5 w-20" />
                     </div>

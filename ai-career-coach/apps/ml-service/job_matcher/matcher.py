@@ -93,6 +93,31 @@ for _category_skills in SKILL_CATEGORIES.values():
     ALL_SKILLS.update(_category_skills)
 
 
+# Calibration bounds for all-MiniLM-L6-v2 cosine similarity.
+# Real CV-to-job matches typically fall in [0.15, 0.85].
+# Raw cosine * 100 makes a genuinely good match (0.5) look like "50%"
+# which users read as mediocre. These bounds rescale to the full 0-100 range.
+_SCORE_MIN = 0.15
+_SCORE_MAX = 0.85
+
+
+def _calibrate_score(raw_cosine: float) -> float:
+    """Rescale raw cosine similarity to a human-readable 0-100 score."""
+    calibrated = (raw_cosine - _SCORE_MIN) / (_SCORE_MAX - _SCORE_MIN)
+    return round(max(0.0, min(100.0, calibrated * 100)), 1)
+
+
+def _get_match_label(score: float) -> str:
+    """Return a human-readable label for a calibrated match score."""
+    if score >= 80:
+        return "Excellent"
+    if score >= 60:
+        return "Good"
+    if score >= 30:
+        return "Moderate"
+    return "Low"
+
+
 class JobMatcher:
     """
     Semantic job matching using sentence transformers
@@ -179,6 +204,8 @@ class JobMatcher:
             description = job.get('description', '')
             truncated_description = (description[:200] + '...') if len(description) > 200 else description
 
+            match_score = _calibrate_score(float(score.item()))
+
             job_match = {
                 'job_id': job['job_id'],
                 'source': job.get('source', ''),
@@ -194,7 +221,8 @@ class JobMatcher:
                 'remote_type': job.get('remote_type'),
 
                 # Matching details
-                'match_score': float(score.item() * 100),  # Convert to percentage
+                'match_score': match_score,
+                'match_label': _get_match_label(match_score),
                 'match_breakdown': self._calculate_breakdown(cv_text, job, cv_snippet_embedding)
             }
             matched_jobs.append(job_match)

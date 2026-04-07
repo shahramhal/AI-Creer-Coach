@@ -390,7 +390,10 @@ export class AdminService {
     const jobApiUrl = process.env.JOB_API_URL || 'http://localhost:8001';
     const response = await fetch(`${jobApiUrl}/api/jobs/fetch`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.INTERNAL_API_TOKEN && { 'X-Internal-Token': process.env.INTERNAL_API_TOKEN }),
+      },
       body: JSON.stringify({ country, keywords, location }),
     });
 
@@ -405,6 +408,9 @@ export class AdminService {
     const jobApiUrl = process.env.JOB_API_URL || 'http://localhost:8001';
     const response = await fetch(`${jobApiUrl}/api/jobs/cleanup`, {
       method: 'POST',
+      headers: {
+        ...(process.env.INTERNAL_API_TOKEN && { 'X-Internal-Token': process.env.INTERNAL_API_TOKEN }),
+      },
     });
 
     if (!response.ok) {

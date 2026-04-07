@@ -80,29 +80,44 @@ _SENIOR_DESC_PATTERN = re.compile(
     re.I,
 )
 
-# Years-of-experience pattern: captures the leading number
-# Matches: "3+ years", "5-8 years experience", "2 yrs", "minimum 7 years"
+# Years-of-experience patterns.
+# _YEARS_PATTERN requires a trailing experience-context word to avoid matching
+# incidental mentions like "founded 5 years ago" or "team average 3 years".
+# Matches: "3+ years experience", "5 years of working", "2 yrs professional"
 _YEARS_PATTERN = re.compile(
-    r'(\d{1,2})\s*(?:\+|[-–]\s*\d{1,2})?\s*(?:years?|yrs?)\s*'
-    r'(?:of\s+)?(?:experience|exp\.?|professional|relevant|proven|working|hands[\s-]?on)?',
+    r'(\d{1,2})\s*\+?\s*(?:years?|yrs?)\s*'
+    r'(?:of\s+)?(?:experience|exp\.?|professional|relevant|proven|working|hands[\s-]?on)',
+    re.I,
+)
+
+# Captures both ends of a range (e.g. "3-5 years") for averaging.
+_YEARS_RANGE_PATTERN = re.compile(
+    r'(\d{1,2})\s*[-–]\s*(\d{1,2})\s*(?:years?|yrs?)',
     re.I,
 )
 
 
 def _infer_level_from_years(text: str) -> str:
     """Infer experience level from years-of-experience mentioned in text."""
-    matches = _YEARS_PATTERN.findall(text)
-    if not matches:
+    years_values = []
+
+    # Capture ranges (e.g. "3-5 years") and average min/max for better accuracy
+    for match in _YEARS_RANGE_PATTERN.finditer(text):
+        low, high = int(match.group(1)), int(match.group(2))
+        years_values.append((low + high) / 2)
+
+    # Capture single values that have explicit experience context
+    for match in _YEARS_PATTERN.finditer(text):
+        years_values.append(int(match.group(1)))
+
+    if not years_values:
         return "Not specified"
 
-    # Take the maximum mentioned years (e.g. "3-5 years" captures "3")
-    max_years = max(int(y) for y in matches)
-
+    max_years = max(years_values)
     if max_years <= 2:
         return "Junior"
     if max_years <= 4:
         return "Mid-level"
-    # 5+ years = Senior
     return "Senior"
 
 

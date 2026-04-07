@@ -36,6 +36,18 @@ class Settings(BaseSettings):
     # 1 page = 1 API call. Keep this at 1 to stay within budget.
     adzuna_max_pages: int = 1
 
+    # Comma-separated search keywords used when fetching jobs.
+    # Override via SEARCH_KEYWORDS env var to add non-tech roles.
+    search_keywords: str = (
+        "software engineer,python developer,data scientist,"
+        "product manager,data analyst,marketing manager,"
+        "finance analyst,ux designer,project manager,devops engineer"
+    )
+
+    # Shared secret for internal service-to-service calls.
+    # Set INTERNAL_API_TOKEN in env. If unset, auth is skipped (dev only).
+    internal_api_token: Optional[str] = None
+
     class Config:
         env_file = ".env"
         case_sensitive = False

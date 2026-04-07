@@ -338,7 +338,12 @@ class MatchingService {
         andConditions.push({ title: { $regex: escapeRegex(userFilters.title_keywords), $options: 'i' } });
       }
       if (userFilters.min_salary !== undefined && userFilters.min_salary !== null) {
-        andConditions.push({ salary_min: { $gte: userFilters.min_salary } });
+        andConditions.push({
+          $or: [
+            { salary_min: { $gte: userFilters.min_salary } },
+            { salary_max: { $gte: userFilters.min_salary } },
+          ],
+        });
       }
       if (userFilters.remote_type) {
         const remoteTypeValues = Array.isArray(userFilters.remote_type) ? userFilters.remote_type : [userFilters.remote_type];

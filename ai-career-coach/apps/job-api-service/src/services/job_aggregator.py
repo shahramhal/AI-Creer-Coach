@@ -32,6 +32,25 @@ class JobAggregator:
         self.adzuna = AdzunaAPI()
         self.reed = ReedAPI()
 
+    async def ensure_indexes(self) -> None:
+        """Create indexes on the jobs collection if they don't exist. Idempotent."""
+        col = self.jobs_collection
+        await col.create_index(
+            [("source", 1), ("job_id", 1)], unique=True, background=True, name="source_job_id_unique"
+        )
+        await col.create_index([("posted_date", -1)], background=True, name="posted_date_desc")
+        await col.create_index([("scraped_at", -1)], background=True, name="scraped_at_desc")
+        await col.create_index([("expiration_date", 1)], background=True, name="expiration_date_asc")
+        await col.create_index([("country", 1)], background=True, name="country_asc")
+        await col.create_index([("experience_level", 1)], background=True, name="experience_level_asc")
+        await col.create_index([("location", 1)], background=True, name="location_asc")
+        await col.create_index(
+            [("country", 1), ("experience_level", 1), ("posted_date", -1)],
+            background=True,
+            name="country_level_date_compound",
+        )
+        logger.info("MongoDB indexes ensured on jobs collection")
+
     async def fetch_and_store_jobs(
         self,
         keywords: str,

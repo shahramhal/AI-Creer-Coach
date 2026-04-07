@@ -75,6 +75,9 @@ async def lifespan(app: FastAPI):
 
     aggregator = JobAggregator(db)
 
+    # Ensure indexes exist before any queries run
+    await aggregator.ensure_indexes()
+
     # Clean up expired jobs before fetching new ones
     await aggregator.cleanup_expired_jobs()
 

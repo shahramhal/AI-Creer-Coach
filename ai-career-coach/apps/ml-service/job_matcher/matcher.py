@@ -10,12 +10,44 @@ from sentence_transformers import SentenceTransformer, util
 import torch
 import numpy as np
 from typing import List, Dict, Optional
+from collections import OrderedDict
 import logging
 import hashlib
 import re
 import time
 
 logger = logging.getLogger(__name__)
+
+
+class LRUEmbeddingCache:
+    """LRU cache for job embeddings, bounded by max_size."""
+
+    def __init__(self, max_size: int = 5000):
+        self._cache: OrderedDict = OrderedDict()
+        self._max_size = max_size
+
+    def get(self, key: str):
+        if key not in self._cache:
+            return None
+        self._cache.move_to_end(key)
+        return self._cache[key]
+
+    def set(self, key: str, value) -> None:
+        if key in self._cache:
+            self._cache.move_to_end(key)
+        self._cache[key] = value
+        if len(self._cache) > self._max_size:
+            self._cache.popitem(last=False)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._cache
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+    def __len__(self) -> int:
+        return len(self._cache)
+
 
 # ---------------------------------------------------------------------------
 # Comprehensive multi-industry skill set (~200+ skills)
@@ -139,7 +171,7 @@ class JobMatcher:
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
 
         # In-memory cache for job embeddings (job_id -> embedding)
-        self._embedding_cache: Dict[str, np.ndarray] = {}
+        self._embedding_cache: LRUEmbeddingCache = LRUEmbeddingCache(max_size=5000)
         self._cache_hits = 0
         self._cache_misses = 0
 
@@ -253,7 +285,7 @@ class JobMatcher:
         for i, job in enumerate(jobs):
             job_id = job.get('job_id', '')
             if job_id and job_id in self._embedding_cache:
-                embeddings_list.append((i, self._embedding_cache[job_id]))
+                embeddings_list.append((i, self._embedding_cache.get(job_id)))
                 self._cache_hits += 1
             else:
                 jobs_to_encode.append(job)
@@ -285,7 +317,7 @@ class JobMatcher:
             for idx, (job, embedding) in enumerate(zip(jobs_to_encode, new_embeddings)):
                 job_id = job.get('job_id', '')
                 if job_id:
-                    self._embedding_cache[job_id] = embedding
+                    self._embedding_cache.set(job_id, embedding)
                 embeddings_list.append((jobs_to_encode_indices[idx], embedding))
 
         # Sort by original index and extract embeddings
@@ -470,24 +502,28 @@ class JobMatcher:
                     found.add(skill)
         return found
     
+    # Secondary post-ranking filter. Primary filtering happens in MongoDB (matching.service.ts).
+    # This acts as a safety net when the ML service is called directly.
     def _apply_filters(self, jobs: List[Dict], filters: Dict) -> List[Dict]:
         """
         Apply user-specified filters
-        
+
         Args:
             jobs: List of matched jobs
             filters: Filter criteria
-            
+
         Returns:
             Filtered job list
         """
         filtered = jobs
-        
-        # Location filter
-        if filters.get('location'):
+
+        # Location filter - check both 'location' and 'city' keys since the backend
+        # may send either depending on the filter field the user specified
+        location_filter = filters.get('location') or filters.get('city')
+        if location_filter:
             filtered = [
                 job for job in filtered
-                if filters['location'].lower() in job['location'].lower()
+                if location_filter.lower() in (job.get('location') or '').lower()
             ]
         
         # Minimum salary filter

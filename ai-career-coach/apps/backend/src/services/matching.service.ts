@@ -157,7 +157,7 @@ class MatchingService {
       };
     }
 
-    console.log(`🤖 [Matching] Calling ML service for matching...`);
+    console.log(` [Matching] Calling ML service for matching...`);
     const matchedJobs = await this.getMLMatches(cvRawText, jobs, top_k, filters);
 
     await cache.set(matchCacheKey, matchedJobs, 3600);
@@ -329,7 +329,10 @@ class MatchingService {
         andConditions.push({ job_type: { $in: jobTypeRegexPatterns } });
       }
       if (userFilters.experience_level) {
-        andConditions.push({ experience_level: userFilters.experience_level });
+        const validLevels = ['Junior', 'Mid-level', 'Senior', 'Director+'];
+        if (validLevels.includes(userFilters.experience_level)) {
+          andConditions.push({ experience_level: userFilters.experience_level });
+        }
       }
       if (userFilters.title_keywords) {
         andConditions.push({ title: { $regex: escapeRegex(userFilters.title_keywords), $options: 'i' } });
@@ -380,7 +383,7 @@ class MatchingService {
     const timeoutId = setTimeout(() => abortController.abort(), 120000);
 
     try {
-      console.log(`🤖 [ML] Sending ${jobs.length} jobs to ML service for matching...`);
+      console.log(` [ML] Sending ${jobs.length} jobs to ML service for matching...`);
 
       const response = await fetch(`${ML_SERVICE_URL}/api/ml/match-jobs`, {
         method: 'POST',

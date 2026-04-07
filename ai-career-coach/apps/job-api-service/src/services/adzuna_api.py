@@ -6,7 +6,7 @@ Fetches job postings from Adzuna's official API across multiple countries
 Free-tier limits: 250 calls/day, 1000/week, 2500/month, 25/min
 """
 
-import requests
+import httpx
 from typing import List, Dict, Optional
 from loguru import logger
 
@@ -14,7 +14,6 @@ from ..config.settings import settings
 from ..utils.helpers import infer_job_type, detect_remote_type, detect_experience_level, normalize_date_to_iso
 
 
-# Maps Adzuna contract_type + contract_time to a readable job_type
 _CONTRACT_TYPE_MAP = {
     'permanent': 'Permanent',
     'contract': 'Contract',
@@ -28,7 +27,8 @@ _CONTRACT_TIME_MAP = {
 
 class AdzunaAPI:
     """
-    Adzuna API client with multi-country support
+    Adzuna API client with multi-country support.
+    Uses httpx for async HTTP requests to avoid blocking the event loop.
 
     Supported country codes: gb, us, de, fr, ca, au, br, in, nl, nz, pl, sg, za
     Documentation: https://developer.adzuna.com/docs/search
@@ -43,7 +43,7 @@ class AdzunaAPI:
         if not self.app_id or not self.app_key:
             logger.warning("Adzuna API credentials not configured")
 
-    def fetch_jobs(
+    async def fetch_jobs(
         self,
         keywords: str,
         location: str,
@@ -75,50 +75,54 @@ class AdzunaAPI:
         effective_max_days = max_days_old or settings.adzuna_max_days_old
 
         try:
-            while len(all_jobs) < max_results and page <= max_pages:
-                url = f"{self.BASE_URL}/{country}/search/{page}"
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                while len(all_jobs) < max_results and page <= max_pages:
+                    url = f"{self.BASE_URL}/{country}/search/{page}"
 
-                params = {
-                    'app_id': self.app_id,
-                    'app_key': self.app_key,
-                    'results_per_page': results_per_page,
-                    'what': keywords,
-                    'where': location,
-                    'max_days_old': effective_max_days,
-                    'sort_by': 'date',
-                    'content-type': 'application/json',
-                }
+                    params = {
+                        'app_id': self.app_id,
+                        'app_key': self.app_key,
+                        'results_per_page': results_per_page,
+                        'what': keywords,
+                        'where': location,
+                        'max_days_old': effective_max_days,
+                        'sort_by': 'date',
+                        'content-type': 'application/json',
+                    }
 
-                logger.info(f"Adzuna [{country.upper()}]: page {page} - '{keywords}' in '{location}'")
+                    logger.info(f"Adzuna [{country.upper()}]: page {page} - '{keywords}' in '{location}'")
 
-                response = requests.get(url, params=params, timeout=15)
-                response.raise_for_status()
+                    response = await client.get(url, params=params)
+                    response.raise_for_status()
 
-                data = response.json()
-                results = data.get('results', [])
+                    data = response.json()
+                    results = data.get('results', [])
 
-                logger.info(f"Adzuna [{country.upper()}]: page {page} returned {len(results)} jobs")
+                    logger.info(f"Adzuna [{country.upper()}]: page {page} returned {len(results)} jobs")
 
-                if not results:
-                    break
+                    if not results:
+                        break
 
-                for job in results:
-                    normalized = self._normalize_job(job, keywords, location, country)
-                    all_jobs.append(normalized)
+                    for job in results:
+                        normalized = self._normalize_job(job, keywords, location, country)
+                        all_jobs.append(normalized)
 
-                if len(results) < results_per_page:
-                    break
+                    if len(results) < results_per_page:
+                        break
 
-                page += 1
+                    page += 1
 
-            logger.info(f" Adzuna [{country.upper()}]: {len(all_jobs)} jobs fetched")
+            logger.info(f"Adzuna [{country.upper()}]: {len(all_jobs)} jobs fetched")
             return all_jobs
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f" Adzuna [{country.upper()}] API request error: {e}")
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Adzuna [{country.upper()}] HTTP {e.response.status_code} error: {e}")
+            return all_jobs
+        except httpx.RequestError as e:
+            logger.error(f"Adzuna [{country.upper()}] request error: {e}")
             return all_jobs
         except Exception as e:
-            logger.error(f" Adzuna [{country.upper()}] unexpected error: {e}")
+            logger.error(f"Adzuna [{country.upper()}] unexpected error: {e}")
             return all_jobs
 
     def _normalize_job(self, raw_job: Dict, keywords: str, location: str, country: str) -> Dict:
@@ -129,7 +133,6 @@ class AdzunaAPI:
             title = raw_job.get('title', 'Not specified')
             description = raw_job.get('description', '')
 
-            # Build job_type from contract_type + contract_time, fall back to inference
             contract_type = raw_job.get('contract_type') or ''
             contract_time = raw_job.get('contract_time') or ''
 

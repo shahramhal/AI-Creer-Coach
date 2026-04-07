@@ -16,11 +16,15 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import type { MatchFilters } from '@/types/matching.types';
 import {
-  COUNTRY_OPTIONS,
   JOB_TYPE_OPTIONS,
   EXPERIENCE_LEVEL_OPTIONS,
   WORK_ARRANGEMENT_OPTIONS,
 } from '@/constants/options';
+
+interface CountryOption {
+  value: string;
+  label: string;
+}
 
 interface JobFiltersProps {
   filters: MatchFilters;
@@ -29,11 +33,12 @@ interface JobFiltersProps {
   isLoading?: boolean;
   minScore: number;
   onMinScoreChange: (score: number) => void;
+  countries: CountryOption[];
 }
 
 const EMPTY_FILTERS: MatchFilters = {};
 
-export function JobFilters({ filters, onChange, onApply, isLoading, minScore, onMinScoreChange }: JobFiltersProps) {
+export function JobFilters({ filters, onChange, onApply, isLoading, minScore, onMinScoreChange, countries }: JobFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const activeFilterCount = Object.values(filters).filter((value) => {
@@ -109,13 +114,14 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
               <Select
                 value={filters.country ?? ''}
                 onValueChange={(value) => updateFilter('country', value === '_all' ? '' : value)}
+                disabled={countries.length === 0}
               >
                 <SelectTrigger id="filter-country">
-                  <SelectValue placeholder="All Countries" />
+                  <SelectValue placeholder={countries.length === 0 ? 'Loading...' : 'All Countries'} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_all">All Countries</SelectItem>
-                  {COUNTRY_OPTIONS.map((option) => (
+                  {countries.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>

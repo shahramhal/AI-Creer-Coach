@@ -23,6 +23,7 @@ import { Loader2, RefreshCw, Briefcase, AlertCircle, Upload, Clock, SearchX, Arr
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent } from "@/components/ui/card";
 import axios from 'axios';
+import api from '@/library/api';
 
 const JOBS_PER_PAGE = 20;
 
@@ -92,9 +93,20 @@ export default function JobMatchesPage() {
   const [filtersInitialised, setFiltersInitialised] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const [countries, setCountries] = useState<{ value: string; label: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOption, setSortOption] = useState<SortOption>('score_desc');
   const [minScore, setMinScore] = useState(0);
+
+  useEffect(() => {
+    api.get('/api/v1/jobs/countries')
+      .then((res) => {
+        if (res.data.success) {
+          setCountries(res.data.data.countries);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const processedJobs = useMemo(() => {
     let filtered = jobs;
@@ -333,6 +345,7 @@ export default function JobMatchesPage() {
           isLoading={isLoading}
           minScore={minScore}
           onMinScoreChange={setMinScore}
+          countries={countries}
         />
 
         {error && (

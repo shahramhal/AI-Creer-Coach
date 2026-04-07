@@ -1,3 +1,6 @@
+// Static list used by salary insights and settings pages.
+// The job filter (JobFilters.tsx) uses a dynamic list fetched from /api/v1/jobs/countries
+// so it only shows countries that actually have job data configured in the backend.
 export const COUNTRY_OPTIONS = [
   { value: 'gb', label: 'United Kingdom' },
   { value: 'us', label: 'United States' },

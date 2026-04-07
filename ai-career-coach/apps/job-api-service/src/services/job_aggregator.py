@@ -54,14 +54,14 @@ class JobAggregator:
         all_jobs = []
 
         # Adzuna is available for all countries
-        adzuna_jobs = self.adzuna.fetch_jobs(keywords, location, country=country)
+        adzuna_jobs = await self.adzuna.fetch_jobs(keywords, location, country=country)
         all_jobs.extend(adzuna_jobs)
         logger.info(f"Adzuna [{country.upper()}]: {len(adzuna_jobs)} jobs")
 
         # Reed is UK-only
         reed_jobs_count = 0
         if country == "gb":
-            reed_jobs = self.reed.fetch_jobs(keywords, location)
+            reed_jobs = await self.reed.fetch_jobs(keywords, location)
             all_jobs.extend(reed_jobs)
             reed_jobs_count = len(reed_jobs)
             logger.info(f"Reed [GB]: {reed_jobs_count} jobs")

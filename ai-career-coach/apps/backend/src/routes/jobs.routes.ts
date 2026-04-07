@@ -96,4 +96,42 @@ router.get('/stats', authenticate, async (req, res) => {
   }
 });
 
+const COUNTRY_DISPLAY_NAMES: Record<string, string> = {
+  gb: 'United Kingdom',
+  us: 'United States',
+  ca: 'Canada',
+  de: 'Germany',
+  fr: 'France',
+  au: 'Australia',
+  nl: 'Netherlands',
+  in: 'India',
+  sg: 'Singapore',
+  at: 'Austria',
+  be: 'Belgium',
+  br: 'Brazil',
+  it: 'Italy',
+  pl: 'Poland',
+  za: 'South Africa',
+};
+
+/**
+ * GET /api/v1/jobs/countries
+ * Returns the list of countries that the job API is configured to fetch.
+ * Driven by ADZUNA_COUNTRIES env var - only these have actual job data.
+ * No auth required (public config).
+ */
+router.get('/countries', (_req, res) => {
+  const configured = (process.env.ADZUNA_COUNTRIES || 'gb,us,de,fr,ca')
+    .split(',')
+    .map((c) => c.trim().toLowerCase())
+    .filter(Boolean);
+
+  const countries = configured.map((code) => ({
+    value: code,
+    label: COUNTRY_DISPLAY_NAMES[code] ?? code.toUpperCase(),
+  }));
+
+  res.json({ success: true, data: { countries } });
+});
+
 export default router;

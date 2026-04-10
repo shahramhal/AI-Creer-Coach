@@ -77,6 +77,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       secure: isProduction,
       sameSite: isProduction ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
     });
 
     return res.status(200).json({
@@ -223,6 +224,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
       httpOnly: true,
       secure: isProduction,
       sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
     });
 
     return res.status(200).json({

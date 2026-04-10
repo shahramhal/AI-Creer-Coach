@@ -31,6 +31,7 @@ export const EXPERIENCE_LEVEL_OPTIONS = [
   { value: 'Junior', label: 'Junior', description: '0-3 years' },
   { value: 'Mid-level', label: 'Mid-Level', description: '3-5 years' },
   { value: 'Senior', label: 'Senior', description: '5+ years' },
+  { value: 'Director+', label: 'Director / Executive', description: 'Leadership roles' },
 ] as const;
 
 export const WORK_ARRANGEMENT_OPTIONS = ['Remote', 'Hybrid', 'On-site'] as const;

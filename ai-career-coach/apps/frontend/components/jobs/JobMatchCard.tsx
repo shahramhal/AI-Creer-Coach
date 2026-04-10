@@ -37,6 +37,28 @@ interface JobMatchCardProps {
   alreadyApplied?: boolean;
 }
 
+function DescriptionBlock({ description }: { description?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const text = description ?? '';
+  const isLong = text.length > 200;
+  return (
+    <>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        {expanded ? text : text.slice(0, 200)}
+        {!expanded && isLong && '...'}
+      </p>
+      {isLong && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-1 text-xs text-primary hover:underline"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </>
+  );
+}
+
 export function JobMatchCard({ job, alreadyApplied = false }: JobMatchCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -99,10 +121,15 @@ export function JobMatchCard({ job, alreadyApplied = false }: JobMatchCardProps)
                 {job.title}
               </h3>
               {/* Mobile Score View */}
-              <div className="md:hidden flex items-center gap-1">
+              <div className="md:hidden flex items-center gap-1.5">
                 <span className={`font-bold ${getScoreColor(job.match_score)}`}>
                   {Math.round(job.match_score)}%
                 </span>
+                {job.match_label && (
+                  <span className={`text-xs ${getScoreColor(job.match_score)}`}>
+                    {job.match_label}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -144,6 +171,11 @@ export function JobMatchCard({ job, alreadyApplied = false }: JobMatchCardProps)
               <span className={`text-3xl font-bold ${getScoreColor(job.match_score)}`}>
                 {Math.round(job.match_score)}%
               </span>
+              {job.match_label && (
+                <span className={`text-xs font-medium block mt-0.5 ${getScoreColor(job.match_score)}`}>
+                  {job.match_label}
+                </span>
+              )}
             </div>
             <Progress
               value={job.match_score}
@@ -264,10 +296,8 @@ export function JobMatchCard({ job, alreadyApplied = false }: JobMatchCardProps)
             </div>
 
             <div className="mt-4 pt-4 border-t border-border/50">
-              <h4 className="text-sm font-medium mb-2">Job Description Snippet</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {job.description}
-              </p>
+              <h4 className="text-sm font-medium mb-2">Description</h4>
+              <DescriptionBlock description={job.description} />
             </div>
           </div>
         )}

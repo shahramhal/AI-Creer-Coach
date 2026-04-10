@@ -10,8 +10,9 @@ Adzuna free-tier: 250 calls/day, 1000/week, 2500/month
 Reed free-tier: UK-only
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security.api_key import APIKeyHeader
 from contextlib import asynccontextmanager
 from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -34,11 +35,7 @@ load_dotenv()
 # With defaults below: 3 × (3+3+2+2+2) = 3 × 12 = 36 Adzuna calls + 9 Reed calls = 45 total
 # Well within 250/day free-tier limit.
 
-SEARCH_KEYWORDS = [
-    "software engineer",
-    "python developer",
-    "data scientist",
-]
+SEARCH_KEYWORDS = [kw.strip() for kw in settings.search_keywords.split(",") if kw.strip()]
 
 COUNTRY_LOCATIONS = {
     "gb": ["London", "Manchester", "Birmingham"],
@@ -51,6 +48,14 @@ COUNTRY_LOCATIONS = {
 # Database connection
 mongodb_client: AsyncIOMotorClient = None
 db = None
+
+_api_key_header = APIKeyHeader(name="X-Internal-Token", auto_error=False)
+
+
+async def _verify_internal_token(api_key: str = Security(_api_key_header)):
+    token = settings.internal_api_token
+    if token and api_key != token:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
 
 @asynccontextmanager
@@ -74,6 +79,10 @@ async def lifespan(app: FastAPI):
     logger.info(f" Connected to MongoDB: {settings.mongodb_db_name}")
 
     aggregator = JobAggregator(db)
+    app.state.aggregator = aggregator
+
+    # Ensure indexes exist before any queries run
+    await aggregator.ensure_indexes()
 
     # Clean up expired jobs before fetching new ones
     await aggregator.cleanup_expired_jobs()
@@ -217,7 +226,7 @@ async def health_check():
     }
 
 
-@app.post("/api/jobs/fetch")
+@app.post("/api/jobs/fetch", dependencies=[Depends(_verify_internal_token)])
 async def fetch_jobs(request: JobSearchRequest):
     """
     Manual endpoint to fetch jobs for a specific search.
@@ -231,7 +240,7 @@ async def fetch_jobs(request: JobSearchRequest):
         }
     """
     try:
-        aggregator = JobAggregator(app.state.db)
+        aggregator = app.state.aggregator
 
         result = await aggregator.fetch_and_store_jobs(
             keywords=request.keywords,
@@ -250,14 +259,14 @@ async def fetch_jobs(request: JobSearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/jobs/backfill-levels")
+@app.post("/api/jobs/backfill-levels", dependencies=[Depends(_verify_internal_token)])
 async def backfill_experience_levels():
     """
     Re-run the improved experience level detection on all 'Not specified' jobs.
     This scans both title and description for level keywords and years-of-experience patterns.
     """
     try:
-        aggregator = JobAggregator(app.state.db)
+        aggregator = app.state.aggregator
         result = await aggregator.backfill_experience_levels()
 
         return {
@@ -270,11 +279,11 @@ async def backfill_experience_levels():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/jobs/cleanup")
+@app.post("/api/jobs/cleanup", dependencies=[Depends(_verify_internal_token)])
 async def cleanup_jobs():
     """Manual endpoint to trigger expired job cleanup."""
     try:
-        aggregator = JobAggregator(app.state.db)
+        aggregator = app.state.aggregator
         deleted = await aggregator.cleanup_expired_jobs()
 
         return {

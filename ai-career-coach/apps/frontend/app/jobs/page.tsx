@@ -80,7 +80,11 @@ export default function JobMatchesPage() {
   const appliedKeys = useMemo(() => {
     const set = new Set<string>();
     for (const app of applicationsQuery.data?.data ?? []) {
-      set.add(`${app.company.toLowerCase()}::${app.jobTitle.toLowerCase()}`);
+      if (app.sourceUrl) {
+        set.add(app.sourceUrl);
+      } else {
+        set.add(`${app.company.toLowerCase()}::${app.jobTitle.toLowerCase()}`);
+      }
     }
     return set;
   }, [applicationsQuery.data]);
@@ -447,7 +451,11 @@ export default function JobMatchesPage() {
                         <JobMatchCard
                           key={job.job_id}
                           job={job}
-                          alreadyApplied={appliedKeys.has(`${job.company.toLowerCase()}::${job.title.toLowerCase()}`)}
+                          alreadyApplied={
+                            job.source_url
+                              ? appliedKeys.has(job.source_url)
+                              : appliedKeys.has(`${job.company.toLowerCase()}::${job.title.toLowerCase()}`)
+                          }
                         />
                       ))}
                     </div>

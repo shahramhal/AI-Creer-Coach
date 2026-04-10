@@ -89,7 +89,7 @@ export default function DashboardPage() {
     ? matchesQuery.data.data.matched_jobs
     : undefined;
   const topMatchedJobs = allMatchedJobs?.slice(0, 3);
-  const strongMatchCount = allMatchedJobs?.filter((job) => job.match_score >= 55).length;
+  const strongMatchCount = allMatchedJobs?.filter((job) => job.match_score >= 60).length;
   const salaryData = salaryQuery.data?.success ? salaryQuery.data.data : null;
 
   const appStats = appStatsQuery.data?.success ? appStatsQuery.data.data : undefined;

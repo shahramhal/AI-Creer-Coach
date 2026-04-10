@@ -338,7 +338,12 @@ class MatchingService {
         andConditions.push({ title: { $regex: escapeRegex(userFilters.title_keywords), $options: 'i' } });
       }
       if (userFilters.min_salary !== undefined && userFilters.min_salary !== null) {
-        andConditions.push({ salary_min: { $gte: userFilters.min_salary } });
+        andConditions.push({
+          $or: [
+            { salary_min: { $gte: userFilters.min_salary } },
+            { salary_max: { $gte: userFilters.min_salary } },
+          ],
+        });
       }
       if (userFilters.remote_type) {
         const remoteTypeValues = Array.isArray(userFilters.remote_type) ? userFilters.remote_type : [userFilters.remote_type];
@@ -348,11 +353,13 @@ class MatchingService {
 
     const freshJobsFilter = { $and: andConditions };
 
-    const totalJobCount = await jobsCollection.countDocuments();
-    const filteredCount = await jobsCollection.countDocuments(freshJobsFilter);
-    console.log(`🔎 [Matching] Jobs in DB: ${totalJobCount} total, ${filteredCount} after freshness/expiry filter`);
-    if (userFilters) {
-      console.log(`🔎 [Matching] Active user filters: ${JSON.stringify(userFilters)}`);
+    if (process.env.NODE_ENV !== 'production') {
+      const totalJobCount = await jobsCollection.countDocuments();
+      const filteredCount = await jobsCollection.countDocuments(freshJobsFilter);
+      console.log(`[Matching] Jobs in DB: ${totalJobCount} total, ${filteredCount} after filter`);
+      if (userFilters) {
+        console.log(`[Matching] Active user filters: ${JSON.stringify(userFilters)}`);
+      }
     }
 
     const jobs = await jobsCollection

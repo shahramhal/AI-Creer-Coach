@@ -38,8 +38,6 @@ interface LoginResponse {
   };
 }
 
-const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
-
 function tokenKey(token: string): string {
   const hash = crypto.createHash('sha256').update(token).digest('hex');
   return `rt:${hash}`;
@@ -138,9 +136,6 @@ export class AuthService {
     const tokenPayload = { userId: user.id, email: user.email };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
-
-    // Store refresh token in Redis for revocation support
-    await redis.setex(tokenKey(refreshToken), REFRESH_TOKEN_TTL, user.id);
 
     return {
       accessToken,
@@ -262,25 +257,31 @@ export class AuthService {
   }
 
   /**
-   * Refresh access token using refresh token
+   * Refresh access token using refresh token.
+   * Uses a blocklist model: tokens are valid unless explicitly revoked (e.g. on logout).
+   * This survives Redis restarts because absence from Redis means "not revoked", not "invalid".
    */
   async refreshAccessToken(refreshToken: string) {
-    // Verify JWT signature and expiry
+    // Verify JWT signature and expiry first
     const decoded = verifyRefreshToken(refreshToken);
 
-    // Check token is still valid in Redis (catches revoked tokens)
-    const storedUserId = await redis.get(tokenKey(refreshToken));
-    if (!storedUserId) {
-      throw new AppError('Refresh token has been revoked', 401, ErrorCodes.TOKEN_INVALID);
+    // Check blocklist - only reject if explicitly marked as revoked
+    const revokeStatus = await redis.get(tokenKey(refreshToken)).catch(() => null);
+    if (revokeStatus === 'revoked') {
+      throw new AppError('Session has been terminated', 401, ErrorCodes.TOKEN_INVALID);
     }
 
-    // Check if user still exists
+    // Check if user still exists and is active
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
     });
 
     if (!user) {
       throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
+    }
+
+    if (user.isDisabled) {
+      throw new AppError('Account is disabled. Please contact support.', 403, ErrorCodes.ACCOUNT_DISABLED);
     }
 
     // Generate new access token
@@ -293,6 +294,16 @@ export class AuthService {
   }
 
   async revokeRefreshToken(refreshToken: string): Promise<void> {
-    await redis.del(tokenKey(refreshToken));
+    // Store as revoked for the token's remaining lifetime so it can't be reused after logout
+    try {
+      const decoded = verifyRefreshToken(refreshToken);
+      const now = Math.floor(Date.now() / 1000);
+      const remainingTTL = (decoded.exp ?? 0) - now;
+      if (remainingTTL > 0) {
+        await redis.setex(tokenKey(refreshToken), remainingTTL, 'revoked');
+      }
+    } catch {
+      // Token already expired, nothing to revoke
+    }
   }
 }

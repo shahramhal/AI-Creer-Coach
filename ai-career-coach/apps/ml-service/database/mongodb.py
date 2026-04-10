@@ -50,6 +50,13 @@ class MongoDBConnection:
 
             # Test connection
             self.client.admin.command('ping')
+
+            # Ensure indexes for fast user-based CV lookups
+            self.collection.create_index([("user_id", 1)], background=True, name="user_id_asc")
+            self.collection.create_index(
+                [("user_id", 1), ("parsed_at", -1)], background=True, name="user_id_parsed_at"
+            )
+
             print("✓ Connected to MongoDB successfully")
 
             return True

@@ -11,7 +11,7 @@ from typing import List, Dict, Optional
 from loguru import logger
 
 from ..config.settings import settings
-from ..utils.helpers import infer_job_type, detect_remote_type, detect_experience_level, normalize_date_to_iso
+from ..utils.helpers import infer_job_type, detect_remote_type, detect_experience_level, normalize_date_to_iso, extract_requirements, normalize_job_type
 
 
 _CONTRACT_TYPE_MAP = {
@@ -143,7 +143,10 @@ class AdzunaAPI:
                 job_type_parts.append(_CONTRACT_TYPE_MAP[contract_type])
 
             if job_type_parts:
-                job_type = ', '.join(job_type_parts)
+                if len(job_type_parts) == 1 and job_type_parts[0] == 'Permanent':
+                    job_type = normalize_job_type('permanent', title, description)
+                else:
+                    job_type = ', '.join(job_type_parts)
             else:
                 job_type = infer_job_type(title, description)
 
@@ -157,7 +160,7 @@ class AdzunaAPI:
                 'company': company_data.get('display_name', 'Not specified') if isinstance(company_data, dict) else 'Not specified',
                 'location': location_data.get('display_name', location) if isinstance(location_data, dict) else location,
                 'description': description,
-                'requirements': [],
+                'requirements': extract_requirements(description),
                 'salary_min': raw_job.get('salary_min'),
                 'salary_max': raw_job.get('salary_max'),
                 'salary_text': None,

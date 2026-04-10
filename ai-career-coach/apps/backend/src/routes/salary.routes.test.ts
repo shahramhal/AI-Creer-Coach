@@ -48,12 +48,14 @@ const authenticatedUserId = 'salary-test-user-uuid';
 const authenticatedUserEmail = 'salary@example.com';
 
 function setupAuthenticatedUser() {
-  mockPrismaInstance.user.findUnique.mockResolvedValue({
+  (mockDatabasePrisma as any).user.findUnique.mockResolvedValue({
     id: authenticatedUserId,
     email: authenticatedUserEmail,
     isEmailVerified: true,
     firstName: 'Salary',
     lastName: 'User',
+    role: 'USER',
+    isDisabled: false,
   });
 }
 

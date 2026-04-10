@@ -565,9 +565,11 @@ describe('AdminService', () => {
       const today = new Date();
       today.setHours(12, 0, 0, 0);
 
-      const todayUsersCreatedAt = [{ createdAt: today }, { createdAt: today }];
+      const todayStr = today.toISOString().split('T')[0];
 
-      mockPrismaInstance.user.findMany.mockResolvedValue(todayUsersCreatedAt);
+      mockPrismaInstance.$queryRaw.mockResolvedValue([
+        { date: todayStr, count: BigInt(2) },
+      ]);
 
       const growthTrend = await adminService.getUserGrowthTrend(1);
 

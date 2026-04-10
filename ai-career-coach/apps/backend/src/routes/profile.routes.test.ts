@@ -14,6 +14,10 @@ const mockProfileServiceMethods = vi.hoisted(() => ({
   updateAvatar: vi.fn(),
 }));
 
+vi.mock('../utils/activity.util.js', () => ({
+  logUserActivity: vi.fn(),
+}));
+
 // Mock the profile service before importing routes.
 // Must use a class constructor (not arrow function) so `new ProfileService()` works.
 vi.mock('../services/profile.service.js', () => {

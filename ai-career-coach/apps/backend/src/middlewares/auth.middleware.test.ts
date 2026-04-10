@@ -140,6 +140,8 @@ describe('authenticate middleware', () => {
       isEmailVerified: true,
       firstName: 'John',
       lastName: 'Doe',
+      role: 'USER',
+      isDisabled: false,
     };
 
     mockPrismaInstance.user.findUnique.mockResolvedValue(foundUser);
@@ -153,6 +155,9 @@ describe('authenticate middleware', () => {
       id: existingUserId,
       email: existingUserEmail,
       isEmailVerified: true,
+      firstName: 'John',
+      lastName: 'Doe',
+      role: 'USER',
     });
 
     // Verify no sensitive credentials or tokens leak into req.user

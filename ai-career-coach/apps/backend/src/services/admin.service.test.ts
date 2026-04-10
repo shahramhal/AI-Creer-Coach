@@ -45,7 +45,13 @@ const mockDatabaseModule = vi.hoisted(() => {
   };
 });
 
-vi.mock('../config/database.js', () => mockDatabaseModule);
+vi.mock('../config/database.js', async () => {
+  const { PrismaClient: PC } = await import('@prisma/client');
+  return {
+    ...mockDatabaseModule,
+    prisma: new PC(),
+  };
+});
 
 // Import AdminService AFTER database mock is registered
 import { AdminService } from './admin.service.js';

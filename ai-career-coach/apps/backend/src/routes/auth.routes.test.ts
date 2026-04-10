@@ -5,6 +5,12 @@ import request from 'supertest';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 
+// Bypass rate limiters so tests never hit 429
+vi.mock('express-rate-limit', () => ({
+  default: vi.fn().mockReturnValue((_req: any, _res: any, next: any) => next()),
+  rateLimit: vi.fn().mockReturnValue((_req: any, _res: any, next: any) => next()),
+}));
+
 // vi.mock is hoisted - the factory runs before any variable declarations.
 // We use vi.hoisted() to create mocks that are available inside the factory.
 // IMPORTANT: Never replace these references (no Object.assign). vi.clearAllMocks()
@@ -36,6 +42,8 @@ vi.mock('../services/auth.service.js', () => {
 
 import authRoutes from './auth.routes.js';
 import { PrismaClient } from '@prisma/client';
+import { AppError, ErrorCodes } from '../utils/app-error.util.js';
+import { globalErrorHandler } from '../middlewares/error.middleware.js';
 
 // Get the mocked Prisma instance (used by authenticate middleware)
 const mockPrismaInstance = new PrismaClient() as any;
@@ -46,6 +54,7 @@ function buildTestApp(): express.Application {
   testApp.use(express.json());
   testApp.use(cookieParser());
   testApp.use('/api/auth', authRoutes);
+  testApp.use(globalErrorHandler);
   return testApp;
 }
 
@@ -85,7 +94,7 @@ describe('Auth Routes - POST /api/auth/register', () => {
 
   it('should return 409 when email is already registered', async () => {
     mockAuthServiceMethods.register.mockRejectedValue(
-      new Error('User already exists with this email')
+      new AppError('User already exists with this email', 409, ErrorCodes.EMAIL_ALREADY_EXISTS)
     );
 
     const response = await request(testApp)
@@ -139,7 +148,9 @@ describe('Auth Routes - POST /api/auth/login', () => {
   });
 
   it('should return 401 when credentials are invalid', async () => {
-    mockAuthServiceMethods.login.mockRejectedValue(new Error('Invalid credentials'));
+    mockAuthServiceMethods.login.mockRejectedValue(
+      new AppError('Invalid credentials', 401, ErrorCodes.INVALID_CREDENTIALS)
+    );
 
     const response = await request(testApp)
       .post('/api/auth/login')
@@ -212,7 +223,7 @@ describe('Auth Routes - GET /api/auth/verify-email', () => {
 
   it('should return 400 when the verification token is invalid or expired', async () => {
     mockAuthServiceMethods.verifyEmail.mockRejectedValue(
-      new Error('Invalid or expired verification token')
+      new AppError('Invalid or expired verification token', 400, ErrorCodes.TOKEN_INVALID)
     );
 
     const response = await request(testApp)
@@ -273,7 +284,7 @@ describe('Auth Routes - POST /api/auth/refresh', () => {
 
   it('should return 401 when the refresh token is invalid', async () => {
     mockAuthServiceMethods.refreshAccessToken.mockRejectedValue(
-      new Error('Invalid refresh token')
+      new AppError('Invalid refresh token', 401, ErrorCodes.TOKEN_INVALID)
     );
 
     const response = await request(testApp)

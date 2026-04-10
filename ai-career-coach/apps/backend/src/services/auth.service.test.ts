@@ -137,7 +137,7 @@ describe('AuthService', () => {
 
       await expect(
         authService.login('nonexistent@test.com', 'anyPassword123')
-      ).rejects.toThrow('Invalid credentials');
+      ).rejects.toThrow('No account found with that email address.');
     });
 
     it('should throw "Invalid credentials" when password does not match stored hash', async () => {
@@ -163,7 +163,7 @@ describe('AuthService', () => {
 
       await expect(
         authService.login('user@test.com', 'WrongPassword999')
-      ).rejects.toThrow('Invalid credentials');
+      ).rejects.toThrow('Incorrect password. Please try again.');
     });
 
     it('should return accessToken, refreshToken, and user data on successful login', async () => {

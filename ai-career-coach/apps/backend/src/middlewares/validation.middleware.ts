@@ -10,7 +10,8 @@ import type { Request, Response, NextFunction } from 'express';
 export const validate = (req: Request, res: Response, next: NextFunction): void => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    res.status(400).json({ success: false, errors: errors.array() });
+    const errs = errors.array();
+    res.status(400).json({ success: false, message: errs[0].msg, errors: errs });
     return;
   }
   next();
@@ -288,9 +289,9 @@ export const adminListUsersValidation = [
 ];
 
 export const adminToggleUserStatusValidation = [
-  body('isDisabled')
+  body('disabled')
     .isBoolean()
-    .withMessage('isDisabled must be a boolean'),
+    .withMessage('disabled must be a boolean'),
 ];
 
 export const adminForceResetPasswordValidation = [

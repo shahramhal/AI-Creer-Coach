@@ -155,6 +155,7 @@ vi.mock('mongoose', async () => {
   const mockMongoose = {
     connect: vi.fn().mockResolvedValue(undefined),
     connection: mockConnection,
+    models: {},
     Schema: class MockSchema {
       constructor(definition: any, options?: any) {}
       index() { return this; }

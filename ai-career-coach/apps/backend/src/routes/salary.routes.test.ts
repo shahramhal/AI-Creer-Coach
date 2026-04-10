@@ -30,6 +30,7 @@ global.fetch = mockFetch;
 
 import salaryRoutes from './salary.routes.js';
 import { cache as mockCache, prisma as mockDatabasePrisma } from '../config/database.js';
+import { globalErrorHandler } from '../middlewares/error.middleware.js';
 
 const mockPrismaInstance = new PrismaClient() as any;
 
@@ -37,6 +38,7 @@ function buildTestApp(): express.Application {
   const testApp = express();
   testApp.use(express.json());
   testApp.use('/api/salary', salaryRoutes);
+  testApp.use(globalErrorHandler);
   return testApp;
 }
 
@@ -79,6 +81,10 @@ function setupAdzunaMock(
 ) {
   mockFetch.mockImplementation((url: string) => {
     const urlStr = String(url);
+    // Return failure for ML service calls so they are treated as unavailable
+    if (urlStr.includes('localhost:8000')) {
+      return Promise.resolve({ ok: false, status: 503 });
+    }
     if (urlStr.includes('/history')) {
       return Promise.resolve({
         ok: true,
@@ -158,10 +164,15 @@ describe('Salary Routes - GET /api/salary/insights', () => {
   it('should return 404 when Adzuna returns no salary data for the given job title', async () => {
     setupAuthenticatedUser();
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: vi.fn().mockResolvedValue({ histogram: {}, month: {} }),
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).includes('localhost:8000')) {
+        return Promise.resolve({ ok: false, status: 503 });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ histogram: {}, month: {} }),
+      });
     });
 
     const mongoose = await import('mongoose');
@@ -419,9 +430,14 @@ describe('Salary Routes - Salary range centered on prediction', () => {
       '65000': 15,
     };
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ histogram, month: {} }),
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).includes('localhost:8000')) {
+        return Promise.resolve({ ok: false, status: 503 });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ histogram, month: {} }),
+      });
     });
 
     const response = await request(testApp)
@@ -468,9 +484,14 @@ describe('Salary Routes - Confidence reflects data quality', () => {
       '52000': 70,
     };
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ histogram: tightHistogram, month: {} }),
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).includes('localhost:8000')) {
+        return Promise.resolve({ ok: false, status: 503 });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ histogram: tightHistogram, month: {} }),
+      });
     });
 
     const tightResponse = await request(testApp)
@@ -490,9 +511,14 @@ describe('Salary Routes - Confidence reflects data quality', () => {
       '80000': 2,
     };
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ histogram: wideHistogram, month: {} }),
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).includes('localhost:8000')) {
+        return Promise.resolve({ ok: false, status: 503 });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ histogram: wideHistogram, month: {} }),
+      });
     });
 
     const wideResponse = await request(testApp)
@@ -538,8 +564,9 @@ describe('Salary Routes - No redundant API calls', () => {
 
     // Count histogram calls:
     // Phase 1: 1 national + 1 London (user location) = 2 histogram + 1 history
-    // Phase 2: 12 regional, but London is reused from phase 1 = 11 new histogram calls
-    // Total histogram: 2 + 11 = 13 (NOT 14 - London not fetched twice)
+    // Phase 2 regional: 12 UK regions, but London is reused from phase 1 = 11 new histogram calls
+    // Phase 2 top-paying roles: up to 6 role-variant histogram calls
+    // Total histogram: 2 + 11 + 6 = 19 (London NOT fetched twice - deduplication works)
     const histogramCalls = mockFetch.mock.calls.filter(
       (call: any[]) => String(call[0]).includes('/histogram')
     );
@@ -547,7 +574,7 @@ describe('Salary Routes - No redundant API calls', () => {
       (call: any[]) => String(call[0]).includes('/history')
     );
 
-    expect(histogramCalls.length).toBe(13);
+    expect(histogramCalls.length).toBe(19);
     expect(historyCalls.length).toBe(1);
   });
 });

@@ -353,11 +353,13 @@ class MatchingService {
 
     const freshJobsFilter = { $and: andConditions };
 
-    const totalJobCount = await jobsCollection.countDocuments();
-    const filteredCount = await jobsCollection.countDocuments(freshJobsFilter);
-    console.log(`🔎 [Matching] Jobs in DB: ${totalJobCount} total, ${filteredCount} after freshness/expiry filter`);
-    if (userFilters) {
-      console.log(`🔎 [Matching] Active user filters: ${JSON.stringify(userFilters)}`);
+    if (process.env.NODE_ENV !== 'production') {
+      const totalJobCount = await jobsCollection.countDocuments();
+      const filteredCount = await jobsCollection.countDocuments(freshJobsFilter);
+      console.log(`[Matching] Jobs in DB: ${totalJobCount} total, ${filteredCount} after filter`);
+      if (userFilters) {
+        console.log(`[Matching] Active user filters: ${JSON.stringify(userFilters)}`);
+      }
     }
 
     const jobs = await jobsCollection

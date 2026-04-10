@@ -79,6 +79,7 @@ async def lifespan(app: FastAPI):
     logger.info(f" Connected to MongoDB: {settings.mongodb_db_name}")
 
     aggregator = JobAggregator(db)
+    app.state.aggregator = aggregator
 
     # Ensure indexes exist before any queries run
     await aggregator.ensure_indexes()
@@ -239,7 +240,7 @@ async def fetch_jobs(request: JobSearchRequest):
         }
     """
     try:
-        aggregator = JobAggregator(app.state.db)
+        aggregator = app.state.aggregator
 
         result = await aggregator.fetch_and_store_jobs(
             keywords=request.keywords,
@@ -265,7 +266,7 @@ async def backfill_experience_levels():
     This scans both title and description for level keywords and years-of-experience patterns.
     """
     try:
-        aggregator = JobAggregator(app.state.db)
+        aggregator = app.state.aggregator
         result = await aggregator.backfill_experience_levels()
 
         return {
@@ -282,7 +283,7 @@ async def backfill_experience_levels():
 async def cleanup_jobs():
     """Manual endpoint to trigger expired job cleanup."""
     try:
-        aggregator = JobAggregator(app.state.db)
+        aggregator = app.state.aggregator
         deleted = await aggregator.cleanup_expired_jobs()
 
         return {

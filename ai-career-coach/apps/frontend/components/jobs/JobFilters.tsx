@@ -46,7 +46,8 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
     return value !== undefined && value !== '' && value !== null;
   }).length;
 
-  const hasActiveFilters = activeFilterCount > 0 || minScore > 0;
+  const totalActiveCount = activeFilterCount + (minScore > 0 ? 1 : 0);
+  const hasActiveFilters = totalActiveCount > 0;
 
   const handleReset = () => {
     onChange(EMPTY_FILTERS);
@@ -92,7 +93,7 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
             Filters
             {hasActiveFilters && (
               <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                {activeFilterCount}
+                {totalActiveCount}
               </span>
             )}
           </span>

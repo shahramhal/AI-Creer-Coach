@@ -37,6 +37,28 @@ interface JobMatchCardProps {
   alreadyApplied?: boolean;
 }
 
+function DescriptionBlock({ description }: { description?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const text = description ?? '';
+  const isLong = text.length > 200;
+  return (
+    <>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        {expanded ? text : text.slice(0, 200)}
+        {!expanded && isLong && '...'}
+      </p>
+      {isLong && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-1 text-xs text-primary hover:underline"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </>
+  );
+}
+
 export function JobMatchCard({ job, alreadyApplied = false }: JobMatchCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -274,10 +296,8 @@ export function JobMatchCard({ job, alreadyApplied = false }: JobMatchCardProps)
             </div>
 
             <div className="mt-4 pt-4 border-t border-border/50">
-              <h4 className="text-sm font-medium mb-2">Job Description Snippet</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {job.description}
-              </p>
+              <h4 className="text-sm font-medium mb-2">Description</h4>
+              <DescriptionBlock description={job.description} />
             </div>
           </div>
         )}

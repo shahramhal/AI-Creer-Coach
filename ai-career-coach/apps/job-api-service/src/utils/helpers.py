@@ -29,6 +29,52 @@ def infer_job_type(title: str, description: str) -> str:
     return "Not specified"
 
 
+def extract_requirements(description: str) -> list:
+    """Extract bullet-point requirements from a job description."""
+    if not description:
+        return []
+    patterns = [
+        r'(?:requirements?|qualifications?|what you.{0,10}need|must have)[:\s]*\n((?:[-\u2022*]\s*.+\n?)+)',
+        r'(?:skills?|experience)[:\s]*\n((?:[-\u2022*]\s*.+\n?)+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, description, re.I | re.MULTILINE)
+        if match:
+            lines = re.findall(r'[-\u2022*]\s*(.+)', match.group(1))
+            return [line.strip() for line in lines[:15] if line.strip()]
+    return []
+
+
+_JOB_TYPE_NORMALIZE_MAP = {
+    'full time': 'Full-time',
+    'full-time': 'Full-time',
+    'part time': 'Part-time',
+    'part-time': 'Part-time',
+    'contract': 'Contract',
+    'contractor': 'Contract',
+    'freelance': 'Contract',
+    'temporary': 'Temporary',
+    'temp': 'Temporary',
+    'internship': 'Internship',
+    'apprenticeship': 'Apprenticeship',
+}
+
+
+def normalize_job_type(raw: str, title: str = '', description: str = '') -> str:
+    """
+    Normalize a raw job type string to a canonical frontend-compatible value.
+    "Permanent" has no time-type info, so we try to infer it from the text;
+    if that fails we fall back to "Full-time" (permanent roles are almost always full-time).
+    """
+    key = raw.lower().strip()
+    if key in _JOB_TYPE_NORMALIZE_MAP:
+        return _JOB_TYPE_NORMALIZE_MAP[key]
+    if key == 'permanent':
+        inferred = infer_job_type(title, description)
+        return inferred if inferred != 'Not specified' else 'Full-time'
+    return raw.strip() or 'Not specified'
+
+
 #  Remote type detection 
 
 def detect_remote_type(title: str, description: str) -> str:

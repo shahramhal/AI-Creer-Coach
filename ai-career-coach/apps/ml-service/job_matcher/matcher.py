@@ -234,7 +234,6 @@ class JobMatcher:
         for idx, score in zip(top_results.indices, top_results.values):
             job = jobs[idx.item()]
             description = job.get('description', '')
-            truncated_description = (description[:200] + '...') if len(description) > 200 else description
 
             match_score = _calibrate_score(float(score.item()))
 
@@ -244,7 +243,7 @@ class JobMatcher:
                 'title': job.get('title', ''),
                 'company': job.get('company', ''),
                 'location': job.get('location', ''),
-                'description': truncated_description,
+                'description': description,
                 'salary_min': job.get('salary_min'),
                 'salary_max': job.get('salary_max'),
                 'source_url': job.get('source_url', ''),

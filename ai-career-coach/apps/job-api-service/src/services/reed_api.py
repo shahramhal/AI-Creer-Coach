@@ -15,7 +15,7 @@ from typing import List, Dict, Optional
 from loguru import logger
 
 from ..config.settings import settings
-from ..utils.helpers import infer_job_type, detect_remote_type, detect_experience_level, normalize_date_to_iso
+from ..utils.helpers import infer_job_type, detect_remote_type, detect_experience_level, normalize_date_to_iso, extract_requirements, normalize_job_type
 
 
 class ReedAPI:
@@ -119,7 +119,7 @@ class ReedAPI:
 
         raw_job_type = raw_job.get('jobType') or ''
         if raw_job_type:
-            job_type = raw_job_type.strip()
+            job_type = normalize_job_type(raw_job_type, title, description)
         else:
             job_type = infer_job_type(title, description)
 
@@ -134,7 +134,7 @@ class ReedAPI:
             'company': raw_job.get('employerName', 'Not specified'),
             'location': raw_job.get('locationName', location),
             'description': description,
-            'requirements': [],
+            'requirements': extract_requirements(description),
             'salary_min': raw_job.get('minimumSalary'),
             'salary_max': raw_job.get('maximumSalary'),
             'salary_text': None,

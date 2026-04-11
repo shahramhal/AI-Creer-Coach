@@ -87,6 +87,7 @@ vi.mock('@prisma/client', () => {
     },
     cV: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -105,6 +106,48 @@ vi.mock('@prisma/client', () => {
     },
     userActivity: {
       create: vi.fn(),
+      findMany: vi.fn(),
+    },
+    job: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      count: vi.fn(),
+    },
+    savedJob: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      delete: vi.fn(),
+    },
+    interviewSession: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
+    learningPath: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    skill: {
+      upsert: vi.fn(),
+    },
+    course: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      createMany: vi.fn(),
+    },
+    userCourse: {
+      upsert: vi.fn(),
     },
     $connect: vi.fn().mockResolvedValue(undefined),
     $disconnect: vi.fn().mockResolvedValue(undefined),
@@ -169,6 +212,7 @@ vi.mock('mongoose', async () => {
     }),
     Types: {
       ObjectId: class MockObjectId {
+        static isValid = vi.fn().mockReturnValue(true);
         constructor(id?: string) {}
         toString() { return 'mock-object-id'; }
       },

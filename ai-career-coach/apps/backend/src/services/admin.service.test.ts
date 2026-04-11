@@ -553,28 +553,40 @@ describe('AdminService', () => {
       }
     });
 
-    it('should use a default of 30 days when no argument is provided', async () => {
-      mockPrismaInstance.user.findMany.mockResolvedValue([]);
+  it('should use a default of 30 days when no argument is provided', async () => {
 
-      const thirtyDayTrend = await adminService.getUserGrowthTrend();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-11T12:00:00Z'));
 
-      expect(thirtyDayTrend).toHaveLength(30);
+    mockPrismaInstance.user.findMany.mockResolvedValue([]);
+
+    const thirtyDayTrend = await adminService.getUserGrowthTrend();
+
+    expect(thirtyDayTrend).toHaveLength(30);
+
+    
+    vi.useRealTimers();
     });
 
-    it('should count user registrations correctly when users exist within the range', async () => {
-      const today = new Date();
-      today.setHours(12, 0, 0, 0);
+  it('should count user registrations correctly when users exist within the range', async () => {
+  
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-11T12:00:00Z'));
 
-      const todayStr = today.toISOString().split('T')[0];
+    const todayStr = '2026-04-11'; // Now hardcoded and predictable
 
-      mockPrismaInstance.$queryRaw.mockResolvedValue([
-        { date: todayStr, count: BigInt(2) },
-      ]);
+    
+    mockPrismaInstance.$queryRaw.mockResolvedValue([
+      { date: todayStr, count: BigInt(2) },
+    ]);
 
-      const growthTrend = await adminService.getUserGrowthTrend(1);
+    const growthTrend = await adminService.getUserGrowthTrend(1);
 
-      expect(growthTrend).toHaveLength(1);
-      expect(growthTrend[0]!.count).toBe(2);
-    });
+    expect(growthTrend).toHaveLength(1);
+    expect(growthTrend[0]!.count).toBe(2);
+
+   
+    vi.useRealTimers();
+  });
   });
 });

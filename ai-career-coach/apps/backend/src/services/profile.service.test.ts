@@ -144,6 +144,86 @@ describe('ProfileService', () => {
     });
   });
 
+  describe('updateProfileWithUser', () => {
+    it('updates both user and profile in a transaction', async () => {
+      const profileData = { bio: 'Updated bio' };
+      const userData = { firstName: 'NewFirst' };
+      const updatedUser = { id: sampleUserId, firstName: 'NewFirst', lastName: 'User' };
+      const updatedProfile = { ...sampleProfileRecord, bio: 'Updated bio' };
+
+      mockPrismaInstance.userProfile.findUnique.mockResolvedValue(sampleProfileRecord);
+      mockPrismaInstance.user.update.mockResolvedValue(updatedUser);
+      mockPrismaInstance.userProfile.update.mockResolvedValue(updatedProfile);
+
+      const result = await profileService.updateProfileWithUser(sampleUserId, profileData, userData);
+
+      expect(mockPrismaInstance.$transaction).toHaveBeenCalled();
+      expect(result.user).toEqual(updatedUser);
+      expect(result.profile.bio).toBe('Updated bio');
+    });
+  });
+
+  describe('getCareerPreferences', () => {
+    it('returns career preference fields from the profile', async () => {
+      const profileWithPrefs = {
+        ...sampleProfileRecord,
+        targetRole: 'Software Engineer',
+        experienceLevel: 'senior',
+        targetCompanies: ['Google', 'Amazon'],
+        country: 'UK',
+        region: 'London',
+        salaryMin: 80000,
+        salaryMax: 120000,
+        workArrangements: ['remote'],
+        preferredJobTypes: ['full-time'],
+        jobTitle: 'Senior Engineer',
+      };
+      mockPrismaInstance.userProfile.findUnique.mockResolvedValue(profileWithPrefs);
+
+      const result = await profileService.getCareerPreferences(sampleUserId);
+
+      expect(result.targetRole).toBe('Software Engineer');
+      expect(result.experienceLevel).toBe('senior');
+      expect(result.salaryMin).toBe(80000);
+      expect(result.workArrangements).toEqual(['remote']);
+    });
+  });
+
+  describe('updateCareerPreferences', () => {
+    it('updates career preferences and returns the updated profile', async () => {
+      const prefsData = {
+        targetRole: 'Backend Engineer',
+        salaryMin: 90000,
+        salaryMax: 130000,
+      };
+      const updatedProfile = { ...sampleProfileRecord, ...prefsData };
+
+      mockPrismaInstance.userProfile.findUnique.mockResolvedValue(sampleProfileRecord);
+      mockPrismaInstance.userProfile.update.mockResolvedValue(updatedProfile);
+
+      const result = await profileService.updateCareerPreferences(sampleUserId, prefsData);
+
+      expect(mockPrismaInstance.userProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: sampleUserId },
+          data: expect.objectContaining({ targetRole: 'Backend Engineer', salaryMin: 90000 }),
+        })
+      );
+      expect(result.targetRole).toBe('Backend Engineer');
+    });
+
+    it('uses null for missing optional preference fields', async () => {
+      mockPrismaInstance.userProfile.findUnique.mockResolvedValue(sampleProfileRecord);
+      mockPrismaInstance.userProfile.update.mockResolvedValue(sampleProfileRecord);
+
+      await profileService.updateCareerPreferences(sampleUserId, {});
+
+      const updateArgs = mockPrismaInstance.userProfile.update.mock.calls[0][0];
+      expect(updateArgs.data.targetRole).toBeNull();
+      expect(updateArgs.data.targetCompanies).toEqual([]);
+    });
+  });
+
   describe('updateAvatar', () => {
     it('should update the avatar URL and return the updated profile', async () => {
       const newAvatarUrl = '/uploads/avatars/new-avatar-123.png';

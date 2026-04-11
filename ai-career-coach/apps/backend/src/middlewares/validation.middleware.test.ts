@@ -7,6 +7,7 @@ import {
   loginValidation,
   forgotPasswordValidation,
   resetPasswordValidation,
+  findJobsValidation,
 } from './validation.middleware.js';
 import { validationResult } from 'express-validator';
 
@@ -272,5 +273,51 @@ describe('resetPasswordValidation middleware', () => {
         expect.objectContaining({ msg: 'Password must contain uppercase, lowercase, and number' }),
       ])
     );
+  });
+});
+
+describe('findJobsValidation middleware', () => {
+  const testApp = buildValidationTestApp(findJobsValidation);
+
+  it('should pass when filters.job_type is a valid string', async () => {
+    const response = await request(testApp)
+      .post('/test')
+      .send({ filters: { job_type: 'Full-time' } });
+    expect(response.status).toBe(200);
+  });
+
+  it('should pass when filters.job_type is a valid array', async () => {
+    const response = await request(testApp)
+      .post('/test')
+      .send({ filters: { job_type: ['Full-time', 'Part-time'] } });
+    expect(response.status).toBe(200);
+  });
+
+  it('should fail when filters.job_type is invalid', async () => {
+    const response = await request(testApp)
+      .post('/test')
+      .send({ filters: { job_type: 123 } });
+    expect(response.status).toBe(400);
+  });
+
+  it('should pass when filters.remote_type is a valid string', async () => {
+    const response = await request(testApp)
+      .post('/test')
+      .send({ filters: { remote_type: 'Remote' } });
+    expect(response.status).toBe(200);
+  });
+
+  it('should pass when filters.remote_type is a valid array', async () => {
+    const response = await request(testApp)
+      .post('/test')
+      .send({ filters: { remote_type: ['Remote', 'Hybrid'] } });
+    expect(response.status).toBe(200);
+  });
+
+  it('should fail when filters.remote_type is invalid', async () => {
+    const response = await request(testApp)
+      .post('/test')
+      .send({ filters: { remote_type: 999 } });
+    expect(response.status).toBe(400);
   });
 });

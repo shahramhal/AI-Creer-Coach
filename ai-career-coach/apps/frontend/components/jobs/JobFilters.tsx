@@ -217,10 +217,16 @@ export function JobFilters({ filters, onChange, onApply, isLoading, minScore, on
                 id="filter-salary"
                 type="number"
                 placeholder="e.g. 30000"
+                min={0}
+                max={5000000}
                 value={filters.min_salary ?? ''}
                 onChange={(e) => {
-                  const parsedValue = e.target.value ? Number(e.target.value) : undefined;
-                  updateFilter('min_salary', parsedValue);
+                  if (!e.target.value) {
+                    updateFilter('min_salary', undefined);
+                    return;
+                  }
+                  const clamped = Math.min(Math.max(0, Number(e.target.value)), 5000000);
+                  updateFilter('min_salary', clamped);
                 }}
               />
             </div>

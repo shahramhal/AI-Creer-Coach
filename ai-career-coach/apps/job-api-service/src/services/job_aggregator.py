@@ -7,7 +7,7 @@ Handles deduplication, storage, and stale-job cleanup in MongoDB.
 """
 
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from loguru import logger
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -40,6 +40,7 @@ class JobAggregator:
         )
         await col.create_index([("posted_date", -1)], background=True, name="posted_date_desc")
         await col.create_index([("scraped_at", -1)], background=True, name="scraped_at_desc")
+        await col.create_index([("last_seen_at", -1)], background=True, name="last_seen_at_desc")
         await col.create_index([("expiration_date", 1)], background=True, name="expiration_date_asc")
         await col.create_index([("country", 1)], background=True, name="country_asc")
         await col.create_index([("experience_level", 1)], background=True, name="experience_level_asc")
@@ -104,14 +105,14 @@ class JobAggregator:
         }
 
     def _deduplicate(self, jobs: List[Dict]) -> List[Dict]:
-        """Remove duplicate jobs based on source_url."""
-        seen_urls = set()
+        """Remove duplicate jobs based on source + job_id (matches the DB upsert key)."""
+        seen = set()
         unique = []
 
         for job in jobs:
-            url = job.get('source_url', '')
-            if url and url not in seen_urls:
-                seen_urls.add(url)
+            key = (job.get('source', ''), job.get('job_id', ''))
+            if key not in seen and all(key):
+                seen.add(key)
                 unique.append(job)
 
         return unique
@@ -127,14 +128,18 @@ class JobAggregator:
 
         for job_data in jobs:
             try:
-                job_data['scraped_at'] = datetime.utcnow()
+                now = datetime.now(timezone.utc)
+                job_data['last_seen_at'] = now
 
                 await self.jobs_collection.update_one(
                     {
                         'source': job_data['source'],
                         'job_id': job_data['job_id'],
                     },
-                    {'$set': job_data},
+                    {
+                        '$set': {k: v for k, v in job_data.items() if k != 'scraped_at'},
+                        '$setOnInsert': {'scraped_at': now},
+                    },
                     upsert=True,
                 )
 
@@ -198,8 +203,8 @@ class JobAggregator:
             Number of deleted jobs
         """
         effective_max_age = max_age_days or settings.job_max_age_days
-        cutoff_date = datetime.utcnow() - timedelta(days=effective_max_age)
-        cutoff_iso = cutoff_date.isoformat() + "Z"
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=effective_max_age)
+        cutoff_iso = cutoff_date.isoformat()
 
         logger.info(f"🧹 Cleaning up jobs older than {effective_max_age} days (cutoff: {cutoff_iso})")
 
@@ -212,7 +217,7 @@ class JobAggregator:
 
             # Delete Reed jobs whose expiration_date has passed
             # Use $nin to exclude empty strings and null - prevents BSON null < string comparison
-            now_iso = datetime.utcnow().isoformat() + "Z"
+            now_iso = datetime.now(timezone.utc).isoformat()
             result_expired = await self.jobs_collection.delete_many({
                 'expiration_date': {
                     '$exists': True,
@@ -221,10 +226,10 @@ class JobAggregator:
                 },
             })
 
-            # Delete jobs with empty/missing posted_date that were scraped too long ago
+            # Delete jobs with empty/missing posted_date that haven't been seen recently
             result_no_date = await self.jobs_collection.delete_many({
                 'posted_date': {'$in': ['', None]},
-                'scraped_at': {'$lt': cutoff_date},
+                'last_seen_at': {'$lt': cutoff_date},
             })
 
             total_deleted = (

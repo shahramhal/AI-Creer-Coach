@@ -6,7 +6,7 @@ Defines structure for job postings from external APIs
 
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class JobSearchRequest(BaseModel):
@@ -49,7 +49,8 @@ class Job(BaseModel):
     # Metadata
     posted_date: Optional[str] = None
     expiration_date: Optional[str] = None  # When the job listing expires (Reed provides this)
-    scraped_at: datetime = Field(default_factory=datetime.utcnow)
+    scraped_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_seen_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     country: str = "gb"  # Country code where the job was found
 
     # Search metadata (for filtering)

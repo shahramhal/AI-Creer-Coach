@@ -92,7 +92,6 @@ export default function JobMatchesPage() {
   const [jobs, setJobs] = useState<MatchedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<MatchingError | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
   const [filters, setFilters] = useState<MatchFilters>({});
   const [filtersInitialised, setFiltersInitialised] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -173,7 +172,6 @@ export default function JobMatchesPage() {
         setFilters(defaultFilters);
       }
       setFiltersInitialised(true);
-      setHasFetched(true);
       fetchMatches(defaultFilters);
     };
 

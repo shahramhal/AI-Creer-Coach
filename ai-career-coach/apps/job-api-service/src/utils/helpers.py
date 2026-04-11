@@ -6,6 +6,7 @@ Used by both Adzuna and Reed API clients.
 
 import re
 from datetime import datetime
+from typing import Optional
 
 #  Job type inference 
 
@@ -205,7 +206,7 @@ def detect_experience_level(title: str, description: str) -> str:
 
 #  Date normalization 
 
-def normalize_date_to_iso(date_string: str) -> str:
+def normalize_date_to_iso(date_string: str) -> Optional[str]:
     """
     Normalize various date formats to ISO 8601 (YYYY-MM-DDTHH:MM:SSZ).
     Handles:
@@ -213,10 +214,10 @@ def normalize_date_to_iso(date_string: str) -> str:
       - UK format:  "15/01/2025"
       - US format:  "01/15/2025" (less common from these APIs)
       - Date only:  "2025-01-15"
-    Returns the original string if parsing fails.
+    Returns None if parsing fails so callers can skip storing invalid dates.
     """
     if not date_string:
-        return date_string
+        return None
 
     # Already ISO 8601
     if 'T' in date_string:
@@ -230,4 +231,4 @@ def normalize_date_to_iso(date_string: str) -> str:
         except ValueError:
             continue
 
-    return date_string
+    return None

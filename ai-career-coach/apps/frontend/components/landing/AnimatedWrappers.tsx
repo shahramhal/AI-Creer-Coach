@@ -2,6 +2,8 @@
 
 import { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
+import { useEffect } from 'react'; // Add useEffect to imports
+import { useMotionValue, useTransform, animate } from 'framer-motion';
 
 export function AnimatedSection({
   children,
@@ -97,21 +99,23 @@ export function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?
 
 function CountUp({ target }: { target: number }) {
   const nodeRef = useRef<HTMLSpanElement>(null);
+  const count = useMotionValue(0);
+  const rounded = useTransform(count, (latest) => Math.round(latest));
+
+  useEffect(() => {
+    
+    const controls = animate(count, target, {
+      duration: 2,
+      ease: 'easeOut',
+    });
+
+    return () => controls.stop();
+  }, [count, target]);
 
   return (
-    <motion.span
-      ref={nodeRef}
-      initial={0}
-      whileInView={target}
-      viewport={{ once: true }}
-      transition={{ duration: 2, ease: 'easeOut' }}
-      onUpdate={(latest) => {
-        if (nodeRef.current) {
-          nodeRef.current.textContent = Math.round(latest as number).toLocaleString();
-        }
-      }}
-    >
-      0
+    <motion.span ref={nodeRef}>
+      {}
+      {rounded}
     </motion.span>
   );
 }

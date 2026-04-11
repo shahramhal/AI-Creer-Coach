@@ -16,6 +16,7 @@ from fastapi.security.api_key import APIKeyHeader
 from contextlib import asynccontextmanager
 from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import asyncio
 import uvicorn
 import os
 from dotenv import load_dotenv
@@ -28,12 +29,11 @@ from src.config.settings import settings
 # Load environment variables
 load_dotenv()
 
-# ─── Per-country search configurations ──────────────────────────────────────
-# Each country has its own set of locations.
-# Keywords are shared across all countries.
-# Total Adzuna calls per cycle ≈ len(keywords) × sum(locations per country) × max_pages
-# With defaults below: 3 × (3+3+2+2+2) = 3 × 12 = 36 Adzuna calls + 9 Reed calls = 45 total
-# Well within 250/day free-tier limit.
+# Per-country search configurations.
+# Each country has its own set of locations; keywords are shared across all countries.
+# Total Adzuna calls per cycle = len(SEARCH_KEYWORDS) × sum(locations per country) × max_pages
+# Adzuna free-tier limits: 25 calls/min, 250 calls/day.
+# A 2.5s sleep between searches caps throughput at ~24 calls/min, staying under the rate limit.
 
 SEARCH_KEYWORDS = [kw.strip() for kw in settings.search_keywords.split(",") if kw.strip()]
 
@@ -155,6 +155,17 @@ async def fetch_jobs_task(aggregator: JobAggregator):
             f"{len(configured_countries)} countries ({', '.join(c.upper() for c in configured_countries)})"
         )
 
+        adzuna_calls = sum(
+            len(COUNTRY_LOCATIONS.get(c.strip(), []))
+            for c in settings.adzuna_countries.split(",")
+            if c.strip()
+        ) * len(SEARCH_KEYWORDS)
+        if adzuna_calls > 200:
+            logger.warning(
+                f"Projected Adzuna calls ({adzuna_calls}) is approaching the 250/day free-tier cap. "
+                "Consider reducing keywords or locations."
+            )
+
         total_jobs = 0
         for query in search_queries:
             result = await aggregator.fetch_and_store_jobs(
@@ -163,6 +174,7 @@ async def fetch_jobs_task(aggregator: JobAggregator):
                 country=query["country"],
             )
             total_jobs += result["stored"]
+            await asyncio.sleep(2.5)
 
         logger.info(f" Scheduled fetch complete: {total_jobs} jobs stored")
 

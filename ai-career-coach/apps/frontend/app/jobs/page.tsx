@@ -412,23 +412,30 @@ export default function JobMatchesPage() {
                     Showing {showingStart}-{showingEnd} of {processedJobs.length} matches
                     {minScore > 0 && ` (filtered from ${jobs.length} total)`}
                   </p>
-                  <div className="flex items-center gap-2">
-                    <ArrowUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <Select
-                      value={sortOption}
-                      onValueChange={(value) => setSortOption(value as SortOption)}
-                    >
-                      <SelectTrigger className="w-[220px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SORT_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-2">
+                      <ArrowUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Select
+                        value={sortOption}
+                        onValueChange={(value) => setSortOption(value as SortOption)}
+                      >
+                        <SelectTrigger className="w-[220px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SORT_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {sortOption.startsWith('salary') && (
+                      <p className="text-xs text-muted-foreground">
+                        Jobs with undisclosed salary are shown last.
+                      </p>
+                    )}
                   </div>
                 </div>
 

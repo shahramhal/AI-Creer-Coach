@@ -176,7 +176,25 @@ class JobMatcher:
         self._cache_misses = 0
 
         logger.info(" Model loaded successfully")
-    
+
+    def _encode_long_text(self, text: str) -> "torch.Tensor":
+        """
+        Encode text that may exceed the model's 256 word-piece token limit.
+
+        Splits the input into overlapping word-based chunks, encodes each,
+        then returns the mean embedding so all sections of the CV contribute.
+        """
+        words = text.split()
+        chunk_size = 246  # leaves headroom for tokenization overhead
+        if len(words) <= chunk_size:
+            return self.model.encode(text, convert_to_tensor=True, show_progress_bar=False)
+        chunks = [
+            ' '.join(words[i:i + chunk_size])
+            for i in range(0, len(words), chunk_size)
+        ]
+        embeddings = self.model.encode(chunks, convert_to_tensor=True, show_progress_bar=False)
+        return embeddings.mean(dim=0)
+
     def match_jobs(
         self,
         cv_text: str,
@@ -203,12 +221,8 @@ class JobMatcher:
         start_time = time.time()
         logger.info(f"Matching CV against {len(jobs)} jobs")
 
-        # Step 1: Generate CV embedding
-        cv_embedding = self.model.encode(
-            cv_text,
-            convert_to_tensor=True,
-            show_progress_bar=False
-        )
+        # Step 1: Generate CV embedding (chunked to handle model's 256-token limit)
+        cv_embedding = self._encode_long_text(cv_text)
 
         # Step 2: Get job embeddings (with caching for efficiency)
         job_embeddings = self._get_job_embeddings_cached(jobs)
@@ -476,9 +490,10 @@ class JobMatcher:
         Extract skills/keywords from text using a comprehensive
         multi-industry skill set (~200+ skills).
 
-        Uses word-boundary regex for short skills (<=3 chars) to avoid
-        false positives (e.g. 'r' matching inside 'researcher').
-        Longer / multi-word skills use substring matching.
+        Multi-word skills (e.g. "machine learning") use substring matching
+        because word boundaries don't apply cleanly across spaces.
+        All single-word skills use word-boundary regex to avoid false
+        positives like "rails" inside "guardrails" or "node" inside "knowledge".
 
         Args:
             text: Input text
@@ -492,12 +507,13 @@ class JobMatcher:
         text_lower = text.lower()
         found = set()
         for skill in ALL_SKILLS:
-            if len(skill) <= 3:
-                # Short tokens need word-boundary guards
-                if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
+            if ' ' in skill:
+                # Multi-word skills: substring match is safe
+                if skill in text_lower:
                     found.add(skill)
             else:
-                if skill in text_lower:
+                # Single-word skills always use word-boundary guard
+                if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
                     found.add(skill)
         return found
     

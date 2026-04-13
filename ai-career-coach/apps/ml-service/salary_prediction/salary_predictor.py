@@ -6,7 +6,7 @@ Supports UK and US markets with automatic currency handling.
 """
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 import logging
 
@@ -22,24 +22,23 @@ router = APIRouter(prefix="/api/ml", tags=["salary"])
 
 class SalaryPredictRequest(BaseModel):
     """Request body for salary prediction."""
-    job_title: str = Field(..., description="Target job title", example="Senior Software Engineer")
-    country: str = Field(..., description="Country code: 'UK' or 'US'", example="US")
-    location: str = Field(..., description="US state code or UK city", example="CA")
+    job_title: str = Field(..., description="Target job title", examples=["Senior Software Engineer"])
+    country: str = Field(..., description="Country code: 'UK' or 'US'", examples=["US"])
+    location: str = Field(..., description="US state code or UK city", examples=["CA"])
     skills: Optional[List[str]] = Field(default=[], description="User's technical skills")
     company: Optional[str] = Field(default=None, description="Company name for tier estimation")
     include_factors: Optional[bool] = Field(default=True, description="Include explanation factors")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "job_title": "Senior Software Engineer",
-                "country": "US",
-                "location": "CA",
-                "skills": ["Python", "AWS", "Kubernetes"],
-                "company": "Google",
-                "include_factors": True
-            }
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "job_title": "Senior Software Engineer",
+            "country": "US",
+            "location": "CA",
+            "skills": ["Python", "AWS", "Kubernetes"],
+            "company": "Google",
+            "include_factors": True
         }
+    })
 
 
 class SalaryFactor(BaseModel):

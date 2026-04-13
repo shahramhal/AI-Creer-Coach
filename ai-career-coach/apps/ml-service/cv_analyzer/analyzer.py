@@ -5,7 +5,7 @@ No external API calls - fully local analysis.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from cv_analyzer.keyword_analyzer import KeywordAnalyzer
@@ -89,7 +89,7 @@ class CVAnalyzer:
             "atsAnalysis": ats_checks,
             "missingKeywords": keyword_analysis.get("missing_keywords", []),
             "recommendations": recommendations,
-            "analyzedAt": datetime.utcnow().isoformat(),
+            "analyzedAt": datetime.now(timezone.utc).isoformat(),
             "_meta": {
                 "targetRole": keyword_analysis.get("target_role", "unknown"),
                 "keywordMatchScore": keyword_analysis.get("keyword_match_score", 0),

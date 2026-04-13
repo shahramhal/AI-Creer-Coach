@@ -7,7 +7,7 @@ import os
 import json
 import re
 from typing import Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from anthropic import Anthropic
 
 
@@ -52,7 +52,7 @@ class LLMCVParser:
             # Add metadata
             parsed_data['metadata'] = {
                 'filename': filename,
-                'parsed_at': datetime.utcnow().isoformat(),
+                'parsed_at': datetime.now(timezone.utc).isoformat(),
                 'parser_version': '3.0-llm',
                 'model': self.model,
                 'text_length': len(cv_text),

@@ -208,6 +208,8 @@ class JobAggregator:
 
         logger.info(f"🧹 Cleaning up jobs older than {effective_max_age} days (cutoff: {cutoff_iso})")
 
+        scraped_at_cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+
         try:
             # Delete jobs with posted_date older than cutoff
             # posted_date is now normalized to ISO 8601, so string comparison works
@@ -232,16 +234,23 @@ class JobAggregator:
                 'last_seen_at': {'$lt': cutoff_date},
             })
 
+            # Delete any job first fetched more than 30 days ago regardless of posted_date
+            result_scraped = await self.jobs_collection.delete_many({
+                'scraped_at': {'$lt': scraped_at_cutoff},
+            })
+
             total_deleted = (
                 result_old.deleted_count
                 + result_expired.deleted_count
                 + result_no_date.deleted_count
+                + result_scraped.deleted_count
             )
 
             logger.info(
                 f"🧹 Cleanup done: {result_old.deleted_count} old + "
                 f"{result_expired.deleted_count} expired + "
-                f"{result_no_date.deleted_count} no-date = {total_deleted} total removed"
+                f"{result_no_date.deleted_count} no-date + "
+                f"{result_scraped.deleted_count} stale-fetch = {total_deleted} total removed"
             )
 
             return total_deleted

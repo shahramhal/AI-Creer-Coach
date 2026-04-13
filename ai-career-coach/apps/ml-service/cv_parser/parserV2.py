@@ -8,7 +8,7 @@ from typing import Dict
 from cv_parser.llm_parser import LLMCVParser, estimate_cost
 
 # PDF/DOCX extraction libraries
-import PyPDF2
+import pypdf
 import pdfplumber
 from docx import Document
 
@@ -67,9 +67,9 @@ class CVParser:
                     if page_text:
                         text += page_text + "\n"
         except Exception as e:
-            # Fallback to PyPDF2
+            # Fallback to pypdf
             try:
-                pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
+                pdf_reader = pypdf.PdfReader(io.BytesIO(content))
                 for page in pdf_reader.pages:
                     text += page.extract_text() + "\n"
             except Exception as e2:

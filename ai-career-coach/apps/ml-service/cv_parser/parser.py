@@ -10,7 +10,7 @@ from datetime import datetime
 from collections import Counter
 
 # PDF parsing
-import PyPDF2
+import pypdf
 import pdfplumber
 
 # OCR support 
@@ -307,9 +307,9 @@ class CVParser:
         except Exception as e:
             print(f"pdfplumber failed: {e}")
             
-            # Fallback: PyPDF2
+            # Fallback: pypdf
             try:
-                pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
+                pdf_reader = pypdf.PdfReader(io.BytesIO(content))
                 for page in pdf_reader.pages:
                     text += page.extract_text() + "\n"
             except Exception as e2:

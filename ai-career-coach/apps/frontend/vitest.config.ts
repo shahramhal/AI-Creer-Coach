@@ -9,7 +9,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: 'jsdom',
+    environment: 'happy-dom',
     setupFiles: ['./src/test-setup.ts'],
     testTimeout: 15000,
     pool: 'forks',
@@ -18,6 +18,10 @@ export default defineConfig({
       'components/**/*.test.ts',
       'services/**/*.test.ts',
       'services/**/*.test.tsx',
+      'hooks/**/*.test.ts',
+      'hooks/**/*.test.tsx',
+      'utils/**/*.test.ts',
+      'utils/**/*.test.tsx',
     ],
   },
   resolve: {

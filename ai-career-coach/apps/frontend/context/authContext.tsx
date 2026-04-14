@@ -12,6 +12,7 @@ interface User {
   lastName: string | null;
   isEmailVerified: boolean;
   role: 'USER' | 'ADMIN';
+  avatarUrl?: string | null;
 }
 
 interface AuthContextType {
@@ -41,13 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const justLoggedOut = useRef(false);
-  const popstateCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     loadUser();
-    return () => {
-      popstateCleanupRef.current?.();
-    };
   }, []);
 
   /**
@@ -122,36 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     justLoggedOut.current = true;
 
-    window.history.replaceState(null, '', '/login');
     router.replace('/login');
-    setupBackButtonBlocker();
-  };
-
-  const setupBackButtonBlocker = () => {
-    popstateCleanupRef.current?.();
-
-    let blockCount = 0;
-    const MAX_BLOCKS = 5;
-
-    const blockBackButton = () => {
-      if (blockCount < MAX_BLOCKS) {
-        window.history.pushState(null, '', '/login');
-        blockCount++;
-      } else {
-        cleanup();
-      }
-    };
-
-    const cleanup = () => {
-      window.removeEventListener('popstate', blockBackButton);
-      justLoggedOut.current = false;
-      popstateCleanupRef.current = null;
-    };
-
-    window.addEventListener('popstate', blockBackButton);
-    popstateCleanupRef.current = cleanup;
-
-    setTimeout(cleanup, 2000);
+    setTimeout(() => { justLoggedOut.current = false; }, 500);
   };
 
   const refreshUser = async () => {

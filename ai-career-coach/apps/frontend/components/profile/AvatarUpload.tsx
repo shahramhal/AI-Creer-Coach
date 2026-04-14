@@ -3,6 +3,7 @@
 import { useState, useEffect, ChangeEvent } from 'react';
 import api from '../../library/api';
 import { API_BASE_URL } from '../../library/config';
+import { useAuth } from '../../context/authContext';
 
 interface AvatarUploadProps {
   currentAvatar?: string | null;
@@ -10,6 +11,7 @@ interface AvatarUploadProps {
 }
 
 export default function AvatarUpload({ currentAvatar, onUpload }: AvatarUploadProps) {
+  const { refreshUser } = useAuth();
   const [preview, setPreview] = useState<string | null>(currentAvatar || null);
   const [uploading, setUploading] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
@@ -61,6 +63,7 @@ export default function AvatarUpload({ currentAvatar, onUpload }: AvatarUploadPr
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       onUpload(response.data.data.avatarUrl);
+      await refreshUser();
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'response' in err
@@ -84,6 +87,7 @@ export default function AvatarUpload({ currentAvatar, onUpload }: AvatarUploadPr
       await api.delete('/api/v1/profile/avatar');
       setPreview(null);
       onUpload('');
+      await refreshUser();
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'response' in err

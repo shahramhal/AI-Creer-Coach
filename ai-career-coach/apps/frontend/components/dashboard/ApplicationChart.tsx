@@ -65,6 +65,7 @@ export function ApplicationChart({ stats, isLoading }: ApplicationChartProps) {
                   borderRadius: '8px',
                   fontSize: '12px',
                 }}
+                itemStyle={{ color: '#6366f1' }}
               />
               <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={28}>
                 {chartData.map((entry) => (

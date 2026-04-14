@@ -19,7 +19,8 @@ import {
   useApplications,
   useApplicationStats,
 } from '@/hooks/queries';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import type { MatchFilters } from '@/types/matching.types';
 
 const ApplicationChart = dynamic(
   () => import('@/components/dashboard/ApplicationChart').then((m) => m.ApplicationChart),
@@ -50,11 +51,25 @@ export default function DashboardPage() {
   const progressQuery = useProgressSummary(isReady);
   const preferencesQuery = useCareerPreferences(isReady);
   const activityQuery = useRecentActivity(isReady);
-  const matchesQuery = useJobMatches(100, isReady);
   const applicationsQuery = useApplications(undefined, isReady);
   const appStatsQuery = useApplicationStats(isReady);
 
   const preferences = preferencesQuery.data;
+
+  const matchFilters = useMemo<MatchFilters | undefined>(() => {
+    if (!preferences) return undefined;
+    const filters: MatchFilters = {};
+    if (preferences.targetRole) filters.title_keywords = preferences.targetRole;
+    else if (preferences.jobTitle) filters.title_keywords = preferences.jobTitle;
+    if (preferences.experienceLevel) filters.experience_level = preferences.experienceLevel;
+    if (preferences.workArrangements?.length) filters.remote_type = preferences.workArrangements;
+    if (preferences.preferredJobTypes?.length) filters.job_type = preferences.preferredJobTypes;
+    if (preferences.salaryMin) filters.min_salary = preferences.salaryMin;
+    return Object.keys(filters).length > 0 ? filters : undefined;
+  }, [preferences]);
+
+  const matchesReady = isReady && !preferencesQuery.isLoading;
+  const matchesQuery = useJobMatches(100, matchesReady, matchFilters);
   const salaryQuery = useSalaryInsights(
     preferences?.targetRole,
     preferences?.region,
@@ -88,7 +103,10 @@ export default function DashboardPage() {
   const allMatchedJobs = matchesQuery.data?.success
     ? matchesQuery.data.data.matched_jobs
     : undefined;
-  const topMatchedJobs = allMatchedJobs?.slice(0, 3);
+  const topMatchedJobs = allMatchedJobs
+    ?.slice()
+    .sort((a, b) => b.match_score - a.match_score)
+    .slice(0, 3);
   const strongMatchCount = allMatchedJobs?.filter((job) => job.match_score >= 60).length;
   const salaryData = salaryQuery.data?.success ? salaryQuery.data.data : null;
 
@@ -150,6 +168,8 @@ export default function DashboardPage() {
           <JobMatchPreview
             jobs={topMatchedJobs}
             isLoading={matchesQuery.isLoading}
+            isError={matchesQuery.isError}
+            onRefresh={() => matchesQuery.refetch()}
           />
           <RecentActivity
             activities={activities}
@@ -157,19 +177,11 @@ export default function DashboardPage() {
           />
         </div>
 
-        {matchesQuery.isError && (
-          <p className="text-sm text-muted-foreground">Job matching data unavailable right now.</p>
-        )}
-
         <MarketInsights
           preferences={preferences ?? null}
           salaryData={salaryData}
           isLoading={salaryQuery.isLoading}
         />
-
-        {salaryQuery.isError && preferences?.targetRole && (
-          <p className="text-sm text-muted-foreground">Salary insights unavailable right now.</p>
-        )}
       </div>
     </AppLayout>
   );

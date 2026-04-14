@@ -331,11 +331,31 @@ class MatchingService {
       if (userFilters.experience_level) {
         const validLevels = ['Junior', 'Mid-level', 'Senior', 'Director+'];
         if (validLevels.includes(userFilters.experience_level)) {
-          andConditions.push({ experience_level: userFilters.experience_level });
+          // Include "Not specified" jobs - they are open-level roles that the ML will rank by relevance
+          andConditions.push({ experience_level: { $in: [userFilters.experience_level, 'Not specified'] } });
         }
       }
       if (userFilters.title_keywords) {
-        andConditions.push({ title: { $regex: escapeRegex(userFilters.title_keywords), $options: 'i' } });
+        const rawKeywords = userFilters.title_keywords.trim();
+        const words = rawKeywords.split(/\s+/).filter((w) => w.length > 1);
+
+        if (words.length > 1) {
+          // Multi-word: each word must appear in title OR description.
+          // This handles cases like "frontend developer" matching "Frontend Engineer"
+          // (description almost always contains "developer"), "python data analyst"
+          // matching "Data Analyst" roles with Python in the description, etc.
+          // No hardcoded synonym map needed - the ML ranking layer handles relevance ordering.
+          const wordConditions = words.map((word) => ({
+            $or: [
+              { title: { $regex: escapeRegex(word), $options: 'i' } },
+              { description: { $regex: escapeRegex(word), $options: 'i' } },
+            ],
+          }));
+          andConditions.push({ $and: wordConditions });
+        } else {
+          // Single word: title only to keep results focused
+          andConditions.push({ title: { $regex: escapeRegex(rawKeywords), $options: 'i' } });
+        }
       }
       if (userFilters.min_salary !== undefined && userFilters.min_salary !== null) {
         andConditions.push({
@@ -347,7 +367,13 @@ class MatchingService {
       }
       if (userFilters.remote_type) {
         const remoteTypeValues = Array.isArray(userFilters.remote_type) ? userFilters.remote_type : [userFilters.remote_type];
-        andConditions.push({ remote_type: { $in: remoteTypeValues } });
+        // When "On-site" is selected, also include "Not specified" - the vast majority of unlabeled
+        // UK office jobs simply don't advertise their work arrangement explicitly.
+        // Remote and Hybrid stay strict since those are deliberate choices by the user.
+        const expandedValues = remoteTypeValues.includes('On-site')
+          ? [...new Set([...remoteTypeValues, 'Not specified'])]
+          : remoteTypeValues;
+        andConditions.push({ remote_type: { $in: expandedValues } });
       }
     }
 
@@ -362,11 +388,26 @@ class MatchingService {
       }
     }
 
-    const jobs = await jobsCollection
+    const rawJobs = await jobsCollection
       .find(freshJobsFilter, { projection })
       .sort({ posted_date: -1 })
       .limit(limit)
       .toArray();
+
+    // Deduplicate by (title + company + city): same job re-posted with a new job_id
+    // appears as separate DB records until the storage-level fix is fully in effect.
+    const dedupMap = new Map<string, JobDocument>();
+    for (const job of rawJobs) {
+      const title = job.title.toLowerCase().trim();
+      const company = job.company.toLowerCase().replace(/\b(ltd|limited|inc|llc|plc|group)\b\.?/gi, '').trim();
+      const city = (job.location || '').split(',')[0].toLowerCase().trim();
+      const key = `${title}|${company}|${city}`;
+      const existing = dedupMap.get(key);
+      if (!existing || (job.posted_date ?? '') >= (existing.posted_date ?? '')) {
+        dedupMap.set(key, job);
+      }
+    }
+    const jobs = [...dedupMap.values()];
 
     if (jobs.length > 0) {
       await cache.set(cacheKey, jobs, 1800);

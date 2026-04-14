@@ -13,8 +13,15 @@ import CVSummaryCard from '../../components/cv/CVSummaryCard';
 import CVAnalysisTabs from '../../components/cv/CVAnalysisTabs';
 import { useUserCVs, queryKeys } from '../../hooks/queries';
 import type { CV, ParsedCVData } from '../../types/cv.types';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../../components/ui/dialog';
 import { Upload, FileText } from 'lucide-react';
 
 export default function CVsPage() {
@@ -182,14 +189,14 @@ export default function CVsPage() {
     <AppLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">CV Analysis</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Upload, analyze, and optimize your CV with AI-powered insights
             </p>
           </div>
-          <Button onClick={() => setShowUpload(true)} className="gap-2">
+          <Button onClick={() => setShowUpload(true)} className="gap-2 sm:shrink-0">
             <Upload className="h-4 w-4" />
             Upload New CV
           </Button>
@@ -223,30 +230,20 @@ export default function CVsPage() {
           </Card>
         )}
 
-        {/* Upload Card */}
-        {showUpload && (
-          <Card className="border-border bg-card shadow-card">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Upload New CV</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowUpload(false)}
-                className="h-8 w-8 p-0"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <CVUpload
-                onUploadSuccess={handleUploadSuccess}
-                onUploadError={handleUploadError}
-              />
-            </CardContent>
-          </Card>
-        )}
+        <Dialog open={showUpload} onOpenChange={setShowUpload}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Upload New CV</DialogTitle>
+              <DialogDescription>
+                AI will parse and analyze your CV after upload.
+              </DialogDescription>
+            </DialogHeader>
+            <CVUpload
+              onUploadSuccess={handleUploadSuccess}
+              onUploadError={handleUploadError}
+            />
+          </DialogContent>
+        </Dialog>
 
         {/* Main Content */}
         {cvsQuery.isLoading ? (

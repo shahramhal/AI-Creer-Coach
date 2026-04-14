@@ -5,7 +5,7 @@ Reuses existing scoring modules from score_calculator.py and ats_checker.py.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 
 from cv_analyzer.ats_checker import ATSChecker
@@ -111,7 +111,7 @@ class CVOverviewScorer:
                 "wordCount": word_count,
                 "sectionCount": section_count,
             },
-            "analyzedAt": datetime.utcnow().isoformat(),
+            "analyzedAt": datetime.now(timezone.utc).isoformat(),
         }
 
         logger.info(

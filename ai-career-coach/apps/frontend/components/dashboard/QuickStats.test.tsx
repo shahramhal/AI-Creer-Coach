@@ -3,6 +3,12 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { QuickStats } from './QuickStats';
 
+vi.mock('@/components/ui/count-up', () => ({
+  CountUp: ({ value, suffix = '' }: { value: number; suffix?: string }) => (
+    <span>{value}{suffix}</span>
+  ),
+}));
+
 describe('QuickStats', () => {
   it('should render all four stat card titles', () => {
     render(<QuickStats isLoading={false} />);

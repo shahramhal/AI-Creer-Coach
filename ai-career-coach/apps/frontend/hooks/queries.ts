@@ -7,13 +7,14 @@ import { matchingService } from '@/services/matching.service';
 import { salaryService } from '@/services/salary.service';
 import { applicationService } from '@/services/application.service';
 import type { ApplicationStatus } from '@/types/application.types';
+import type { MatchFilters } from '@/types/matching.types';
 
 export const queryKeys = {
   cvs: ['cvs'] as const,
   progressSummary: ['progressSummary'] as const,
   preferences: ['preferences'] as const,
   recentActivity: ['recentActivity'] as const,
-  jobMatches: (topK: number) => ['jobMatches', topK] as const,
+  jobMatches: (topK: number, filters?: MatchFilters) => ['jobMatches', topK, filters ?? null] as const,
   salaryInsights: (role: string, region: string, country: string) =>
     ['salaryInsights', role, region, country] as const,
   applications: (status?: ApplicationStatus) => ['applications', status] as const,
@@ -52,10 +53,10 @@ export function useRecentActivity(enabled = true) {
   });
 }
 
-export function useJobMatches(topK = 3, enabled = true) {
+export function useJobMatches(topK = 3, enabled = true, filters?: MatchFilters) {
   return useQuery({
-    queryKey: queryKeys.jobMatches(topK),
-    queryFn: () => matchingService.findMatches(undefined, topK, undefined, 100),
+    queryKey: queryKeys.jobMatches(topK, filters),
+    queryFn: () => matchingService.findMatches(filters, topK),
     enabled,
     staleTime: 10 * 60 * 1000,
   });

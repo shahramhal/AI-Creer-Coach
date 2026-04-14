@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/authContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,9 +11,17 @@ import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 import { AccountTab } from '@/components/settings/AccountTab';
 import { Settings, Bell, Link2, User } from 'lucide-react';
 
+const VALID_TABS = ['career-preferences', 'notifications', 'integrations', 'account'] as const;
+
 export default function SettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLoading, isAuthenticated } = useAuth();
+
+  const rawTab = searchParams.get('tab');
+  const activeTab = VALID_TABS.includes(rawTab as typeof VALID_TABS[number])
+    ? (rawTab as typeof VALID_TABS[number])
+    : 'career-preferences';
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -46,7 +54,7 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        <Tabs defaultValue="career-preferences">
+        <Tabs value={activeTab} onValueChange={(val) => router.replace(`/settings?tab=${val}`)}>
           <TabsList className="grid w-full grid-cols-4 sm:inline-flex sm:w-auto">
             <TabsTrigger value="career-preferences" className="gap-2">
               <Settings className="h-4 w-4 shrink-0" />

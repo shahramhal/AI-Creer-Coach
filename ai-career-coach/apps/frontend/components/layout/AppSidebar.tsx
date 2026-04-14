@@ -3,9 +3,7 @@
 import {
   LayoutDashboard,
   FileText,
-  User,
   ChevronLeft,
-  LogOut,
   Briefcase,
   ClipboardList,
   DollarSign,
@@ -16,12 +14,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { cn } from "../../library/utils";
+import { EASE_OUT } from "../../library/motion";
 import { Button } from "../ui/button";
 import { useAuth } from "../../context/authContext";
 import { Sheet, SheetContent } from "../ui/sheet";
-import { ThemeToggle } from "../ui/theme-toggle";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
 const navItems = [
@@ -32,7 +31,6 @@ const navItems = [
   { title: 'Applications', url: '/applications', icon: ClipboardList },
   { title: "Salary Insights", url: "/salary-insights", icon: DollarSign },
   { title: 'Learning Paths', url: '/learning', icon: GraduationCap },
-  { title: "Profile", url: "/profile", icon: User },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
@@ -44,7 +42,6 @@ interface SidebarContentProps {
   isAdmin: boolean;
   onNavClick: () => void;
   onCollapsedToggle: () => void;
-  onLogout: () => void;
 }
 
 function SidebarContent({
@@ -55,7 +52,6 @@ function SidebarContent({
   isAdmin,
   onNavClick,
   onCollapsedToggle,
-  onLogout,
 }: SidebarContentProps) {
   return (
     <div className="flex flex-col h-full">
@@ -106,14 +102,21 @@ function SidebarContent({
               onClick={onNavClick}
               aria-label={isCollapsed ? item.title : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+                "relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-primary/10 text-primary"
+                  ? "text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!isCollapsed && <span>{item.title}</span>}
+              {isActive && (
+                <motion.span
+                  layoutId="sidebar-active"
+                  className="absolute inset-0 rounded-lg bg-primary/10"
+                  transition={{ duration: 0.2, ease: EASE_OUT }}
+                />
+              )}
+              <item.icon className="relative h-5 w-5 shrink-0" />
+              {!isCollapsed && <span className="relative">{item.title}</span>}
             </Link>
           );
         })}
@@ -126,53 +129,50 @@ function SidebarContent({
             onClick={onNavClick}
             aria-label={isCollapsed ? "Admin Panel" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+              "relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
               pathname?.startsWith('/admin')
-                ? "bg-destructive/10 text-destructive"
+                ? "text-destructive"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
-            <Shield className="h-5 w-5 shrink-0" />
-            {!isCollapsed && <span>Admin Panel</span>}
+            {pathname?.startsWith('/admin') && (
+              <motion.span
+                layoutId="sidebar-active"
+                className="absolute inset-0 rounded-lg bg-destructive/10"
+                transition={{ duration: 0.2, ease: EASE_OUT }}
+              />
+            )}
+            <Shield className="relative h-5 w-5 shrink-0" />
+            {!isCollapsed && <span className="relative">Admin Panel</span>}
           </Link>
         </div>
       )}
 
-      <div className="mt-auto p-4 space-y-2">
-        {isCollapsed ? (
-          <div className="flex justify-center">
-            <ThemeToggle />
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Theme</span>
-              <ThemeToggle />
+      {user && (
+        <div className="mt-auto p-3 border-t border-border">
+          {isCollapsed ? (
+            <div className="flex justify-center">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                {(user.firstName?.charAt(0) ?? '') + (user.lastName?.charAt(0) ?? '') || user.email.charAt(0).toUpperCase()}
+              </div>
             </div>
-            {user && (
-              <>
-                <div className="rounded-lg border border-border bg-card p-3">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {user.firstName} {user.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {user.email}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start text-muted-foreground hover:text-foreground"
-                  onClick={onLogout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </>
-            )}
-          </>
-        )}
-      </div>
+          ) : (
+            <div className="flex items-center gap-3 px-1">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shrink-0">
+                {(user.firstName?.charAt(0) ?? '') + (user.lastName?.charAt(0) ?? '') || user.email.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user.email}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -191,14 +191,8 @@ export function AppSidebar({
   onCollapsedChange,
 }: AppSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const isMobile = useIsMobile();
-
-  const handleLogout = async () => {
-    await logout();
-    router.push('/auth/login');
-  };
 
   const closeMobileDrawer = () => {
     onMobileOpenChange?.(false);
@@ -206,7 +200,6 @@ export function AppSidebar({
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside
         className={cn(
           "fixed left-0 top-0 z-40 h-screen border-r border-border bg-sidebar transition-all duration-300 hidden md:block",
@@ -221,11 +214,9 @@ export function AppSidebar({
           isAdmin={isAdmin}
           onNavClick={() => {}}
           onCollapsedToggle={() => onCollapsedChange?.(!collapsed)}
-          onLogout={handleLogout}
         />
       </aside>
 
-      {/* Mobile sidebar (sheet drawer) */}
       {isMobile && (
         <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
           <SheetContent className="w-72 p-0">
@@ -237,7 +228,6 @@ export function AppSidebar({
               isAdmin={isAdmin}
               onNavClick={closeMobileDrawer}
               onCollapsedToggle={() => {}}
-              onLogout={handleLogout}
             />
           </SheetContent>
         </Sheet>

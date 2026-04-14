@@ -260,7 +260,7 @@ class TestHealthEndpoint:
 
 class TestAnalyzeCVEndpoint:
     def test_valid_payload_returns_200(self, client):
-        with patch("main.cv_analyzer") as mock_cv_analyzer:
+        with patch("routers.cv.cv_analyzer") as mock_cv_analyzer:
             mock_cv_analyzer.analyze.return_value = SAMPLE_ANALYZE_RESULT
 
             payload = {
@@ -274,7 +274,7 @@ class TestAnalyzeCVEndpoint:
         assert response.status_code == 200
 
     def test_valid_payload_returns_success_true(self, client):
-        with patch("main.cv_analyzer") as mock_cv_analyzer:
+        with patch("routers.cv.cv_analyzer") as mock_cv_analyzer:
             mock_cv_analyzer.analyze.return_value = SAMPLE_ANALYZE_RESULT
 
             payload = {
@@ -298,7 +298,7 @@ class TestAnalyzeCVEndpoint:
         assert response.status_code == 422
 
     def test_analysis_error_returns_200_with_success_false(self, client):
-        with patch("main.cv_analyzer") as mock_cv_analyzer:
+        with patch("routers.cv.cv_analyzer") as mock_cv_analyzer:
             mock_cv_analyzer.analyze.side_effect = RuntimeError("Analysis error")
 
             payload = {
@@ -315,7 +315,7 @@ class TestAnalyzeCVEndpoint:
 
 class TestCVOverviewEndpoint:
     def test_valid_payload_returns_200(self, client):
-        with patch("main.cv_analyzer") as mock_cv_analyzer:
+        with patch("routers.cv.cv_analyzer") as mock_cv_analyzer:
             mock_cv_analyzer.analyze_overview.return_value = SAMPLE_OVERVIEW_RESULT
 
             payload = {
@@ -328,7 +328,7 @@ class TestCVOverviewEndpoint:
         assert response.status_code == 200
 
     def test_valid_payload_returns_success_true(self, client):
-        with patch("main.cv_analyzer") as mock_cv_analyzer:
+        with patch("routers.cv.cv_analyzer") as mock_cv_analyzer:
             mock_cv_analyzer.analyze_overview.return_value = SAMPLE_OVERVIEW_RESULT
 
             payload = {
@@ -348,7 +348,7 @@ class TestCVOverviewEndpoint:
 
 class TestATSScoreEndpoint:
     def test_valid_payload_returns_200(self, client):
-        with patch("main.cv_analyzer") as mock_cv_analyzer:
+        with patch("routers.cv.cv_analyzer") as mock_cv_analyzer:
             mock_cv_analyzer.analyze_ats.return_value = SAMPLE_ATS_RESULT
 
             payload = {
@@ -363,7 +363,7 @@ class TestATSScoreEndpoint:
         assert response.status_code == 200
 
     def test_without_job_skills_returns_200(self, client):
-        with patch("main.cv_analyzer") as mock_cv_analyzer:
+        with patch("routers.cv.cv_analyzer") as mock_cv_analyzer:
             mock_cv_analyzer.analyze_ats.return_value = SAMPLE_ATS_RESULT
 
             payload = {
@@ -386,7 +386,7 @@ class TestATSScoreEndpoint:
 
 class TestMatchJobsEndpoint:
     def test_valid_jobs_array_returns_200(self, client):
-        with patch("main.job_matcher") as mock_job_matcher:
+        with patch("routers.matching.job_matcher") as mock_job_matcher:
             mock_job_matcher.match_jobs.return_value = SAMPLE_MATCH_RESULT
 
             payload = {
@@ -406,7 +406,7 @@ class TestMatchJobsEndpoint:
         assert response.status_code == 200
 
     def test_empty_jobs_array_returns_200_with_empty_results(self, client):
-        with patch("main.job_matcher") as mock_job_matcher:
+        with patch("routers.matching.job_matcher") as mock_job_matcher:
             mock_job_matcher.match_jobs.return_value = []
 
             payload = {
@@ -421,7 +421,7 @@ class TestMatchJobsEndpoint:
         assert body["matched_jobs"] == []
 
     def test_response_shape_matches_job_match_response_model(self, client):
-        with patch("main.job_matcher") as mock_job_matcher:
+        with patch("routers.matching.job_matcher") as mock_job_matcher:
             mock_job_matcher.match_jobs.return_value = SAMPLE_MATCH_RESULT
 
             payload = {
@@ -448,7 +448,7 @@ class TestMatchJobsEndpoint:
 
 class TestSkillGapAnalysisEndpoint:
     def test_valid_payload_returns_200(self, client):
-        with patch("main.skill_gap_analyzer") as mock_analyzer:
+        with patch("routers.skills.skill_gap_analyzer") as mock_analyzer:
             mock_analyzer.analyze.return_value = SAMPLE_SKILL_GAP_RESULT
 
             payload = {
@@ -462,7 +462,7 @@ class TestSkillGapAnalysisEndpoint:
         assert response.status_code == 200
 
     def test_response_has_success_and_data_keys(self, client):
-        with patch("main.skill_gap_analyzer") as mock_analyzer:
+        with patch("routers.skills.skill_gap_analyzer") as mock_analyzer:
             mock_analyzer.analyze.return_value = SAMPLE_SKILL_GAP_RESULT
 
             payload = {
@@ -481,7 +481,7 @@ class TestSkillGapAnalysisEndpoint:
             "skill_coverage": 100.0,
             "missing_skills": [],
         }
-        with patch("main.skill_gap_analyzer") as mock_analyzer:
+        with patch("routers.skills.skill_gap_analyzer") as mock_analyzer:
             mock_analyzer.analyze.return_value = full_coverage_result
 
             payload = {
@@ -501,7 +501,7 @@ class TestSkillGapAnalysisEndpoint:
 
 class TestSkillRelevanceEndpoint:
     def test_valid_skills_and_title_returns_200(self, client):
-        with patch("main.compute_skill_relevance", return_value=SAMPLE_SKILL_RELEVANCE_RESULT):
+        with patch("routers.skills.compute_skill_relevance", return_value=SAMPLE_SKILL_RELEVANCE_RESULT):
             payload = {
                 "job_title": "Frontend Developer",
                 "skills": ["React", "TypeScript", "CSS"],
@@ -511,7 +511,7 @@ class TestSkillRelevanceEndpoint:
         assert response.status_code == 200
 
     def test_response_has_success_and_data_keys(self, client):
-        with patch("main.compute_skill_relevance", return_value=SAMPLE_SKILL_RELEVANCE_RESULT):
+        with patch("routers.skills.compute_skill_relevance", return_value=SAMPLE_SKILL_RELEVANCE_RESULT):
             payload = {
                 "job_title": "Frontend Developer",
                 "skills": ["React", "TypeScript"],
@@ -535,8 +535,8 @@ class TestSkillRelevanceEndpoint:
 
 class TestParseCVEndpoint:
     def test_pdf_file_upload_returns_200(self, client):
-        with patch("main.cv_parser") as mock_cv_parser, \
-             patch("main.get_mongodb_connection") as mock_mongo:
+        with patch("routers.cv.cv_parser") as mock_cv_parser, \
+             patch("routers.cv.get_mongodb_connection") as mock_mongo:
             mock_cv_parser.parse.return_value = SAMPLE_PARSE_RESULT
             mock_mongo_instance = MagicMock()
             mock_mongo_instance.connect.return_value = False
@@ -551,8 +551,8 @@ class TestParseCVEndpoint:
         assert response.status_code == 200
 
     def test_pdf_upload_returns_success_true_with_mocked_parser(self, client):
-        with patch("main.cv_parser") as mock_cv_parser, \
-             patch("main.get_mongodb_connection") as mock_mongo:
+        with patch("routers.cv.cv_parser") as mock_cv_parser, \
+             patch("routers.cv.get_mongodb_connection") as mock_mongo:
             mock_cv_parser.parse.return_value = SAMPLE_PARSE_RESULT
             mock_mongo_instance = MagicMock()
             mock_mongo_instance.connect.return_value = False
@@ -568,8 +568,7 @@ class TestParseCVEndpoint:
         assert body["success"] is True
 
     def test_unsupported_file_type_returns_error(self, client):
-        # The source catches HTTPException in a bare except block and returns
-        # success=False with status 200 instead of propagating the 400.
+        # HTTPException is caught by the bare except and returns success=False with 200.
         fake_txt_content = b"plain text cv content"
         response = client.post(
             "/api/ml/parse-cv",
@@ -580,8 +579,8 @@ class TestParseCVEndpoint:
         assert body["success"] is False
 
     def test_docx_file_upload_returns_200(self, client):
-        with patch("main.cv_parser") as mock_cv_parser, \
-             patch("main.get_mongodb_connection") as mock_mongo:
+        with patch("routers.cv.cv_parser") as mock_cv_parser, \
+             patch("routers.cv.get_mongodb_connection") as mock_mongo:
             mock_cv_parser.parse.return_value = SAMPLE_PARSE_RESULT
             mock_mongo_instance = MagicMock()
             mock_mongo_instance.connect.return_value = False
@@ -600,8 +599,8 @@ class TestParseCVEndpoint:
         token_payload = {"userId": "user_123", "email": "john@example.com"}
         fake_token = jwt.encode(token_payload, "test-secret-key-that-is-at-least-32-bytes-long", algorithm="HS256")
 
-        with patch("main.cv_parser") as mock_cv_parser, \
-             patch("main.get_mongodb_connection") as mock_mongo:
+        with patch("routers.cv.cv_parser") as mock_cv_parser, \
+             patch("routers.cv.get_mongodb_connection") as mock_mongo:
             mock_cv_parser.parse.return_value = SAMPLE_PARSE_RESULT
             mock_mongo_instance = MagicMock()
             mock_mongo_instance.connect.return_value = False

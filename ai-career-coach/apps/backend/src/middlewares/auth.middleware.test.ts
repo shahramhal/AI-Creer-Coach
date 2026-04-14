@@ -158,6 +158,7 @@ describe('authenticate middleware', () => {
       firstName: 'John',
       lastName: 'Doe',
       role: 'USER',
+      avatarUrl: null,
     });
 
     // Verify no sensitive credentials or tokens leak into req.user
@@ -259,6 +260,10 @@ describe('optionalAuthenticate middleware', () => {
       id: existingUserId,
       email: existingUserEmail,
       isEmailVerified: false,
+      firstName: null,
+      lastName: null,
+      role: 'USER',
+      isDisabled: false,
     };
     mockPrismaInstance.user.findUnique.mockResolvedValue(foundUser);
 
@@ -269,6 +274,10 @@ describe('optionalAuthenticate middleware', () => {
       id: existingUserId,
       email: existingUserEmail,
       isEmailVerified: false,
+      firstName: null,
+      lastName: null,
+      role: 'USER',
+      avatarUrl: null,
     });
   });
 });

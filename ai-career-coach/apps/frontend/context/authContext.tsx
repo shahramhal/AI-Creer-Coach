@@ -12,6 +12,7 @@ interface User {
   lastName: string | null;
   isEmailVerified: boolean;
   role: 'USER' | 'ADMIN';
+  avatarUrl?: string | null;
 }
 
 interface AuthContextType {

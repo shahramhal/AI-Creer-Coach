@@ -18,6 +18,7 @@ declare global {
         lastName: string | null;
         isEmailVerified: boolean;
         role: string;
+        avatarUrl?: string | null;
       };
     }
   }
@@ -59,6 +60,9 @@ export const authenticate = async (
         lastName: true,
         role: true,
         isDisabled: true,
+        profile: {
+          select: { avatarUrl: true },
+        },
       },
     });
 
@@ -86,6 +90,7 @@ export const authenticate = async (
       lastName: user.lastName,
       isEmailVerified: user.isEmailVerified,
       role: user.role,
+      avatarUrl: user.profile?.avatarUrl ?? null,
     };
 
     next();
@@ -173,6 +178,9 @@ export const optionalAuthenticate = async (
         isEmailVerified: true,
         role: true,
         isDisabled: true,
+        profile: {
+          select: { avatarUrl: true },
+        },
       },
     });
 
@@ -184,6 +192,7 @@ export const optionalAuthenticate = async (
         lastName: user.lastName,
         isEmailVerified: user.isEmailVerified,
         role: user.role,
+        avatarUrl: user.profile?.avatarUrl ?? null,
       };
     }
 

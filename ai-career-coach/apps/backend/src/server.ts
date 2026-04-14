@@ -95,7 +95,11 @@ app.use('/api/v1/ml', mlRoutes);
 app.use('/api/v1/jobs', jobRoutes);
 
 // Upload routes (static files)
-app.use('/uploads', express.static('public/uploads'));
+// Override CORP header so cross-origin pages (frontend at :3000) can display images served from this server
+app.use('/uploads', (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static('public/uploads'));
 
 app.use('/api/v1/matching', matchingRoutes);
 

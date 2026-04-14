@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Search, Bell, Menu, User, Settings, LogOut, ChevronDown, Sun, Moon } from 'lucide-react';
+import { API_BASE_URL } from '../../library/config';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useAuth } from '../../context/authContext';
@@ -62,6 +63,13 @@ export function TopNav({ onMenuClick }: TopNavProps) {
     return (first + last) || user.email.charAt(0).toUpperCase();
   };
 
+  const getAvatarUrl = () => {
+    if (!user?.avatarUrl) return null;
+    return user.avatarUrl.startsWith('http')
+      ? user.avatarUrl
+      : `${API_BASE_URL.replace('/api', '')}${user.avatarUrl}`;
+  };
+
   return (
     <>
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 md:px-6 backdrop-blur-sm gap-3">
@@ -102,8 +110,12 @@ export function TopNav({ onMenuClick }: TopNavProps) {
                 type="button"
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shrink-0">
-                  {getInitials()}
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shrink-0 overflow-hidden">
+                  {getAvatarUrl() ? (
+                    <img src={getAvatarUrl()!} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    getInitials()
+                  )}
                 </div>
                 <div className="hidden text-left md:block">
                   <p className="text-sm font-medium leading-none">

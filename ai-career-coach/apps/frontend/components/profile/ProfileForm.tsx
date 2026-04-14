@@ -55,7 +55,7 @@ export default function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-card border border-border p-6 rounded-xl shadow-card">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 px-6 pb-6">
       {message && (
         <div className={`p-4 rounded-lg border ${message.includes('success') ? 'bg-success/10 border-success/30 text-success' : 'bg-destructive/10 border-destructive/30 text-destructive'}`}>
           {message}

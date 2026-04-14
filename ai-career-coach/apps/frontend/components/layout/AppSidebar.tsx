@@ -22,6 +22,7 @@ import { Button } from "../ui/button";
 import { useAuth } from "../../context/authContext";
 import { Sheet, SheetContent } from "../ui/sheet";
 import { useIsMobile } from "../../hooks/useIsMobile";
+import { API_BASE_URL } from "../../library/config";
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -38,10 +39,17 @@ interface SidebarContentProps {
   isCollapsed: boolean;
   showCollapseToggle: boolean;
   pathname: string | null;
-  user: { firstName?: string; lastName?: string; email: string } | null;
+  user: { firstName?: string; lastName?: string; email: string; avatarUrl?: string | null } | null;
   isAdmin: boolean;
   onNavClick: () => void;
   onCollapsedToggle: () => void;
+}
+
+function resolveAvatarUrl(avatarUrl?: string | null): string | null {
+  if (!avatarUrl) return null;
+  return avatarUrl.startsWith('http')
+    ? avatarUrl
+    : `${API_BASE_URL.replace('/api', '')}${avatarUrl}`;
 }
 
 function SidebarContent({
@@ -152,14 +160,22 @@ function SidebarContent({
         <div className="mt-auto p-3 border-t border-border">
           {isCollapsed ? (
             <div className="flex justify-center">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-                {(user.firstName?.charAt(0) ?? '') + (user.lastName?.charAt(0) ?? '') || user.email.charAt(0).toUpperCase()}
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground overflow-hidden">
+                {resolveAvatarUrl(user.avatarUrl) ? (
+                  <img src={resolveAvatarUrl(user.avatarUrl)!} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (user.firstName?.charAt(0) ?? '') + (user.lastName?.charAt(0) ?? '') || user.email.charAt(0).toUpperCase()
+                )}
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-3 px-1">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shrink-0">
-                {(user.firstName?.charAt(0) ?? '') + (user.lastName?.charAt(0) ?? '') || user.email.charAt(0).toUpperCase()}
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shrink-0 overflow-hidden">
+                {resolveAvatarUrl(user.avatarUrl) ? (
+                  <img src={resolveAvatarUrl(user.avatarUrl)!} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (user.firstName?.charAt(0) ?? '') + (user.lastName?.charAt(0) ?? '') || user.email.charAt(0).toUpperCase()
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">

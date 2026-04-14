@@ -134,6 +134,7 @@ export function MarketInsights({ preferences, salaryData, isLoading }: MarketIns
                         borderRadius: "8px",
                         fontSize: "12px",
                       }}
+                      itemStyle={{ color: '#6366f1' }}
                       formatter={(value: number) => [`${value}%`, "Demand"]}
                     />
                     <Bar dataKey="demand" radius={[0, 4, 4, 0]}>

@@ -27,6 +27,8 @@ export default defineConfig({
         'src/config/database.ts',
         // HTTP proxy to ML microservice - integration tested, no business logic to unit-test
         'src/services/ml.service.ts',
+        // Requires live MongoDB + ML service connections - covered via matching.routes.test.ts
+        'src/services/matching.service.ts',
         // Mongoose model/schema definition - no testable logic
         'src/models/user.model.ts',
         // Multer file upload config - configuration object, not unit-testable

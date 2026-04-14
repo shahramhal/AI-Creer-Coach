@@ -79,14 +79,42 @@ def normalize_job_type(raw: str, title: str = '', description: str = '') -> str:
 #  Remote type detection 
 
 def detect_remote_type(title: str, description: str) -> str:
-    """Detect remote/hybrid/on-site from text."""
+    """Detect remote/hybrid/on-site from title and description text."""
     text = f"{title} {description}".lower()
-    if re.search(r'\b(fully remote|100% remote|remote only|work from home|remote position)\b', text):
-        return "Remote"
-    if re.search(r'\b(hybrid|flexible working|mix of remote)\b', text):
+
+    # Hybrid first - more specific, must come before plain remote check
+    if re.search(
+        r'\b(hybrid|flexible working|mix of remote|part[\s-]remote'
+        r'|remote.*office days|office.*remote'
+        r'|\d+\s*days?\s*(?:a\s*week\s*)?in\s*(?:the\s*)?office'
+        r'|office\s*\d+\s*days?)\b',
+        text,
+    ):
         return "Hybrid"
-    if re.search(r'\b(on[\s-]?site|office[\s-]?based|in[\s-]?office)\b', text):
+
+    # Remote - expanded well beyond "fully remote" to catch common phrasing
+    if re.search(
+        r'\b(fully remote|100%\s*remote|remote only|work from home|wfh'
+        r'|remote position|remote working|remote[\s-]first|remote role'
+        r'|remote job|work from anywhere|distributed team|remote[\s-]based)\b',
+        text,
+    ):
+        return "Remote"
+    # Plain "remote" keyword is almost always a remote signal unless explicitly negated
+    if re.search(r'\bremote\b', text) and not re.search(
+        r'\b(non[\s-]remote|not remote|no remote|office[\s-]only|on[\s-]?site only)\b', text
+    ):
+        return "Remote"
+
+    # On-site - expanded to catch common UK office job language
+    if re.search(
+        r'\b(on[\s-]?site|office[\s-]?based|in[\s-]?office|in the office'
+        r'|office location|must be (?:based|located)|based in.*office'
+        r'|commutable|our\s+(?:london|manchester|birmingham|edinburgh|leeds|bristol)\s+office)\b',
+        text,
+    ):
         return "On-site"
+
     return "Not specified"
 
 
@@ -99,7 +127,7 @@ _MID_TITLE_PATTERN = re.compile(
     r'\b(mid[\s-]?level|intermediate|middle[\s-]?level)\b', re.I
 )
 _SENIOR_TITLE_PATTERN = re.compile(
-    r'\b(senior|sr\.?|lead|principal|staff)\b', re.I
+    r'\b(senior|sr\.?|lead|principal|staff|experienced|expert)\b', re.I
 )
 _DIRECTOR_TITLE_PATTERN = re.compile(
     r'\b(director|head of|vp |vice president|chief|c-level|cto|cio)\b', re.I
@@ -133,7 +161,8 @@ _SENIOR_DESC_PATTERN = re.compile(
 # Matches: "3+ years experience", "5 years of working", "2 yrs professional"
 _YEARS_PATTERN = re.compile(
     r'(\d{1,2})\s*\+?\s*(?:years?|yrs?)\s*'
-    r'(?:of\s+)?(?:experience|exp\.?|professional|relevant|proven|working|hands[\s-]?on)',
+    r'(?:of\s+)?(?:experience|exp\.?|professional|relevant|proven|working|hands[\s-]?on'
+    r'|in\s+(?:software|development|engineering|data|product|design|marketing|finance|the\s+industry))',
     re.I,
 )
 

@@ -291,6 +291,69 @@ async def backfill_experience_levels():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/jobs/backfill-dedup", dependencies=[Depends(_verify_internal_token)])
+async def backfill_dedup():
+    """
+    One-time cleanup: collapses duplicate job records (same title + company + city)
+    down to a single record per logical job, keeping the most recent posting.
+    Handles both spam-posting (48 identical listings same day) and refresh-posting
+    (same job re-posted weekly to stay at the top of search results).
+    """
+    try:
+        aggregator = app.state.aggregator
+        result = await aggregator.backfill_dedup()
+
+        return {
+            "success": True,
+            "message": f"Dedup complete: {result['records_deleted']} duplicate records removed across {result['duplicate_groups_found']} job groups",
+            "data": result,
+        }
+    except Exception as e:
+        logger.error(f"Error during dedup backfill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/jobs/backfill-remote-types", dependencies=[Depends(_verify_internal_token)])
+async def backfill_remote_types():
+    """
+    Re-run the improved remote type detection on all 'Not specified' jobs.
+    Catches plain 'remote' keyword, hybrid office-day patterns, and on-site language
+    that the original narrow patterns missed.
+    """
+    try:
+        aggregator = app.state.aggregator
+        result = await aggregator.backfill_remote_types()
+
+        return {
+            "success": True,
+            "message": f"Backfill complete: {result['reclassified']} jobs reclassified",
+            "data": result,
+        }
+    except Exception as e:
+        logger.error(f"Error during remote type backfill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/jobs/backfill-job-types", dependencies=[Depends(_verify_internal_token)])
+async def backfill_job_types():
+    """
+    Re-run job type inference on all 'Not specified' jobs.
+    Helps recover the ~1883 jobs that Adzuna/Reed didn't provide contract fields for.
+    """
+    try:
+        aggregator = app.state.aggregator
+        result = await aggregator.backfill_job_types()
+
+        return {
+            "success": True,
+            "message": f"Backfill complete: {result['reclassified']} jobs reclassified",
+            "data": result,
+        }
+    except Exception as e:
+        logger.error(f"Error during job type backfill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/jobs/cleanup", dependencies=[Depends(_verify_internal_token)])
 async def cleanup_jobs():
     """Manual endpoint to trigger expired job cleanup."""

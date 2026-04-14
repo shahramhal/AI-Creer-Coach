@@ -150,6 +150,7 @@ export default function DashboardPage() {
           <JobMatchPreview
             jobs={topMatchedJobs}
             isLoading={matchesQuery.isLoading}
+            isError={matchesQuery.isError}
           />
           <RecentActivity
             activities={activities}
@@ -157,19 +158,11 @@ export default function DashboardPage() {
           />
         </div>
 
-        {matchesQuery.isError && (
-          <p className="text-sm text-muted-foreground">Job matching data unavailable right now.</p>
-        )}
-
         <MarketInsights
           preferences={preferences ?? null}
           salaryData={salaryData}
           isLoading={salaryQuery.isLoading}
         />
-
-        {salaryQuery.isError && preferences?.targetRole && (
-          <p className="text-sm text-muted-foreground">Salary insights unavailable right now.</p>
-        )}
       </div>
     </AppLayout>
   );

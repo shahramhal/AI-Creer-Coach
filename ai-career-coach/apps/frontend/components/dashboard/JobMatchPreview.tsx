@@ -1,6 +1,8 @@
+import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CountUp } from "@/components/ui/count-up";
 import {
   ArrowRight,
   MapPin,
@@ -12,12 +14,14 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatRelativeTime } from "@/library/utils";
+import { staggerContainer, staggerItem } from "@/library/motion";
 import type { MatchedJob } from "@/types/matching.types";
 import Link from "next/link";
 
 interface JobMatchPreviewProps {
   jobs?: MatchedJob[];
   isLoading: boolean;
+  isError?: boolean;
 }
 
 function formatSalary(salaryMin?: number, salaryMax?: number): string {
@@ -38,7 +42,7 @@ function getMatchColor(score: number) {
   return "text-metric-poor";
 }
 
-export function JobMatchPreview({ jobs, isLoading }: JobMatchPreviewProps) {
+export function JobMatchPreview({ jobs, isLoading, isError }: JobMatchPreviewProps) {
   return (
     <Card className="border-border bg-card shadow-card">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -53,7 +57,12 @@ export function JobMatchPreview({ jobs, isLoading }: JobMatchPreviewProps) {
         </Button>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {isError ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-center">
+            <Target className="h-8 w-8 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">Job matching data unavailable right now.</p>
+          </div>
+        ) : isLoading ? (
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, index) => (
               <div key={index} className="rounded-lg border border-border p-4">
@@ -78,7 +87,12 @@ export function JobMatchPreview({ jobs, isLoading }: JobMatchPreviewProps) {
             </Button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <motion.div
+            className="space-y-4"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+          >
             {jobs.map((job) => {
               const matchScore = Math.round(job.match_score);
               const isRemote = job.remote_type?.toLowerCase() === 'remote';
@@ -88,8 +102,9 @@ export function JobMatchPreview({ jobs, isLoading }: JobMatchPreviewProps) {
               ].slice(0, 4);
 
               return (
-                <div
+                <motion.div
                   key={job.job_id}
+                  variants={staggerItem}
                   className="group rounded-lg border border-border p-4 transition-all hover:border-primary/30 hover:shadow-glow"
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -123,7 +138,7 @@ export function JobMatchPreview({ jobs, isLoading }: JobMatchPreviewProps) {
                     <div className="text-right">
                       <div className="flex flex-col items-end gap-1">
                         <span className={`font-mono text-2xl font-bold ${getMatchColor(matchScore)}`}>
-                          {matchScore}%
+                          <CountUp value={matchScore} suffix="%" duration={0.8} />
                         </span>
                         <span className={`text-xs font-medium ${getMatchColor(matchScore)}`}>
                           {job.match_label ?? 'match'}
@@ -150,10 +165,10 @@ export function JobMatchPreview({ jobs, isLoading }: JobMatchPreviewProps) {
                       ))}
                     </div>
                   )}
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
       </CardContent>
     </Card>

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { CountUp } from "@/components/ui/count-up";
 import { FileText, AlertCircle, Upload } from "lucide-react";
 import Link from "next/link";
 
@@ -128,7 +129,7 @@ export function CVHealthScore({ score, issues, hasCv, hasAnalysis, isLoading }: 
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className={`font-mono text-3xl font-bold ${getScoreColor(displayScore)}`}>
-                {displayScore}
+                <CountUp value={displayScore} duration={1} />
               </span>
               <span className="text-xs text-muted-foreground">/100</span>
             </div>

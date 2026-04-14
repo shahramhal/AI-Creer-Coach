@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/authContext';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -13,7 +13,7 @@ import { Settings, Bell, Link2, User } from 'lucide-react';
 
 const VALID_TABS = ['career-preferences', 'notifications', 'integrations', 'account'] as const;
 
-export default function SettingsPage() {
+function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoading, isAuthenticated } = useAuth();
@@ -92,5 +92,13 @@ export default function SettingsPage() {
         </Tabs>
       </div>
     </AppLayout>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense>
+      <SettingsContent />
+    </Suspense>
   );
 }

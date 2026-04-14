@@ -8,6 +8,12 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+vi.mock('@/components/ui/count-up', () => ({
+  CountUp: ({ value, suffix = '' }: { value: number; suffix?: string }) => (
+    <span>{value}{suffix}</span>
+  ),
+}));
+
 describe('CVHealthScore', () => {
   it('should render a loading skeleton when isLoading is true', () => {
     const { container } = render(

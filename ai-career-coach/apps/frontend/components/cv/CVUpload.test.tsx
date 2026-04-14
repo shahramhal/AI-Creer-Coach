@@ -39,10 +39,8 @@ describe('CVUpload', () => {
   it('should render the drop zone with upload instructions', () => {
     render(<CVUpload onUploadSuccess={onUploadSuccess} />);
 
-    expect(screen.getByText('Upload your CV')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Drag and drop a PDF or DOCX file/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Drop your CV here/i)).toBeInTheDocument();
+    expect(screen.getByText(/PDF or DOCX, up to 10MB/i)).toBeInTheDocument();
   });
 
   it('should show the selected file name after a valid PDF is chosen', async () => {
@@ -106,7 +104,7 @@ describe('CVUpload', () => {
       expect(onUploadSuccess).toHaveBeenCalledWith('cv-123', { name: 'Alice' });
     });
 
-    expect(screen.getByText('Upload your CV')).toBeInTheDocument();
+    expect(screen.getByText(/Drop your CV here/i)).toBeInTheDocument();
   });
 
   it('should show an error message when the upload fails', async () => {
@@ -141,6 +139,6 @@ describe('CVUpload', () => {
     const removeButtons = screen.getAllByRole('button', { name: /remove/i });
     await userEvent.click(removeButtons[0]);
 
-    expect(screen.getByText('Upload your CV')).toBeInTheDocument();
+    expect(screen.getByText(/Drop your CV here/i)).toBeInTheDocument();
   });
 });

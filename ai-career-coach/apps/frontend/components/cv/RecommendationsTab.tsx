@@ -64,10 +64,6 @@ export default function RecommendationsTab({ recommendations }: RecommendationsT
                 </div>
               </div>
 
-              {/* Apply button */}
-              <button className="flex-shrink-0 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary/80 transition-colors">
-                Apply
-              </button>
             </div>
           ))}
         </div>

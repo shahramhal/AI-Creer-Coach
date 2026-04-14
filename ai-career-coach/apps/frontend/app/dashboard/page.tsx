@@ -71,9 +71,9 @@ export default function DashboardPage() {
   const matchesReady = isReady && !preferencesQuery.isLoading;
   const matchesQuery = useJobMatches(100, matchesReady, matchFilters);
   const salaryQuery = useSalaryInsights(
-    preferences?.targetRole,
-    preferences?.region,
-    preferences?.country,
+    preferences?.targetRole ?? undefined,
+    preferences?.region ?? undefined,
+    preferences?.country ?? undefined,
   );
 
   if (authLoading) {

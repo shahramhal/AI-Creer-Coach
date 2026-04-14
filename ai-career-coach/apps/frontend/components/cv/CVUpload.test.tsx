@@ -12,7 +12,7 @@ vi.mock('../../services/cv.service', () => ({
 
 import { cvService } from '../../services/cv.service';
 
-const mockCvService = cvService as { uploadCV: ReturnType<typeof vi.fn> };
+const mockCvService = cvService as unknown as { uploadCV: ReturnType<typeof vi.fn> };
 
 const buildPdfFile = (sizeBytes = 1024) =>
   new File(['x'.repeat(sizeBytes)], 'resume.pdf', { type: 'application/pdf' });

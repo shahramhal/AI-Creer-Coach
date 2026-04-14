@@ -31,7 +31,7 @@ interface AdminSidebarContentProps {
   isCollapsed: boolean;
   showCollapseToggle: boolean;
   pathname: string | null;
-  user: { firstName?: string; lastName?: string; email: string } | null;
+  user: { firstName?: string | null; lastName?: string | null; email: string } | null;
   onNavClick: () => void;
   onCollapsedToggle: () => void;
   onLogout: () => void;

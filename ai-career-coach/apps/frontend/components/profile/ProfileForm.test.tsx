@@ -14,7 +14,7 @@ vi.mock('../../library/api', () => ({
 
 import api from '../../library/api';
 
-const mockApi = api as { put: ReturnType<typeof vi.fn> };
+const mockApi = api as unknown as { put: ReturnType<typeof vi.fn> };
 
 const buildProfile = (overrides: Partial<Profile> = {}): Profile => ({
   phoneNumber: '+44 7700 900000',

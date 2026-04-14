@@ -59,6 +59,11 @@ const RECENT_ACTIVITY_LIMIT = 5;
 const activityTypeHrefMap: Record<DashboardActivity['type'], string> = {
   cv_upload: '/cvs',
   cv_update: '/cvs',
+  cv_delete: '/cvs',
+  cv_analyze: '/cvs',
+  ats_check: '/ats-score',
+  profile_update: '/profile',
+  settings_update: '/settings',
   job_saved: '/jobs',
   learning_started: '/learning',
   learning_completed: '/learning',

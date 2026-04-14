@@ -7,6 +7,7 @@ const buildSummary = (overrides: Partial<ProgressSummary> = {}): ProgressSummary
   totalPaths: 5,
   completedPaths: 2,
   inProgressPaths: 2,
+  notStartedPaths: 1,
   overallProgress: 40,
   completedHours: 60,
   totalEstimatedHours: 150,

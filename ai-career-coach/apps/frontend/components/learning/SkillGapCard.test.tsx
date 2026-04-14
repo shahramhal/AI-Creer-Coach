@@ -7,6 +7,7 @@ const buildSkill = (overrides: Partial<MissingSkill> = {}): MissingSkill => ({
   name: 'TypeScript',
   category: 'programming_language',
   priority: 'high',
+  frequency: 'common',
   estimated_hours: 40,
   salary_impact: '+£5k',
   roi_score: 8.5,

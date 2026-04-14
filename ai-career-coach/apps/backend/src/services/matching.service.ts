@@ -400,7 +400,7 @@ class MatchingService {
     for (const job of rawJobs) {
       const title = job.title.toLowerCase().trim();
       const company = job.company.toLowerCase().replace(/\b(ltd|limited|inc|llc|plc|group)\b\.?/gi, '').trim();
-      const city = (job.location || '').split(',')[0].toLowerCase().trim();
+      const city = (job.location || '').split(',')[0]?.toLowerCase().trim() ?? '';
       const key = `${title}|${company}|${city}`;
       const existing = dedupMap.get(key);
       if (!existing || (job.posted_date ?? '') >= (existing.posted_date ?? '')) {

@@ -22,10 +22,8 @@ const mockApi = api as any;
 
 const samplePreferences = {
   jobTitle: 'Software Engineer',
-  location: 'London',
   country: 'gb',
   salaryMin: 50000,
-  remotePreference: 'Hybrid',
 };
 
 describe('SettingsService', () => {
@@ -48,7 +46,6 @@ describe('SettingsService', () => {
       const result = await settingsService.getCareerPreferences();
 
       expect(result.jobTitle).toBe('Software Engineer');
-      expect(result.location).toBe('London');
     });
 
     it('should propagate errors', async () => {
@@ -60,7 +57,7 @@ describe('SettingsService', () => {
 
   describe('updateCareerPreferences', () => {
     it('should call PUT /api/v1/profile/preferences with the given data', async () => {
-      const updateData = { jobTitle: 'Senior Engineer', location: 'Manchester' };
+      const updateData = { jobTitle: 'Senior Engineer' };
       mockApi.put.mockResolvedValue({ data: { data: { ...samplePreferences, ...updateData } } });
 
       await settingsService.updateCareerPreferences(updateData);

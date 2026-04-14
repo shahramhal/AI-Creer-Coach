@@ -10,7 +10,7 @@ vi.mock('@/services/admin.service', () => ({
 
 import { adminService } from '@/services/admin.service';
 
-const mockAdminService = adminService as { getServiceHealth: ReturnType<typeof vi.fn> };
+const mockAdminService = adminService as unknown as { getServiceHealth: ReturnType<typeof vi.fn> };
 
 describe('ServiceHealthPanel', () => {
   beforeEach(() => {

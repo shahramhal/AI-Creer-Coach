@@ -39,7 +39,7 @@ interface SidebarContentProps {
   isCollapsed: boolean;
   showCollapseToggle: boolean;
   pathname: string | null;
-  user: { firstName?: string; lastName?: string; email: string; avatarUrl?: string | null } | null;
+  user: { firstName?: string | null; lastName?: string | null; email: string; avatarUrl?: string | null } | null;
   isAdmin: boolean;
   onNavClick: () => void;
   onCollapsedToggle: () => void;

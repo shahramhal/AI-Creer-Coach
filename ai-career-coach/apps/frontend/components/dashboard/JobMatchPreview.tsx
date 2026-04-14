@@ -11,6 +11,7 @@ import {
   Check,
   X,
   Target,
+  RefreshCw,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatRelativeTime } from "@/library/utils";
@@ -22,6 +23,7 @@ interface JobMatchPreviewProps {
   jobs?: MatchedJob[];
   isLoading: boolean;
   isError?: boolean;
+  onRefresh?: () => void;
 }
 
 function formatSalary(salaryMin?: number, salaryMax?: number): string {
@@ -42,19 +44,33 @@ function getMatchColor(score: number) {
   return "text-metric-poor";
 }
 
-export function JobMatchPreview({ jobs, isLoading, isError }: JobMatchPreviewProps) {
+export function JobMatchPreview({ jobs, isLoading, isError, onRefresh }: JobMatchPreviewProps) {
   return (
     <Card className="border-border bg-card shadow-card">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           Top Job Matches
         </CardTitle>
-        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" asChild>
-          <Link href="/jobs">
-            View All Jobs
-            <ArrowRight className="ml-1 h-3 w-3" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          {onRefresh && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground"
+              onClick={onRefresh}
+              disabled={isLoading}
+              title="Refresh matches"
+            >
+              <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" asChild>
+            <Link href="/jobs">
+              View All Jobs
+              <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {isError ? (

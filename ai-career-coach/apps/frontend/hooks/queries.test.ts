@@ -24,12 +24,23 @@ describe('queryKeys', () => {
 
   describe('jobMatches', () => {
     it('should include the topK value in the key', () => {
-      expect(queryKeys.jobMatches(10)).toEqual(['jobMatches', 10]);
+      expect(queryKeys.jobMatches(10)).toEqual(['jobMatches', 10, null]);
+    });
+
+    it('should include filters in the key when provided', () => {
+      const filters = { title_keywords: 'python' };
+      expect(queryKeys.jobMatches(10, filters)).toEqual(['jobMatches', 10, filters]);
     });
 
     it('should produce distinct keys for different topK values', () => {
       const keyA = queryKeys.jobMatches(3);
       const keyB = queryKeys.jobMatches(50);
+      expect(keyA).not.toEqual(keyB);
+    });
+
+    it('should produce distinct keys for different filters', () => {
+      const keyA = queryKeys.jobMatches(10, { title_keywords: 'python' });
+      const keyB = queryKeys.jobMatches(10, { title_keywords: 'java' });
       expect(keyA).not.toEqual(keyB);
     });
   });

@@ -57,49 +57,43 @@ export default function CVSummaryCard({ cv, onViewDetail, onDownload, onDelete }
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 shadow-card">
-      <div className="flex items-center justify-between">
-        {/* Left: File info */}
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-            <FileText className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold text-foreground">{cv.filename}</h3>
-              {cv.isPrimary && (
-                <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                  Latest Version
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-sm text-muted-foreground">
-                Uploaded {uploadDate}
-              </span>
+      <div className="flex items-start gap-4">
+        {/* Icon */}
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <FileText className="h-6 w-6 text-primary" />
+        </div>
 
-              {onViewDetail && (
-                <>
-                  <span className="text-border">|</span>
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            {/* Filename + badge */}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="truncate text-base font-semibold text-foreground">{cv.filename}</h3>
+                {cv.isPrimary && (
+                  <span className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                    Latest Version
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-sm text-muted-foreground">Uploaded {uploadDate}</span>
+                {onViewDetail && (
                   <button
                     onClick={() => onViewDetail(cv)}
-                    className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+                    className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
                   >
                     View Parsed Data
                   </button>
-                </>
-              )}
-
-              {/* Action icons */}
-              {(onDownload || onDelete) && (
-                <>
-                  <span className="text-border">|</span>
+                )}
+                {(onDownload || onDelete) && (
                   <div className="flex items-center gap-1">
                     {onDownload && (
                       <button
                         onClick={handleDownload}
                         disabled={isDownloading}
                         title="Download CV"
-                        className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-50 transition-colors"
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
                       >
                         <Download className="h-4 w-4" />
                       </button>
@@ -109,29 +103,29 @@ export default function CVSummaryCard({ cv, onViewDetail, onDownload, onDelete }
                         onClick={handleDelete}
                         disabled={isDeleting}
                         title="Delete CV"
-                        className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
                   </div>
-                </>
-              )}
+                )}
+              </div>
             </div>
+
+            {/* Score */}
+            {hasAnalysis && (
+              <div className="shrink-0 text-right">
+                <div className="flex items-baseline gap-0.5">
+                  <span className={`font-mono text-3xl font-bold ${getScoreColor(score)}`}>
+                    {score}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/100</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Right: Score */}
-        {hasAnalysis && (
-          <div className="text-right">
-            <div className="flex items-baseline gap-1">
-              <span className={`font-mono text-4xl font-bold ${getScoreColor(score)}`}>
-                {score}
-              </span>
-              <span className="text-lg text-muted-foreground">/100</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -166,32 +166,26 @@ export default function CVUpload({ onUploadSuccess, onUploadError }: CVUploadPro
           onDrop={handleDrop}
           onClick={handleBrowseClick}
           className={`
-            relative border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer
-            ${isDragging 
-              ? 'border-primary bg-primary/5 scale-[1.02]' 
+            relative border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer
+            ${isDragging
+              ? 'border-primary bg-primary/5 scale-[1.01]'
               : 'border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50'
             }
             ${isUploading ? 'pointer-events-none opacity-60' : ''}
           `}
         >
-          <div className="flex flex-col items-center gap-4">
-            {/* Upload icon */}
+          <div className="flex flex-col items-center gap-3">
             <div className={`
-              w-16 h-16 rounded-full flex items-center justify-center transition-colors
+              w-12 h-12 rounded-full flex items-center justify-center transition-colors
               ${isDragging ? 'bg-primary/20' : 'bg-primary/10'}
             `}>
-              <Upload className={`h-8 w-8 transition-colors ${isDragging ? 'text-primary' : 'text-primary/70'}`} />
+              <Upload className={`h-5 w-5 transition-colors ${isDragging ? 'text-primary' : 'text-primary/70'}`} />
             </div>
-            
-            {/* Text */}
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-foreground">Upload your CV</h3>
-              <p className="text-sm text-muted-foreground">
-                Drag and drop a PDF or DOCX file, or click to browse
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Drop your CV here, or <span className="text-primary">browse</span>
               </p>
-              <p className="text-xs text-muted-foreground">
-                PDF, DOCX up to 10MB
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">PDF or DOCX, up to 10MB</p>
             </div>
           </div>
         </div>

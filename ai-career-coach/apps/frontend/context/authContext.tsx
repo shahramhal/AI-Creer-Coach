@@ -143,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleFocus = () => {
       if (justLoggedOut.current) return;
+      if (isLoading) return;
 
       const token = getAccessToken();
       const currentPath = window.location.pathname;
@@ -154,12 +155,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [router]);
+  }, [router, isLoading]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         if (justLoggedOut.current) return;
+        if (isLoading) return;
 
         const token = getAccessToken();
         const currentPath = window.location.pathname;
@@ -172,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [router]);
+  }, [router, isLoading]);
 
   const value = {
     user,

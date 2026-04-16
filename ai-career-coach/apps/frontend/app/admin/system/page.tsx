@@ -8,6 +8,8 @@ import type {
   QueueStatus,
   DatabaseStats,
   AuditLogEntry,
+  ApiRouteMetric,
+  WebVitalsData,
 } from '@/types/admin.types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +30,8 @@ import {
   ChevronDown,
   Activity,
   Clock,
+  Gauge,
+  Globe,
 } from 'lucide-react';
 
 type ServiceKey = 'postgres' | 'mongodb' | 'redis' | 'mlService' | 'jobApiService';
@@ -46,6 +50,8 @@ export default function AdminSystemPage() {
   const [queueStatus, setQueueStatus] = useState<QueueStatus[]>([]);
   const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [apiMetrics, setApiMetrics] = useState<ApiRouteMetric[]>([]);
+  const [webVitals, setWebVitals] = useState<WebVitalsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedService, setExpandedService] = useState<ServiceKey | null>(null);
 
@@ -58,18 +64,22 @@ export default function AdminSystemPage() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [healthRes, cacheRes, queueRes, dbRes, auditRes] = await Promise.all([
+      const [healthRes, cacheRes, queueRes, dbRes, auditRes, metricsRes, vitalsRes] = await Promise.all([
         adminService.getServiceHealth(),
         adminService.getCacheStats(),
         adminService.getQueueStatus(),
         adminService.getDatabaseStats(),
         adminService.getAuditLogs({ page: 1, limit: 10 }),
+        adminService.getApiMetrics(),
+        adminService.getWebVitals(),
       ]);
       setHealth(healthRes.data.data);
       setCacheStats(cacheRes.data.data);
       setQueueStatus(queueRes.data.data);
       setDbStats(dbRes.data.data);
       setAuditLogs(auditRes.data.data.logs);
+      setApiMetrics(metricsRes.data.data);
+      setWebVitals(vitalsRes.data.data);
     } catch (error) {
       console.error('Failed to load system data:', error);
     } finally {
@@ -301,6 +311,89 @@ export default function AdminSystemPage() {
           )}
         </CardContent>
       </Card>
+
+      {/*  API Response Times  */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Gauge className="h-4 w-4" />
+            API Response Times
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {apiMetrics.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Route</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead>Requests</TableHead>
+                  <TableHead>Avg</TableHead>
+                  <TableHead>p50</TableHead>
+                  <TableHead>p95</TableHead>
+                  <TableHead>p99</TableHead>
+                  <TableHead>Errors</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {apiMetrics.map((m) => (
+                  <TableRow key={`${m.method}:${m.route}`}>
+                    <TableCell className="font-mono text-xs">{m.route}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {m.method}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{m.count.toLocaleString()}</TableCell>
+                    <TableCell className={`text-sm font-medium ${m.avg > 1000 ? 'text-destructive' : m.avg > 500 ? 'text-yellow-600' : ''}`}>
+                      {m.avg}ms
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{m.p50}ms</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{m.p95}ms</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{m.p99}ms</TableCell>
+                    <TableCell className={`text-sm ${m.errorRate > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                      {m.errorRate}%
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No data yet - metrics are collected as requests come in
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/*  Page Load Times (Web Vitals)  */}
+      {webVitals && webVitals.sampleCount > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Page Load Times
+              <span className="text-xs font-normal text-muted-foreground">
+                ({webVitals.sampleCount.toLocaleString()} samples, last 7 days)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {webVitals.metrics.map((v) => (
+                <div key={v.name} className="text-center p-3 rounded-lg bg-muted/50">
+                  <p className="text-2xl font-bold">{v.avg}{v.name === 'CLS' ? '' : 'ms'}</p>
+                  <p className="text-xs font-semibold mt-1">{v.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    p75: {v.p75}{v.name === 'CLS' ? '' : 'ms'} / p95: {v.p95}{v.name === 'CLS' ? '' : 'ms'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{v.count} samples</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/*  Recent Activity  */}
       <Card>

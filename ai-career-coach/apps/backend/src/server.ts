@@ -21,6 +21,7 @@ import adminRoutes from './routes/admin.routes.js';
 import skillGapRoutes from './routes/skillGap.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import { globalErrorHandler } from './middlewares/error.middleware.js';
+import { apiMetricsMiddleware } from './middlewares/metrics.middleware.js';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger.js';
 
@@ -56,6 +57,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('x-request-id', (req as any).id ?? '');
   next();
 });
+
+// Collect per-route response time metrics in Redis
+app.use(apiMetricsMiddleware as RequestHandler);
 
 // CORS - Allow frontend to make requests
 app.use(

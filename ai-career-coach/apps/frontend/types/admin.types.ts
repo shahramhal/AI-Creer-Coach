@@ -164,3 +164,30 @@ export interface PaginationInfo {
   total: number;
   totalPages: number;
 }
+
+export interface ApiRouteMetric {
+  route: string;
+  method: string;
+  count: number;
+  avg: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  min: number;
+  max: number;
+  errorRate: number;
+  lastSeen: string | null;
+}
+
+export interface WebVitalSummary {
+  name: string;
+  avg: number;
+  p75: number;
+  p95: number;
+  count: number;
+}
+
+export interface WebVitalsData {
+  metrics: WebVitalSummary[];
+  sampleCount: number;
+}

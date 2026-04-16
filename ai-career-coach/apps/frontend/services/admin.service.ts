@@ -107,6 +107,18 @@ class AdminService {
     return api.get('/api/v1/admin/system/database');
   }
 
+  getApiMetrics() {
+    return api.get('/api/v1/admin/system/performance');
+  }
+
+  reportWebVitals(vitals: { name: string; value: number; page: string }[]) {
+    return api.post('/api/v1/admin/system/vitals', { vitals });
+  }
+
+  getWebVitals() {
+    return api.get('/api/v1/admin/system/vitals');
+  }
+
   // Audit Logs
   getAuditLogs(params: { page?: number; limit?: number; action?: string } = {}) {
     const searchParams = new URLSearchParams();

@@ -293,3 +293,37 @@ export const getAuditLogs = async (req: Request, res: Response, next: NextFuncti
     next(error);
   }
 };
+
+export const getApiMetrics = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const metrics = await adminService.getApiMetrics();
+    res.json({ success: true, data: metrics });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reportWebVitals = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { vitals } = req.body as {
+      vitals: { name: string; value: number; page: string }[];
+    };
+    if (!Array.isArray(vitals) || vitals.length === 0) {
+      res.status(400).json({ success: false, message: 'vitals array is required' });
+      return;
+    }
+    await adminService.recordWebVitals(vitals);
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getWebVitals = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const data = await adminService.getWebVitals();
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};

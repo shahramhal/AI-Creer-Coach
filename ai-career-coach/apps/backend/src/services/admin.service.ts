@@ -3,6 +3,7 @@
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger.js';
 import { prisma, redis, checkDatabaseHealth } from '../config/database.js';
+import { parseMetricKey } from '../middlewares/metrics.middleware.js';
 import crypto from 'crypto';
 import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 import { accountService } from './account.service.js';
@@ -69,11 +70,11 @@ export class AdminService {
     startDate.setDate(startDate.getDate() - days);
 
     const rows = await prisma.$queryRaw<{ date: string; count: bigint }[]>`
-      SELECT DATE("createdAt")::text AS date, COUNT(*)::bigint AS count
-      FROM "User"
-      WHERE "createdAt" >= ${startDate}
-      GROUP BY DATE("createdAt")
-      ORDER BY DATE("createdAt") ASC
+      SELECT DATE(created_at)::text AS date, COUNT(*)::bigint AS count
+      FROM users
+      WHERE created_at >= ${startDate}
+      GROUP BY DATE(created_at)
+      ORDER BY DATE(created_at) ASC
     `;
 
     // Build a full zero-filled series then merge query results
@@ -603,7 +604,102 @@ export class AdminService {
     };
   }
 
-  //  Helpers 
+  async getApiMetrics() {
+    try {
+      const keys: string[] = [];
+      let cursor = '0';
+      do {
+        const [nextCursor, batch] = await redis.scan(cursor, 'MATCH', 'metrics:api:*', 'COUNT', '200');
+        cursor = nextCursor;
+        keys.push(...batch);
+      } while (cursor !== '0');
+
+      if (keys.length === 0) return [];
+
+      // Strip OPTIONS keys - CORS preflights, not real API traffic
+      const filteredKeys = keys.filter((k) => !k.includes('|OPTIONS|'));
+
+      const results = await Promise.all(
+        filteredKeys.map(async (key) => {
+          const raw = await redis.lrange(key, 0, -1);
+          const samples = raw.map((r) => JSON.parse(r) as { ms: number; status: number; ts: number });
+
+          const durations = samples.map((s) => s.ms).sort((a, b) => a - b);
+          const errors = samples.filter((s) => s.status >= 500).length;
+
+          const avg = durations.length
+            ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+            : 0;
+          const p50 = durations[Math.floor(durations.length * 0.5)] ?? 0;
+          const p95 = durations[Math.floor(durations.length * 0.95)] ?? 0;
+          const p99 = durations[Math.floor(durations.length * 0.99)] ?? 0;
+          const min = durations[0] ?? 0;
+          const max = durations[durations.length - 1] ?? 0;
+
+          const { method, route } = parseMetricKey(key);
+
+          return {
+            route,
+            method,
+            count: samples.length,
+            avg,
+            p50,
+            p95,
+            p99,
+            min,
+            max,
+            errorRate: samples.length ? Math.round((errors / samples.length) * 100) : 0,
+            lastSeen: samples[0]?.ts ? new Date(samples[0].ts).toISOString() : null,
+          };
+        })
+      );
+
+      return results.sort((a, b) => b.avg - a.avg);
+    } catch (error) {
+      logger.error(error, 'Failed to fetch API metrics');
+      return [];
+    }
+  }
+
+  async recordWebVitals(vitals: { name: string; value: number; page: string }[]) {
+    const key = 'metrics:vitals';
+    const ts = Date.now();
+    await Promise.all(
+      vitals.map((v) =>
+        redis.lpush(key, JSON.stringify({ name: v.name, value: v.value, page: v.page, ts }))
+      )
+    );
+    await redis.ltrim(key, 0, 499);
+    await redis.expire(key, 86400 * 7);
+  }
+
+  async getWebVitals() {
+    try {
+      const raw = await redis.lrange('metrics:vitals', 0, -1);
+      const samples = raw.map(
+        (r) => JSON.parse(r) as { name: string; value: number; page: string; ts: number }
+      );
+
+      const grouped: Record<string, number[]> = {};
+      for (const s of samples) {
+        grouped[s.name] ??= [];
+        grouped[s.name]!.push(s.value);
+      }
+
+      const metrics = Object.entries(grouped).map(([name, values]) => {
+        const sorted = [...values].sort((a, b) => a - b);
+        const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+        const p75 = sorted[Math.floor(sorted.length * 0.75)] ?? 0;
+        const p95 = sorted[Math.floor(sorted.length * 0.95)] ?? 0;
+        return { name, avg, p75, p95, count: values.length };
+      });
+
+      return { metrics, sampleCount: samples.length };
+    } catch (error) {
+      logger.error(error, 'Failed to fetch web vitals');
+      return { metrics: [], sampleCount: 0 };
+    }
+  }
 
   private async getMongoJobCount(): Promise<number> {
     try {

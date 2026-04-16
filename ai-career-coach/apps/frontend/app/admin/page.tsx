@@ -19,20 +19,15 @@ export default function AdminDashboardPage() {
   }, []);
 
   const loadDashboard = async () => {
-    try {
-      const [statsRes, growthRes, jobStatsRes] = await Promise.all([
-        adminService.getDashboardStats(),
-        adminService.getUserGrowthTrend(30),
-        adminService.getJobStats(),
-      ]);
-      setStats(statsRes.data.data);
-      setUserGrowth(growthRes.data.data);
-      setJobStats(jobStatsRes.data.data);
-    } catch (error) {
-      console.error('Failed to load dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
+    const [statsRes, growthRes, jobStatsRes] = await Promise.allSettled([
+      adminService.getDashboardStats(),
+      adminService.getUserGrowthTrend(30),
+      adminService.getJobStats(),
+    ]);
+    if (statsRes.status === 'fulfilled') setStats(statsRes.value.data.data);
+    if (growthRes.status === 'fulfilled') setUserGrowth(growthRes.value.data.data);
+    if (jobStatsRes.status === 'fulfilled') setJobStats(jobStatsRes.value.data.data);
+    setLoading(false);
   };
 
   if (loading) {

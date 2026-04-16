@@ -22,7 +22,23 @@ export default defineConfig({
       'hooks/**/*.test.tsx',
       'utils/**/*.test.ts',
       'utils/**/*.test.tsx',
+      'library/**/*.test.ts',
     ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: [
+        'components/**/*.{ts,tsx}',
+        'services/**/*.ts',
+        'hooks/**/*.ts',
+        'utils/**/*.ts',
+        'library/**/*.ts',
+      ],
+      exclude: [
+        '**/*.test.{ts,tsx}',
+        '**/types/**',
+      ],
+    },
   },
   resolve: {
     alias: {

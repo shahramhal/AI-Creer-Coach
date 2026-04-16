@@ -15,6 +15,10 @@ import {
 const router = Router();
 
 router.use(authenticate as RequestHandler);
+
+// Any authenticated user can submit web vitals
+router.post('/system/vitals', adminController.reportWebVitals);
+
 router.use(requireAdmin as RequestHandler);
 
 router.get('/dashboard/stats', adminController.getDashboardStats);
@@ -38,6 +42,8 @@ router.get('/system/health', adminController.getServiceHealth);
 router.get('/system/cache', adminController.getCacheStats);
 router.get('/system/queues', adminController.getQueueStatus);
 router.get('/system/database', adminController.getDatabaseStats);
+router.get('/system/performance', adminController.getApiMetrics);
+router.get('/system/vitals', adminController.getWebVitals);
 
 router.get('/audit-logs', adminController.getAuditLogs);
 

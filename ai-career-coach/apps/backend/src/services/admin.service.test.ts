@@ -537,7 +537,97 @@ describe('AdminService', () => {
     });
   });
 
-  //  getUserGrowthTrend 
+  describe('forcePasswordReset', () => {
+    it('should throw NOT_FOUND when user does not exist', async () => {
+      mockPrismaInstance.user.findUnique.mockResolvedValue(null);
+      await expect(adminService.forcePasswordReset('nonexistent-id')).rejects.toThrow('User not found');
+    });
+
+    it('should generate a reset token and update the user record', async () => {
+      mockPrismaInstance.user.findUnique.mockResolvedValue(buildUserRecord());
+      mockPrismaInstance.user.update.mockResolvedValue({});
+
+      const result = await adminService.forcePasswordReset('user-uuid-default');
+
+      expect(mockPrismaInstance.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-uuid-default' },
+          data: expect.objectContaining({
+            resetPasswordToken: expect.any(String),
+            resetPasswordExpires: expect.any(Date),
+          }),
+        })
+      );
+      expect(result).toHaveProperty('resetToken');
+      expect(result.resetToken).toHaveLength(64);
+      expect(result.message).toBe('Password reset token generated');
+    });
+  });
+
+  describe('deleteUser', () => {
+    it('should throw when admin tries to delete themselves', async () => {
+      await expect(adminService.deleteUser('admin-id', 'admin-id')).rejects.toThrow(
+        'Cannot delete yourself'
+      );
+    });
+
+    it('should throw NOT_FOUND when target user does not exist', async () => {
+      mockPrismaInstance.user.findUnique.mockResolvedValue(null);
+      await expect(adminService.deleteUser('nonexistent-id', 'admin-id')).rejects.toThrow(
+        'User not found'
+      );
+    });
+  });
+
+  describe('demoteUser', () => {
+    it('should throw NOT_FOUND when user does not exist', async () => {
+      mockPrismaInstance.user.findUnique.mockResolvedValue(null);
+      await expect(adminService.demoteUser('nonexistent-id', 'admin-id')).rejects.toThrow(
+        'User not found'
+      );
+    });
+
+    it('should throw when target user is not an admin', async () => {
+      mockPrismaInstance.user.findUnique.mockResolvedValue(buildUserRecord({ role: 'USER' }));
+      await expect(adminService.demoteUser('user-uuid-default', 'admin-id')).rejects.toThrow(
+        'User is not an admin'
+      );
+    });
+
+    it('should throw when admin tries to demote themselves', async () => {
+      mockPrismaInstance.user.findUnique.mockResolvedValue(
+        buildUserRecord({ id: 'admin-id', role: 'ADMIN' })
+      );
+      await expect(adminService.demoteUser('admin-id', 'admin-id')).rejects.toThrow(
+        'Cannot demote yourself'
+      );
+    });
+
+    it('should throw when demoting the last remaining admin', async () => {
+      mockPrismaInstance.user.findUnique.mockResolvedValue(
+        buildUserRecord({ id: 'user-uuid-default', role: 'ADMIN' })
+      );
+      mockPrismaInstance.user.count.mockResolvedValue(1);
+      await expect(adminService.demoteUser('user-uuid-default', 'admin-id')).rejects.toThrow(
+        'Cannot demote the last admin'
+      );
+    });
+
+    it('should demote a valid admin and return success message', async () => {
+      mockPrismaInstance.user.findUnique.mockResolvedValue(
+        buildUserRecord({ id: 'user-uuid-default', role: 'ADMIN' })
+      );
+      mockPrismaInstance.user.count.mockResolvedValue(3);
+      mockPrismaInstance.user.update.mockResolvedValue({});
+
+      const result = await adminService.demoteUser('user-uuid-default', 'admin-id');
+
+      expect(mockPrismaInstance.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { role: 'USER' } })
+      );
+      expect(result.message).toBe('User demoted to regular user');
+    });
+  });
 
   describe('getUserGrowthTrend', () => {
     it('should return one entry per day for the requested number of days', async () => {

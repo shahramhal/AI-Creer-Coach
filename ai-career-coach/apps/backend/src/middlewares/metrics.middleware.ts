@@ -36,7 +36,7 @@ export function apiMetricsMiddleware(req: Request, res: Response, next: NextFunc
 
   res.on('finish', () => {
     if (req.method === 'OPTIONS') return;
-    if (req.path === '/health' || req.path.startsWith('/api/docs')) return;
+    if (req.path === '/' || req.path === '/health' || req.path.startsWith('/api/docs')) return;
 
     const duration = Date.now() - start;
     const routePath = (req.route?.path as string | undefined) ?? normalizeRawPath(req.path);

@@ -82,7 +82,11 @@ app.use(cookieParser() as RequestHandler);
  * Routes
  */
 
-// Load balancer health check - no auth required
+// Root and health check - no auth required (handles load balancer probes on both / and /health)
+app.get('/', (_req: Request, res: Response) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });

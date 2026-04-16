@@ -4,7 +4,7 @@ import { AppError, ErrorCodes } from '../utils/app-error.util.js';
 import { type IParsedCV } from '../models/ParsedCV.js';
 import { buildCVText } from '../utils/cv-text.util.js';
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
 function escapeRegex(rawInput: string): string {
   return rawInput.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

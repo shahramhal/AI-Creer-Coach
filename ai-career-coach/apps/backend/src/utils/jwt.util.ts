@@ -43,7 +43,7 @@ export const generateRefreshToken = (payload: TokenPayload): string => {
   }
 
   return jwt.sign(payload, secret, {
-    expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as any
+    expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN?.trim() || '7d') as any
   });
 };
 

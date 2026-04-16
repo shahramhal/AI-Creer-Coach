@@ -68,15 +68,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // Set refresh token as httpOnly cookie (more secure than localStorage).
-    // sameSite: 'none' is required in production because the frontend and backend
-    // are on different Railway domains (cross-origin). 'lax' is used locally
-    // since both run on localhost (same-site) and 'none' requires HTTPS.
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
     });
 
@@ -223,7 +219,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
     res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
+      sameSite: 'lax',
       path: '/',
     });
 

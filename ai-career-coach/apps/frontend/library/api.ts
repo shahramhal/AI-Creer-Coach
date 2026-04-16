@@ -3,12 +3,12 @@ import { getAccessToken, setAccessToken, clearAccessToken } from './auth';
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+  baseURL: '',
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Important: Send cookies with requests
-  timeout: 60000, // Default 60 second timeout
+  withCredentials: true,
+  timeout: 60000,
 });
 
 // Request interceptor - Add auth token from in-memory store
@@ -47,7 +47,7 @@ api.interceptors.response.use(
         if (!refreshPromise) {
           refreshPromise = axios
             .post(
-              `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/refresh`,
+              '/api/v1/auth/refresh',
               {},
               { withCredentials: true },
             )

@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from src.services.job_aggregator import JobAggregator
+from src.services.adzuna_api import AdzunaRateLimitError
 from src.models.job import JobSearchRequest
 from src.config.settings import settings
 
@@ -170,12 +171,16 @@ async def fetch_jobs_task(aggregator: JobAggregator):
 
         total_jobs = 0
         for query in search_queries:
-            result = await aggregator.fetch_and_store_jobs(
-                keywords=query["keywords"],
-                location=query["location"],
-                country=query["country"],
-            )
-            total_jobs += result["stored"]
+            try:
+                result = await aggregator.fetch_and_store_jobs(
+                    keywords=query["keywords"],
+                    location=query["location"],
+                    country=query["country"],
+                )
+                total_jobs += result["stored"]
+            except AdzunaRateLimitError:
+                logger.warning(f"Adzuna daily limit hit after {total_jobs} jobs stored - stopping fetch cycle")
+                break
             await asyncio.sleep(2.5)
 
         logger.info(f" Scheduled fetch complete: {total_jobs} jobs stored")

@@ -10,6 +10,11 @@ import httpx
 from typing import List, Dict, Optional
 from loguru import logger
 
+
+class AdzunaRateLimitError(Exception):
+    """Raised when Adzuna returns 429 - daily API quota exhausted."""
+    pass
+
 from ..config.settings import settings
 from ..utils.helpers import infer_job_type, detect_remote_type, detect_experience_level, normalize_date_to_iso, extract_requirements, normalize_job_type
 
@@ -116,6 +121,9 @@ class AdzunaAPI:
             return all_jobs
 
         except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                logger.warning(f"Adzuna daily rate limit reached - aborting fetch cycle")
+                raise AdzunaRateLimitError()
             logger.error(f"Adzuna [{country.upper()}] HTTP {e.response.status_code} error: {e}")
             return all_jobs
         except httpx.RequestError as e:

@@ -225,13 +225,3 @@ vi.mock('mongoose', async () => {
   return { default: mockMongoose, ...mockMongoose };
 });
 
-//  Mock nodemailer 
-vi.mock('nodemailer', () => {
-  const sendMailMock = vi.fn().mockResolvedValue({ messageId: 'mock-message-id' });
-  const createTransportMock = vi.fn().mockReturnValue({ sendMail: sendMailMock });
-  return {
-    default: {
-      createTransport: createTransportMock,
-    },
-  };
-});

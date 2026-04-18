@@ -1,34 +1,38 @@
 // apps/backend/src/utils/email.util.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// nodemailer is mocked in test-setup.ts globally
-import nodemailer from 'nodemailer';
+// var is hoisted so the factory can assign before tests run
+var mockSend: ReturnType<typeof vi.fn>;
+
+vi.mock('resend', () => {
+  const send = vi.fn().mockResolvedValue({ data: { id: 'mock-email-id' }, error: null });
+  mockSend = send;
+  function ResendMock(this: any) {
+    this.emails = { send };
+  }
+  return { Resend: ResendMock };
+});
+
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,
 } from './email.util.js';
 
-let mockTransporter: { sendMail: ReturnType<typeof vi.fn> };
-
 describe('Email Utility Functions', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    // Create a fresh transporter mock each time - clearAllMocks wipes implementations
-    mockTransporter = {
-      sendMail: vi.fn().mockResolvedValue({ messageId: 'mock-message-id-123' }),
-    };
-    vi.mocked(nodemailer.createTransport).mockReturnValue(mockTransporter as any);
+    mockSend.mockClear();
+    mockSend.mockResolvedValue({ data: { id: 'mock-email-id' }, error: null });
   });
 
   describe('sendVerificationEmail', () => {
-    it('should call sendMail with recipient address and verification subject', async () => {
+    it('should call send with recipient address and verification subject', async () => {
       const recipientEmail = 'verify-me@example.com';
       const verificationToken = 'abc-def-123-ghi';
 
       await sendVerificationEmail(recipientEmail, verificationToken);
 
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith(
+      expect(mockSend).toHaveBeenCalledWith(
         expect.objectContaining({
           to: recipientEmail,
           subject: expect.stringContaining('Verify'),
@@ -44,12 +48,12 @@ describe('Email Utility Functions', () => {
 
       await sendVerificationEmail(recipientEmail, verificationToken);
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
-      expect(sendMailCallArgs.html).toContain(expectedVerificationUrl);
+      const callArgs = mockSend.mock.calls[0]![0]!;
+      expect(callArgs.html).toContain(expectedVerificationUrl);
     });
 
-    it('should throw an error when nodemailer sendMail rejects', async () => {
-      mockTransporter.sendMail.mockRejectedValueOnce(new Error('SMTP connection refused'));
+    it('should throw an error when send rejects', async () => {
+      mockSend.mockRejectedValueOnce(new Error('API error'));
 
       await expect(
         sendVerificationEmail('error@example.com', 'token-123')
@@ -58,13 +62,13 @@ describe('Email Utility Functions', () => {
   });
 
   describe('sendPasswordResetEmail', () => {
-    it('should call sendMail with recipient address and password reset subject', async () => {
+    it('should call send with recipient address and password reset subject', async () => {
       const recipientEmail = 'reset-my-password@example.com';
       const resetToken = 'reset-token-abc-def-456';
 
       await sendPasswordResetEmail(recipientEmail, resetToken);
 
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith(
+      expect(mockSend).toHaveBeenCalledWith(
         expect.objectContaining({
           to: recipientEmail,
           subject: expect.stringContaining('Reset'),
@@ -80,12 +84,12 @@ describe('Email Utility Functions', () => {
 
       await sendPasswordResetEmail(recipientEmail, resetToken);
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
-      expect(sendMailCallArgs.html).toContain(expectedResetUrl);
+      const callArgs = mockSend.mock.calls[0]![0]!;
+      expect(callArgs.html).toContain(expectedResetUrl);
     });
 
     it('should throw an error when password reset email sending fails', async () => {
-      mockTransporter.sendMail.mockRejectedValueOnce(new Error('Mailbox unavailable'));
+      mockSend.mockRejectedValueOnce(new Error('Mailbox unavailable'));
 
       await expect(
         sendPasswordResetEmail('fail@example.com', 'token-fail')
@@ -95,19 +99,19 @@ describe('Email Utility Functions', () => {
     it('should mention 1-hour expiry in the email HTML body', async () => {
       await sendPasswordResetEmail('user@example.com', 'token-expiry-check');
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
-      expect(sendMailCallArgs.html).toContain('1 hour');
+      const callArgs = mockSend.mock.calls[0]![0]!;
+      expect(callArgs.html).toContain('1 hour');
     });
   });
 
   describe('sendWelcomeEmail', () => {
-    it('should call sendMail with recipient address and a welcome subject', async () => {
+    it('should call send with recipient address and a welcome subject', async () => {
       const recipientEmail = 'new-verified-user@example.com';
       const userFirstName = 'Alice';
 
       await sendWelcomeEmail(recipientEmail, userFirstName);
 
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith(
+      expect(mockSend).toHaveBeenCalledWith(
         expect.objectContaining({
           to: recipientEmail,
           subject: expect.stringContaining('Welcome'),
@@ -121,14 +125,13 @@ describe('Email Utility Functions', () => {
 
       await sendWelcomeEmail(recipientEmail, userFirstName);
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
-      expect(sendMailCallArgs.html).toContain(userFirstName);
+      const callArgs = mockSend.mock.calls[0]![0]!;
+      expect(callArgs.html).toContain(userFirstName);
     });
 
     it('should not throw when welcome email sending fails - it is non-critical', async () => {
-      mockTransporter.sendMail.mockRejectedValueOnce(new Error('SMTP error - welcome email failed'));
+      mockSend.mockRejectedValueOnce(new Error('send failed'));
 
-      // sendWelcomeEmail catches errors internally and does not re-throw
       await expect(
         sendWelcomeEmail('nothrow@example.com', 'Charlie')
       ).resolves.toBeUndefined();
@@ -137,8 +140,8 @@ describe('Email Utility Functions', () => {
     it('should include the dashboard URL in the welcome email', async () => {
       await sendWelcomeEmail('dashboard@example.com', 'Dave');
 
-      const sendMailCallArgs = mockTransporter.sendMail.mock.calls[0]![0]!;
-      expect(sendMailCallArgs.html).toContain('dashboard');
+      const callArgs = mockSend.mock.calls[0]![0]!;
+      expect(callArgs.html).toContain('dashboard');
     });
   });
 });

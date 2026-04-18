@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger.js';
-import { prisma } from '../config/database.js';
+import { prisma, cache } from '../config/database.js';
 import { buildCVText } from '../utils/cv-text.util.js';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
@@ -92,6 +92,9 @@ export class ApplicationsService {
           status: 'applied',
         },
       });
+    }).then((result) => {
+      if (result) cache.del(`app:stats:${userId}`);
+      return result;
     });
   }
 
@@ -120,6 +123,10 @@ export class ApplicationsService {
   }
 
   async getStats(userId: string): Promise<ApplicationStats> {
+    const cacheKey = `app:stats:${userId}`;
+    const cached = await cache.get<ApplicationStats>(cacheKey);
+    if (cached) return cached;
+
     const groups = await prisma.application.groupBy({
       by: ['status'],
       where: { userId },
@@ -139,14 +146,18 @@ export class ApplicationsService {
     const responseRate =
       total > 0 ? Math.round(((byStatus.interview + byStatus.offer) / total) * 100) : 0;
 
-    return { total, byStatus, responseRate };
+    const stats: ApplicationStats = { total, byStatus, responseRate };
+    await cache.set(cacheKey, stats, 30);
+    return stats;
   }
 
   async updateStatus(userId: string, id: string, status: string) {
     const application = await prisma.application.findUnique({ where: { id } });
     if (!application || application.userId !== userId) return null;
 
-    return prisma.application.update({ where: { id }, data: { status } });
+    const updated = await prisma.application.update({ where: { id }, data: { status } });
+    await cache.del(`app:stats:${userId}`);
+    return updated;
   }
 
   async deleteApplication(userId: string, id: string): Promise<boolean> {
@@ -154,6 +165,7 @@ export class ApplicationsService {
     if (!application || application.userId !== userId) return false;
 
     await prisma.application.delete({ where: { id } });
+    await cache.del(`app:stats:${userId}`);
     return true;
   }
 

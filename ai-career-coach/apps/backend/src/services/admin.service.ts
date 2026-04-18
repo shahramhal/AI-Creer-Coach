@@ -388,7 +388,7 @@ export class AdminService {
   }
 
   async triggerJobFetch(country: string, keywords: string, location?: string) {
-    const jobApiUrl = process.env.JOB_API_URL || 'http://localhost:8001';
+    const jobApiUrl = process.env.JOB_API_SERVICE_URL || 'http://job-api-service:8001';
     const response = await fetch(`${jobApiUrl}/api/jobs/fetch`, {
       method: 'POST',
       headers: {
@@ -406,7 +406,7 @@ export class AdminService {
   }
 
   async triggerJobCleanup() {
-    const jobApiUrl = process.env.JOB_API_URL || 'http://localhost:8001';
+    const jobApiUrl = process.env.JOB_API_SERVICE_URL || 'http://job-api-service:8001';
     const response = await fetch(`${jobApiUrl}/api/jobs/cleanup`, {
       method: 'POST',
       headers: {
@@ -445,40 +445,36 @@ export class AdminService {
   //  System Monitoring 
 
   async getServiceHealth() {
-    const dbHealth = await checkDatabaseHealth();
-
-    // Check ML Service with response time
-    let mlServiceHealthy = false;
-    let mlServiceResponseMs: number | null = null;
-    try {
+    const checkMl = async () => {
       const mlUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
       const startTime = Date.now();
       const response = await fetch(`${mlUrl}/health`, { signal: AbortSignal.timeout(5000) });
-      mlServiceResponseMs = Date.now() - startTime;
-      mlServiceHealthy = response.ok;
-    } catch {
-      mlServiceHealthy = false;
-    }
+      return { healthy: response.ok, responseMs: Date.now() - startTime };
+    };
 
-    // Check Job API Service with response time
-    let jobApiHealthy = false;
-    let jobApiResponseMs: number | null = null;
-    try {
-      const jobApiUrl = process.env.JOB_API_URL || 'http://localhost:8001';
+    const checkJobApi = async () => {
+      const jobApiUrl = process.env.JOB_API_SERVICE_URL || 'http://job-api-service:8001';
       const startTime = Date.now();
       const response = await fetch(`${jobApiUrl}/health`, { signal: AbortSignal.timeout(5000) });
-      jobApiResponseMs = Date.now() - startTime;
-      jobApiHealthy = response.ok;
-    } catch {
-      jobApiHealthy = false;
-    }
+      return { healthy: response.ok, responseMs: Date.now() - startTime };
+    };
+
+    const [dbHealth, mlResult, jobResult] = await Promise.allSettled([
+      checkDatabaseHealth(),
+      checkMl(),
+      checkJobApi(),
+    ]);
+
+    const db = dbHealth.status === 'fulfilled' ? dbHealth.value : {};
+    const ml = mlResult.status === 'fulfilled' ? mlResult.value : { healthy: false, responseMs: null };
+    const job = jobResult.status === 'fulfilled' ? jobResult.value : { healthy: false, responseMs: null };
 
     return {
-      ...dbHealth,
-      mlService: mlServiceHealthy,
-      mlServiceResponseMs,
-      jobApiService: jobApiHealthy,
-      jobApiResponseMs,
+      ...db,
+      mlService: ml.healthy,
+      mlServiceResponseMs: ml.responseMs,
+      jobApiService: job.healthy,
+      jobApiResponseMs: job.responseMs,
     };
   }
 

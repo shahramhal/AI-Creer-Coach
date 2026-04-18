@@ -9,6 +9,7 @@
 import express from 'express';
 import { logger } from '../utils/logger.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
+import { cache } from '../config/database.js';
 
 const router = express.Router();
 
@@ -29,6 +30,12 @@ router.get('/search', authenticate, async (req, res) => {
       });
     }
     
+    const cacheKey = `jobs:search:${keywords}:${location}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     // Forward request to job-api-service using fetch
     const fetchResponse = await fetch(`${JOB_API_URL}/api/jobs/fetch`, {
       method: 'POST',
@@ -38,11 +45,12 @@ router.get('/search', authenticate, async (req, res) => {
       body: JSON.stringify({
         keywords,
         location
-      })
+      }),
+      signal: AbortSignal.timeout(8000),
     });
     // Parse JSON response
     const data = await fetchResponse.json();
-    
+
     // Handle non-OK responses
     if (!fetchResponse.ok) {
       return res.status(fetchResponse.status).json({
@@ -50,14 +58,16 @@ router.get('/search', authenticate, async (req, res) => {
         message: data.message || 'Job search failed',
       });
     }
-    // Query MongoDB for jobs
-    // (You can do this directly or through job-api-service)
-    
-    res.json({
+
+    const responseBody = {
       success: true,
       message: 'Jobs fetched successfully',
       data: data
-    });
+    };
+
+    await cache.set(cacheKey, responseBody, 600);
+
+    res.json(responseBody);
     
   } catch (error) {
     logger.error(error);
@@ -74,7 +84,14 @@ router.get('/search', authenticate, async (req, res) => {
  */
 router.get('/stats', authenticate, async (req, res) => {
   try {
-    const response = await fetch(`${JOB_API_URL}/api/jobs/stats`);
+    const cached = await cache.get('jobs:stats');
+    if (cached) {
+      return res.json(cached);
+    }
+
+    const response = await fetch(`${JOB_API_URL}/api/jobs/stats`, {
+      signal: AbortSignal.timeout(8000),
+    });
     const data = await response.json();
 
     // Handle errors
@@ -84,7 +101,9 @@ router.get('/stats', authenticate, async (req, res) => {
         message: data.message || 'Failed to get statistics',
       });
     }
-    
+
+    await cache.set('jobs:stats', data, 300);
+
     res.json(data)
     
   } catch (error) {

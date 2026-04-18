@@ -12,11 +12,18 @@ import Redis from 'ioredis';
  * Singleton Prisma client instance
  * Handles PostgreSQL connections with connection pooling
  */
+function buildDbUrl(base: string): string {
+  if (!base) return base;
+  const sep = base.includes('?') ? '&' : '?';
+  return base.includes('connection_limit') ? base : `${base}${sep}connection_limit=5`;
+}
+
 export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' 
-    ? ['query', 'error', 'warn'] 
+  log: process.env.NODE_ENV === 'development'
+    ? ['query', 'error', 'warn']
     : ['error'],
   errorFormat: 'pretty',
+  datasourceUrl: buildDbUrl(process.env.DATABASE_URL || ''),
 });
 
 // Handle Prisma connection
@@ -44,7 +51,7 @@ export const connectMongoDB = async (): Promise<void> => {
     throw new Error('MONGODB_URL environment variable is not set');
     }
     await mongoose.connect(mongoUrl, {
-      maxPoolSize: 10,
+      maxPoolSize: 5,
       serverSelectionTimeoutMS: 5000,
     });
 

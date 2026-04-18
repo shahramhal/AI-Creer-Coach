@@ -205,7 +205,7 @@ class MatchingService {
     }
 
     try {
-      const mlResponse = await fetch(`${ML_SERVICE_URL}/health`, { method: 'GET' });
+      const mlResponse = await fetch(`${ML_SERVICE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(3000) });
       diagnostics.checks.ml_service = {
         reachable: mlResponse.ok,
         status: mlResponse.status,

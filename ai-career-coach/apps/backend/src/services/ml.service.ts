@@ -125,11 +125,20 @@ export class MlService {
         formData = retryFormData;
       }
 
-      mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/parse-cv`, {
-        method: 'POST',
-        body: formData,
-        headers: authHeader ? { 'Authorization': authHeader } : {},
-      });
+      try {
+        mlResponse = await fetch(`${ML_SERVICE_URL}/api/ml/parse-cv`, {
+          method: 'POST',
+          body: formData,
+          headers: authHeader ? { 'Authorization': authHeader } : {},
+        });
+      } catch (fetchErr: any) {
+        throw new AppError(
+          'ML service is unavailable. Make sure the ML service is running on port 8000.',
+          503,
+          ErrorCodes.ML_SERVICE_ERROR,
+          { cause: fetchErr?.cause?.code || fetchErr?.message }
+        );
+      }
 
       mlData = await mlResponse.json();
 

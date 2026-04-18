@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     """Application settings"""
 
     # Server
-    host: str = "0.0.0.0"
+    host: str = "::"
     port: int = 8001
     env: str = "development"
 

@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ToastContainer } from './toast';

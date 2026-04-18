@@ -129,7 +129,7 @@ describe('TopNav - dropdown menu', () => {
     });
 
     const { useRouter } = await import('next/navigation');
-    vi.mocked(useRouter).mockReturnValue({ push: mockPush } as ReturnType<typeof useRouter>);
+    vi.mocked(useRouter).mockReturnValue({ push: mockPush } as unknown as ReturnType<typeof useRouter>);
 
     render(<TopNav />);
     const allButtons = screen.getAllByRole('button');

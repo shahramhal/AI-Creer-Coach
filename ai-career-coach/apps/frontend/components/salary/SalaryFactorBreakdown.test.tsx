@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import SalaryFactorBreakdown from './SalaryFactorBreakdown';
 import type { SalaryFactor } from '../../types/salary.types';

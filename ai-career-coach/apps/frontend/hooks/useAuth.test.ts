@@ -30,7 +30,7 @@ import { authAPI } from '../library/api';
 import { getAccessToken, setAccessToken, clearAccessToken } from '../library/auth';
 import { AuthProvider, useAuth } from '../context/authContext';
 
-const mockAuthAPI = authAPI as {
+const mockAuthAPI = authAPI as unknown as {
   refreshToken: ReturnType<typeof vi.fn>;
   getCurrentUser: ReturnType<typeof vi.fn>;
   login: ReturnType<typeof vi.fn>;

@@ -95,7 +95,7 @@ describe('CommandPalette - open state', () => {
         type: 'cv_upload',
         title: 'Uploaded resume.pdf',
         description: '2 minutes ago',
-        createdAt: '2026-04-17T10:00:00.000Z',
+        timestamp: '2026-04-17T10:00:00.000Z',
       },
     ]);
     render(<CommandPalette open={true} onOpenChange={vi.fn()} />);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { WORK_ARRANGEMENT_OPTIONS, JOB_TYPE_OPTIONS } from '@/constants/options';
 import { useAuth } from '@/context/authContext';
 import dynamic from 'next/dynamic';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -62,8 +63,10 @@ export default function DashboardPage() {
     if (preferences.targetRole) filters.title_keywords = preferences.targetRole;
     else if (preferences.jobTitle) filters.title_keywords = preferences.jobTitle;
     if (preferences.experienceLevel) filters.experience_level = preferences.experienceLevel;
-    if (preferences.workArrangements?.length) filters.remote_type = preferences.workArrangements;
-    if (preferences.preferredJobTypes?.length) filters.job_type = preferences.preferredJobTypes;
+    const validArrangements = preferences.workArrangements?.filter((v) => (WORK_ARRANGEMENT_OPTIONS as readonly string[]).includes(v));
+    if (validArrangements?.length) filters.remote_type = validArrangements;
+    const validJobTypes = preferences.preferredJobTypes?.filter((v) => (JOB_TYPE_OPTIONS as readonly string[]).includes(v));
+    if (validJobTypes?.length) filters.job_type = validJobTypes;
     if (preferences.salaryMin) filters.min_salary = preferences.salaryMin;
     return Object.keys(filters).length > 0 ? filters : undefined;
   }, [preferences]);

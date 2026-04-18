@@ -8,6 +8,7 @@ import { JobMatchCard } from '@/components/jobs/JobMatchCard';
 import { JobFilters } from '@/components/jobs/JobFilters';
 import { JobMatchPagination } from '@/components/jobs/JobMatchPagination';
 import { matchingService } from '@/services/matching.service';
+import { WORK_ARRANGEMENT_OPTIONS, JOB_TYPE_OPTIONS } from '@/constants/options';
 import { settingsService } from '@/services/settings.service';
 import { useApplications } from '@/hooks/queries';
 import type { MatchedJob, MatchFilters, SortOption } from '@/types/matching.types';
@@ -155,11 +156,13 @@ export default function JobMatchesPage() {
         if (preferences.experienceLevel) {
           defaultFilters.experience_level = preferences.experienceLevel;
         }
-        if (preferences.workArrangements && preferences.workArrangements.length > 0) {
-          defaultFilters.remote_type = preferences.workArrangements;
+        const validArrangements = preferences.workArrangements?.filter((v) => (WORK_ARRANGEMENT_OPTIONS as readonly string[]).includes(v));
+        if (validArrangements && validArrangements.length > 0) {
+          defaultFilters.remote_type = validArrangements;
         }
-        if (preferences.preferredJobTypes && preferences.preferredJobTypes.length > 0) {
-          defaultFilters.job_type = preferences.preferredJobTypes;
+        const validJobTypes = preferences.preferredJobTypes?.filter((v) => (JOB_TYPE_OPTIONS as readonly string[]).includes(v));
+        if (validJobTypes && validJobTypes.length > 0) {
+          defaultFilters.job_type = validJobTypes;
         }
         if (preferences.salaryMin) {
           defaultFilters.min_salary = preferences.salaryMin;

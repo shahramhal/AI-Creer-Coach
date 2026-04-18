@@ -11,6 +11,7 @@ Reed free-tier: UK-only
 """
 
 import re
+from typing import Optional
 from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader

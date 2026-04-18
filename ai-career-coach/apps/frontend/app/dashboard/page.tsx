@@ -63,10 +63,16 @@ export default function DashboardPage() {
     if (preferences.targetRole) filters.title_keywords = preferences.targetRole;
     else if (preferences.jobTitle) filters.title_keywords = preferences.jobTitle;
     if (preferences.experienceLevel) filters.experience_level = preferences.experienceLevel;
-    const validArrangements = preferences.workArrangements?.filter((v) => (WORK_ARRANGEMENT_OPTIONS as readonly string[]).includes(v));
-    if (validArrangements?.length) filters.remote_type = validArrangements;
-    const validJobTypes = preferences.preferredJobTypes?.filter((v) => (JOB_TYPE_OPTIONS as readonly string[]).includes(v));
-    if (validJobTypes?.length) filters.job_type = validJobTypes;
+    const validArrangements = [...new Set(
+      (Array.isArray(preferences.workArrangements) ? preferences.workArrangements : [])
+        .filter((v) => (WORK_ARRANGEMENT_OPTIONS as readonly string[]).includes(v))
+    )];
+    if (validArrangements.length) filters.remote_type = validArrangements;
+    const validJobTypes = [...new Set(
+      (Array.isArray(preferences.preferredJobTypes) ? preferences.preferredJobTypes : [])
+        .filter((v) => (JOB_TYPE_OPTIONS as readonly string[]).includes(v))
+    )];
+    if (validJobTypes.length) filters.job_type = validJobTypes;
     if (preferences.salaryMin) filters.min_salary = preferences.salaryMin;
     return Object.keys(filters).length > 0 ? filters : undefined;
   }, [preferences]);

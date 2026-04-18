@@ -156,23 +156,27 @@ export const findJobsValidation = [
 
   body('filters.job_type')
     .optional()
-    .custom((value) => {
-      const valid = ['Full-time', 'Part-time', 'Contract', 'Temporary', 'Internship', 'Permanent', 'Apprenticeship'];
-      if (typeof value === 'string') return valid.includes(value);
-      if (Array.isArray(value)) return value.length <= 10 && value.every((v) => typeof v === 'string' && valid.includes(v));
-      return false;
-    })
-    .withMessage('filters.job_type contains an invalid job type'),
+    .customSanitizer((value) => {
+      const valid = new Set(['Full-time', 'Part-time', 'Contract', 'Temporary', 'Internship', 'Permanent', 'Apprenticeship']);
+      if (typeof value === 'string') return valid.has(value) ? value : undefined;
+      if (Array.isArray(value)) {
+        const filtered = [...new Set(value.filter((v: unknown) => typeof v === 'string' && valid.has(v as string)))];
+        return filtered.length > 0 ? filtered : undefined;
+      }
+      return undefined;
+    }),
 
   body('filters.remote_type')
     .optional()
-    .custom((value) => {
-      const valid = ['Remote', 'Hybrid', 'On-site'];
-      if (typeof value === 'string') return valid.includes(value);
-      if (Array.isArray(value)) return value.length <= 3 && value.every((v) => typeof v === 'string' && valid.includes(v));
-      return false;
-    })
-    .withMessage('filters.remote_type must be one of: Remote, Hybrid, On-site'),
+    .customSanitizer((value) => {
+      const valid = new Set(['Remote', 'Hybrid', 'On-site']);
+      if (typeof value === 'string') return valid.has(value) ? value : undefined;
+      if (Array.isArray(value)) {
+        const filtered = [...new Set(value.filter((v: unknown) => typeof v === 'string' && valid.has(v as string)))];
+        return filtered.length > 0 ? filtered : undefined;
+      }
+      return undefined;
+    }),
 ];
 
 export const analyzeSkillGapValidation = [

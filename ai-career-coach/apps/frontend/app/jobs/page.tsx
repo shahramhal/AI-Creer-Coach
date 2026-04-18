@@ -156,12 +156,18 @@ export default function JobMatchesPage() {
         if (preferences.experienceLevel) {
           defaultFilters.experience_level = preferences.experienceLevel;
         }
-        const validArrangements = preferences.workArrangements?.filter((v) => (WORK_ARRANGEMENT_OPTIONS as readonly string[]).includes(v));
-        if (validArrangements && validArrangements.length > 0) {
+        const validArrangements = [...new Set(
+          (Array.isArray(preferences.workArrangements) ? preferences.workArrangements : [])
+            .filter((v) => (WORK_ARRANGEMENT_OPTIONS as readonly string[]).includes(v))
+        )];
+        if (validArrangements.length > 0) {
           defaultFilters.remote_type = validArrangements;
         }
-        const validJobTypes = preferences.preferredJobTypes?.filter((v) => (JOB_TYPE_OPTIONS as readonly string[]).includes(v));
-        if (validJobTypes && validJobTypes.length > 0) {
+        const validJobTypes = [...new Set(
+          (Array.isArray(preferences.preferredJobTypes) ? preferences.preferredJobTypes : [])
+            .filter((v) => (JOB_TYPE_OPTIONS as readonly string[]).includes(v))
+        )];
+        if (validJobTypes.length > 0) {
           defaultFilters.job_type = validJobTypes;
         }
         if (preferences.salaryMin) {

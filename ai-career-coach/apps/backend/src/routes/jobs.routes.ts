@@ -21,54 +21,58 @@ const JOB_API_URL = process.env.JOB_API_SERVICE_URL || 'http://job-api-service:8
  */
 router.get('/search', authenticate, async (req, res) => {
   try {
-    const { keywords, location } = req.query;
-    
+    const { keywords, location, country } = req.query;
+
     if (!keywords || !location) {
       return res.status(400).json({
         success: false,
         message: 'Keywords and location are required'
       });
     }
-    
-    const cacheKey = `jobs:search:${keywords}:${location}`;
+
+    const cacheKey = `jobs:search:${keywords}:${location}:${country ?? ''}`;
     const cached = await cache.get(cacheKey);
     if (cached) {
       return res.json(cached);
     }
 
-    // Forward request to job-api-service using fetch
-    const fetchResponse = await fetch(`${JOB_API_URL}/api/jobs/fetch`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        keywords,
-        location
-      }),
+    const params = new URLSearchParams({
+      keywords: keywords as string,
+      location: location as string,
+      ...(country ? { country: country as string } : {}),
+    });
+
+    const internalToken = process.env.INTERNAL_API_TOKEN;
+    const headers: Record<string, string> = {};
+    if (internalToken) {
+      headers['X-Internal-Token'] = internalToken;
+    }
+
+    const fetchResponse = await fetch(`${JOB_API_URL}/api/jobs/search?${params}`, {
+      method: 'GET',
+      headers,
       signal: AbortSignal.timeout(8000),
     });
-    // Parse JSON response
+
     const data = await fetchResponse.json();
 
-    // Handle non-OK responses
     if (!fetchResponse.ok) {
       return res.status(fetchResponse.status).json({
         success: false,
-        message: data.message || 'Job search failed',
+        message: data.detail || data.message || 'Job search failed',
       });
     }
 
     const responseBody = {
       success: true,
       message: 'Jobs fetched successfully',
-      data: data
+      data: data.data,
     };
 
     await cache.set(cacheKey, responseBody, 600);
 
     res.json(responseBody);
-    
+
   } catch (error) {
     logger.error(error);
     res.status(500).json({

@@ -87,10 +87,15 @@ describe('Job Routes - GET /api/jobs/search', () => {
 
     const mockJobApiResponse = {
       success: true,
-      data: [
-        { job_id: 'job-1', title: 'Software Engineer', company: 'Tech Corp', location: 'London' },
-        { job_id: 'job-2', title: 'Backend Developer', company: 'StartupXYZ', location: 'Remote' },
-      ],
+      data: {
+        jobs: [
+          { job_id: 'job-1', title: 'Software Engineer', company: 'Tech Corp', location: 'London' },
+          { job_id: 'job-2', title: 'Backend Developer', company: 'StartupXYZ', location: 'Remote' },
+        ],
+        total: 2,
+        keywords: 'Software Engineer',
+        location: 'London',
+      },
     };
 
     mockFetch.mockResolvedValue({
@@ -107,6 +112,7 @@ describe('Job Routes - GET /api/jobs/search', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data).toBeDefined();
+    expect(response.body.data.jobs).toHaveLength(2);
   });
 
   it('should return 500 when job-api-service is unreachable', async () => {
@@ -129,7 +135,7 @@ describe('Job Routes - GET /api/jobs/search', () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 503,
-      json: vi.fn().mockResolvedValue({ message: 'Job API service is overloaded' }),
+      json: vi.fn().mockResolvedValue({ detail: 'Job API service is overloaded' }),
     });
 
     const response = await request(testApp)

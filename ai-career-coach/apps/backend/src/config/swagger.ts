@@ -856,7 +856,7 @@ const options: swaggerJsdoc.Options = {
         get: {
           tags: ['Jobs'],
           summary: 'Search jobs by keywords and location',
-          description: 'Proxies the request to the Job API service which fetches from Adzuna/Reed.',
+          description: 'Queries stored jobs from the Job API service MongoDB collection.',
           security: [{ bearerAuth: [] }],
           parameters: [
             {
@@ -870,6 +870,12 @@ const options: swaggerJsdoc.Options = {
               name: 'location',
               required: true,
               schema: { type: 'string', example: 'London' },
+            },
+            {
+              in: 'query',
+              name: 'country',
+              required: false,
+              schema: { type: 'string', example: 'gb' },
             },
           ],
           responses: {

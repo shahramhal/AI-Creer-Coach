@@ -10,6 +10,7 @@ Adzuna free-tier: 250 calls/day, 1000/week, 2500/month
 Reed free-tier: UK-only
 """
 
+import re
 from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
@@ -236,6 +237,59 @@ async def health_check():
         "environment": settings.env,
         "countries": settings.adzuna_countries,
     }
+
+
+@app.get("/api/jobs/search")
+async def search_jobs(
+    keywords: str,
+    location: str,
+    country: Optional[str] = None,
+    limit: int = 50,
+):
+    """
+    Query stored jobs from MongoDB matching keywords and location.
+    This is the endpoint the backend calls for user-facing job searches.
+    """
+    try:
+        jobs_collection = app.state.db["jobs"]
+
+        query: dict = {}
+
+        keyword_list = [kw.strip() for kw in keywords.replace(",", " ").split() if kw.strip()]
+        if keyword_list:
+            keyword_pattern = "|".join(re.escape(kw) for kw in keyword_list)
+            query["$or"] = [
+                {"title": {"$regex": keyword_pattern, "$options": "i"}},
+                {"description": {"$regex": keyword_pattern, "$options": "i"}},
+            ]
+
+        if location:
+            city = location.split(",")[0].strip()
+            query["location"] = {"$regex": re.escape(city), "$options": "i"}
+
+        if country:
+            query["country"] = country.lower()
+
+        cursor = (
+            jobs_collection.find(query, {"_id": 0})
+            .sort("posted_date", -1)
+            .limit(max(1, min(limit, 200)))
+        )
+        jobs = await cursor.to_list(length=limit)
+
+        return {
+            "success": True,
+            "data": {
+                "jobs": jobs,
+                "total": len(jobs),
+                "keywords": keywords,
+                "location": location,
+            },
+        }
+
+    except Exception as e:
+        logger.error(f"Error searching jobs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/jobs/fetch", dependencies=[Depends(_verify_internal_token)])

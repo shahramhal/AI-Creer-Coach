@@ -155,9 +155,9 @@ def django_parse_cv_view(request):
 
 def test_with_file(filepath: str):
     """Test parser with actual PDF/DOCX file"""
-    print("=" * 70)
+    
     print("UNIFIED CV PARSER TEST")
-    print("=" * 70)
+    
     
     import os
     

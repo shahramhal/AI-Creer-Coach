@@ -351,9 +351,9 @@ def estimate_cost(cv_text: str) -> Dict:
 
 def test_llm_parser(cv_text: str):
     """Test the LLM parser on CV text"""
-    print("=" * 70)
+    
     print("LLM CV PARSER TEST")
-    print("=" * 70)
+    
     
     # Cost estimate
     cost = estimate_cost(cv_text)

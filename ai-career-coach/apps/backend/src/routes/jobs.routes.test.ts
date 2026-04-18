@@ -1,5 +1,5 @@
 // apps/backend/src/routes/jobs.routes.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
@@ -197,5 +197,99 @@ describe('Job Routes - GET /api/jobs/stats', () => {
 
     expect(response.status).toBe(500);
     expect(response.body.success).toBe(false);
+  });
+
+  it('should propagate error status from job-api-service when stats endpoint returns non-200', async () => {
+    setupAuthenticatedUser();
+
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: vi.fn().mockResolvedValue({ message: 'Invalid query params' }),
+    });
+
+    const response = await request(testApp)
+      .get('/api/jobs/stats')
+      .set('Authorization', `Bearer ${validAccessToken}`);
+
+    expect(response.status).toBe(422);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe('Invalid query params');
+  });
+});
+
+describe('Job Routes - GET /api/jobs/countries', () => {
+  let testApp: express.Application;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    testApp = buildTestApp();
+  });
+
+  afterEach(() => {
+    delete process.env.ADZUNA_COUNTRIES;
+  });
+
+  it('should return 200 without requiring authentication', async () => {
+    const response = await request(testApp).get('/api/jobs/countries');
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+  });
+
+  it('should return the default country list when ADZUNA_COUNTRIES is not set', async () => {
+    delete process.env.ADZUNA_COUNTRIES;
+
+    const response = await request(testApp).get('/api/jobs/countries');
+
+    expect(response.status).toBe(200);
+    const countries = response.body.data.countries;
+    expect(countries).toHaveLength(5);
+    const values = countries.map((c: any) => c.value);
+    expect(values).toEqual(expect.arrayContaining(['gb', 'us', 'de', 'fr', 'ca']));
+  });
+
+  it('should return only the countries listed in ADZUNA_COUNTRIES', async () => {
+    process.env.ADZUNA_COUNTRIES = 'gb,au,nl';
+
+    const response = await request(testApp).get('/api/jobs/countries');
+
+    const countries = response.body.data.countries;
+    expect(countries).toHaveLength(3);
+    const values = countries.map((c: any) => c.value);
+    expect(values).toEqual(['gb', 'au', 'nl']);
+  });
+
+  it('should resolve known country codes to human-readable display names', async () => {
+    process.env.ADZUNA_COUNTRIES = 'gb,us,de';
+
+    const response = await request(testApp).get('/api/jobs/countries');
+
+    const countries = response.body.data.countries;
+    const byValue = Object.fromEntries(countries.map((c: any) => [c.value, c.label]));
+    expect(byValue['gb']).toBe('United Kingdom');
+    expect(byValue['us']).toBe('United States');
+    expect(byValue['de']).toBe('Germany');
+  });
+
+  it('should uppercase unknown country codes when no display name is defined', async () => {
+    process.env.ADZUNA_COUNTRIES = 'xx';
+
+    const response = await request(testApp).get('/api/jobs/countries');
+
+    const countries = response.body.data.countries;
+    expect(countries).toHaveLength(1);
+    expect(countries[0].value).toBe('xx');
+    expect(countries[0].label).toBe('XX');
+  });
+
+  it('should trim whitespace from country codes in the env var', async () => {
+    process.env.ADZUNA_COUNTRIES = ' gb , us ';
+
+    const response = await request(testApp).get('/api/jobs/countries');
+
+    const countries = response.body.data.countries;
+    expect(countries).toHaveLength(2);
+    expect(countries[0].value).toBe('gb');
+    expect(countries[1].value).toBe('us');
   });
 });

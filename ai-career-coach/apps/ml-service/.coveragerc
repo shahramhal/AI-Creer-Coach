@@ -1,0 +1,19 @@
+[run]
+omit =
+    test.py
+    test_cv_parser.py
+    test_matcher.py
+    check.py
+    cv_parser/parser.py
+    venv/*
+    .venv/*
+
+[report]
+omit =
+    test.py
+    test_cv_parser.py
+    test_matcher.py
+    check.py
+    cv_parser/parser.py
+    venv/*
+    .venv/*

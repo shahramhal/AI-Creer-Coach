@@ -2,6 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrismaClient } from '@prisma/client';
+import mongoose from 'mongoose';
 
 // Get the mocked Prisma singleton shared with the source module
 const mockPrismaInstance = new PrismaClient() as any;
@@ -24,6 +25,11 @@ const mockDatabaseModule = vi.hoisted(() => {
     ping: vi.fn().mockResolvedValue('PONG'),
     info: vi.fn().mockResolvedValue(''),
     dbsize: vi.fn().mockResolvedValue(0),
+    scan: vi.fn().mockResolvedValue(['0', []]),
+    lrange: vi.fn().mockResolvedValue([]),
+    lpush: vi.fn().mockResolvedValue(1),
+    ltrim: vi.fn().mockResolvedValue('OK'),
+    expire: vi.fn().mockResolvedValue(1),
     disconnect: vi.fn(),
     on: vi.fn().mockReturnThis(),
     status: 'ready',
@@ -654,18 +660,18 @@ describe('AdminService', () => {
 
     expect(thirtyDayTrend).toHaveLength(30);
 
-    
+
     vi.useRealTimers();
     });
 
   it('should count user registrations correctly when users exist within the range', async () => {
-  
+
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-11T12:00:00Z'));
 
     const todayStr = '2026-04-11'; // Now hardcoded and predictable
 
-    
+
     mockPrismaInstance.$queryRaw.mockResolvedValue([
       { date: todayStr, count: BigInt(2) },
     ]);
@@ -675,8 +681,588 @@ describe('AdminService', () => {
     expect(growthTrend).toHaveLength(1);
     expect(growthTrend[0]!.count).toBe(2);
 
-   
+
     vi.useRealTimers();
   });
+  });
+
+  describe('getDashboardStats - error branches', () => {
+    it('should fall back to all-false service health when checkDatabaseHealth throws', async () => {
+      mockPrismaInstance.user.count = vi.fn().mockResolvedValue(0);
+      mockPrismaInstance.cV.count = vi.fn().mockResolvedValue(0);
+      mockPrismaInstance.application.count = vi.fn().mockResolvedValue(0);
+      mockDatabaseModule.checkDatabaseHealth.mockRejectedValueOnce(new Error('DB unreachable'));
+
+      const result = await adminService.getDashboardStats();
+
+      expect(result.serviceHealth).toEqual({ postgres: false, mongodb: false, redis: false });
+    });
+
+    it('should return 0 for totalJobs when MongoDB countDocuments throws', async () => {
+      mockPrismaInstance.user.count = vi.fn().mockResolvedValue(0);
+      mockPrismaInstance.cV.count = vi.fn().mockResolvedValue(0);
+      mockPrismaInstance.application.count = vi.fn().mockResolvedValue(0);
+      (mongoose.connection.db as any).collection.mockReturnValue({
+        countDocuments: vi.fn().mockRejectedValue(new Error('Mongo error')),
+      });
+
+      const result = await adminService.getDashboardStats();
+
+      expect(result.totalJobs).toBe(0);
+    });
+  });
+
+  describe('listJobs', () => {
+    function buildJobsCollection(jobs: any[] = [], total = 0) {
+      return {
+        find: vi.fn().mockReturnValue({
+          sort: vi.fn().mockReturnThis(),
+          skip: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
+          toArray: vi.fn().mockResolvedValue(jobs),
+        }),
+        countDocuments: vi.fn().mockResolvedValue(total),
+      };
+    }
+
+    it('should return jobs and pagination metadata', async () => {
+      const fakeJobs = [{ title: 'Engineer' }, { title: 'Designer' }];
+      (mongoose.connection.db as any).collection.mockReturnValue(buildJobsCollection(fakeJobs, 2));
+
+      const result = await adminService.listJobs({ page: 1, limit: 10 });
+
+      expect(result.jobs).toHaveLength(2);
+      expect(result.pagination.total).toBe(2);
+      expect(result.pagination.page).toBe(1);
+      expect(result.pagination.totalPages).toBe(1);
+    });
+
+    it('should apply source filter when provided', async () => {
+      const col = buildJobsCollection();
+      (mongoose.connection.db as any).collection.mockReturnValue(col);
+
+      await adminService.listJobs({ page: 1, limit: 10, source: 'adzuna' });
+
+      const findArg = (col.find as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(findArg.source).toBe('adzuna');
+    });
+
+    it('should apply country filter with case-insensitive regex when provided', async () => {
+      const col = buildJobsCollection();
+      (mongoose.connection.db as any).collection.mockReturnValue(col);
+
+      await adminService.listJobs({ page: 1, limit: 10, country: 'gb' });
+
+      const findArg = (col.find as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(findArg.country).toEqual({ $regex: 'gb', $options: 'i' });
+    });
+
+    it('should default to sorting by scraped_at descending', async () => {
+      const col = buildJobsCollection();
+      (mongoose.connection.db as any).collection.mockReturnValue(col);
+
+      await adminService.listJobs({ page: 1, limit: 10 });
+
+      const chain = (col.find as ReturnType<typeof vi.fn>).mock.results[0].value;
+      expect(chain.sort).toHaveBeenCalledWith({ scraped_at: -1 });
+    });
+
+    it('should use an allowed sortBy field when provided', async () => {
+      const col = buildJobsCollection();
+      (mongoose.connection.db as any).collection.mockReturnValue(col);
+
+      await adminService.listJobs({ page: 1, limit: 10, sortBy: 'title', sortOrder: 'asc' });
+
+      const chain = (col.find as ReturnType<typeof vi.fn>).mock.results[0].value;
+      expect(chain.sort).toHaveBeenCalledWith({ title: 1 });
+    });
+
+    it('should throw 503 when MongoDB connection is unavailable', async () => {
+      const originalDb = mongoose.connection.db;
+      (mongoose.connection as any).db = null;
+
+      await expect(adminService.listJobs({ page: 1, limit: 10 })).rejects.toThrow(
+        'MongoDB not connected'
+      );
+
+      (mongoose.connection as any).db = originalDb;
+    });
+  });
+
+  describe('getJobStats', () => {
+    function buildStatsCollection(total = 0, bySource: any[] = [], byCountry: any[] = []) {
+      return {
+        countDocuments: vi.fn().mockResolvedValue(total),
+        aggregate: vi.fn().mockReturnValue({
+          toArray: vi.fn().mockResolvedValue([]),
+        }),
+      };
+    }
+
+    it('should return totalJobs, bySource, and byCountry', async () => {
+      const col = {
+        countDocuments: vi.fn().mockResolvedValue(42),
+        aggregate: vi.fn()
+          .mockReturnValueOnce({ toArray: vi.fn().mockResolvedValue([{ _id: 'adzuna', count: 30 }]) })
+          .mockReturnValueOnce({ toArray: vi.fn().mockResolvedValue([{ _id: 'gb', count: 20 }]) }),
+      };
+      (mongoose.connection.db as any).collection.mockReturnValue(col);
+
+      const result = await adminService.getJobStats();
+
+      expect(result.totalJobs).toBe(42);
+      expect(result.bySource).toEqual([{ source: 'adzuna', count: 30 }]);
+      expect(result.byCountry).toEqual([{ country: 'gb', count: 20 }]);
+    });
+
+    it('should replace null _id with "unknown" in bySource and byCountry', async () => {
+      const col = {
+        countDocuments: vi.fn().mockResolvedValue(5),
+        aggregate: vi.fn()
+          .mockReturnValueOnce({ toArray: vi.fn().mockResolvedValue([{ _id: null, count: 5 }]) })
+          .mockReturnValueOnce({ toArray: vi.fn().mockResolvedValue([{ _id: null, count: 5 }]) }),
+      };
+      (mongoose.connection.db as any).collection.mockReturnValue(col);
+
+      const result = await adminService.getJobStats();
+
+      expect(result.bySource[0]!.source).toBe('unknown');
+      expect(result.byCountry[0]!.country).toBe('unknown');
+    });
+
+    it('should throw 503 when MongoDB is not connected', async () => {
+      const originalDb = mongoose.connection.db;
+      (mongoose.connection as any).db = null;
+
+      await expect(adminService.getJobStats()).rejects.toThrow('MongoDB not connected');
+
+      (mongoose.connection as any).db = originalDb;
+    });
+  });
+
+  describe('triggerJobFetch', () => {
+    it('should POST to job-api-service and return the response JSON', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        statusText: 'OK',
+        json: vi.fn().mockResolvedValue({ success: true, count: 10 }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const result = await adminService.triggerJobFetch('gb', 'software engineer');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/jobs/fetch'),
+        expect.objectContaining({ method: 'POST' })
+      );
+      expect(result).toEqual({ success: true, count: 10 });
+
+      vi.unstubAllGlobals();
+    });
+
+    it('should throw AppError when the job API responds with a non-OK status', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        statusText: 'Service Unavailable',
+        json: vi.fn(),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      await expect(adminService.triggerJobFetch('gb', 'engineer')).rejects.toThrow(
+        'Job fetch failed'
+      );
+
+      vi.unstubAllGlobals();
+    });
+
+    it('should include location in the request body when provided', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        statusText: 'OK',
+        json: vi.fn().mockResolvedValue({}),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      await adminService.triggerJobFetch('us', 'developer', 'New York');
+
+      const body = JSON.parse((mockFetch.mock.calls[0][1] as any).body);
+      expect(body.location).toBe('New York');
+
+      vi.unstubAllGlobals();
+    });
+  });
+
+  describe('triggerJobCleanup', () => {
+    it('should POST to the cleanup endpoint and return the response JSON', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        statusText: 'OK',
+        json: vi.fn().mockResolvedValue({ deleted: 5 }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const result = await adminService.triggerJobCleanup();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/jobs/cleanup'),
+        expect.objectContaining({ method: 'POST' })
+      );
+      expect(result).toEqual({ deleted: 5 });
+
+      vi.unstubAllGlobals();
+    });
+
+    it('should throw AppError when the cleanup endpoint responds with a non-OK status', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        statusText: 'Internal Server Error',
+        json: vi.fn(),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      await expect(adminService.triggerJobCleanup()).rejects.toThrow('Job cleanup failed');
+
+      vi.unstubAllGlobals();
+    });
+  });
+
+  describe('deleteJob', () => {
+    it('should delete a job by ID and return a success message', async () => {
+      (mongoose.connection.db as any).collection.mockReturnValue({
+        deleteOne: vi.fn().mockResolvedValue({ deletedCount: 1 }),
+      });
+
+      const result = await adminService.deleteJob('507f1f77bcf86cd799439011');
+
+      expect(result.message).toBe('Job deleted');
+    });
+
+    it('should throw NOT_FOUND when no document matches the given ID', async () => {
+      (mongoose.connection.db as any).collection.mockReturnValue({
+        deleteOne: vi.fn().mockResolvedValue({ deletedCount: 0 }),
+      });
+
+      await expect(adminService.deleteJob('507f1f77bcf86cd799439011')).rejects.toThrow(
+        'Job not found'
+      );
+    });
+
+    it('should fall back to a raw string filter when the ObjectId constructor throws', async () => {
+      const col = {
+        deleteOne: vi.fn().mockResolvedValue({ deletedCount: 1 }),
+      };
+      (mongoose.connection.db as any).collection.mockReturnValue(col);
+
+      // Temporarily make ObjectId throw so the catch branch in deleteJob is exercised
+      const OriginalObjectId = mongoose.Types.ObjectId;
+      (mongoose.Types as any).ObjectId = function () {
+        throw new Error('Invalid ObjectId');
+      };
+
+      await adminService.deleteJob('not-an-object-id');
+
+      const filterArg = (col.deleteOne as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(filterArg._id).toBe('not-an-object-id');
+
+      (mongoose.Types as any).ObjectId = OriginalObjectId;
+    });
+
+    it('should throw 503 when MongoDB is not connected', async () => {
+      const originalDb = mongoose.connection.db;
+      (mongoose.connection as any).db = null;
+
+      await expect(adminService.deleteJob('some-id')).rejects.toThrow('MongoDB not connected');
+
+      (mongoose.connection as any).db = originalDb;
+    });
+  });
+
+  describe('getServiceHealth', () => {
+    it('should return database health combined with ML and job API health', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const result = await adminService.getServiceHealth();
+
+      expect(result).toHaveProperty('mlService');
+      expect(result).toHaveProperty('jobApiService');
+      expect(result).toHaveProperty('mlServiceResponseMs');
+      expect(result).toHaveProperty('jobApiResponseMs');
+      expect(result.mlService).toBe(true);
+      expect(result.jobApiService).toBe(true);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('should report mlService as false when the ML health check throws', async () => {
+      const mockFetch = vi.fn()
+        .mockRejectedValueOnce(new Error('ML service down'))
+        .mockResolvedValueOnce({ ok: true });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const result = await adminService.getServiceHealth();
+
+      expect(result.mlService).toBe(false);
+      expect(result.mlServiceResponseMs).toBeNull();
+      expect(result.jobApiService).toBe(true);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('should report jobApiService as false when the job API health check throws', async () => {
+      const mockFetch = vi.fn()
+        .mockResolvedValueOnce({ ok: true })
+        .mockRejectedValueOnce(new Error('Job API down'));
+      vi.stubGlobal('fetch', mockFetch);
+
+      const result = await adminService.getServiceHealth();
+
+      expect(result.mlService).toBe(true);
+      expect(result.jobApiService).toBe(false);
+      expect(result.jobApiResponseMs).toBeNull();
+
+      vi.unstubAllGlobals();
+    });
+  });
+
+  describe('getCacheStats', () => {
+    it('should return keyCount, hitRate, and memory from Redis info', async () => {
+      mockDatabaseModule.redis.info
+        .mockResolvedValueOnce('keyspace_hits:100\r\nkeyspace_misses:20\r\n')
+        .mockResolvedValueOnce('used_memory_human:1.5M\r\nused_memory_peak_human:2M\r\n');
+      mockDatabaseModule.redis.dbsize.mockResolvedValue(50);
+
+      const result = await adminService.getCacheStats();
+
+      expect(result.keyCount).toBe(50);
+      expect(result.hitRate.hits).toBe(100);
+      expect(result.hitRate.misses).toBe(20);
+      expect(result.memory.used).toBe('1.5M');
+      expect(result.memory.peak).toBe('2M');
+    });
+
+    it('should return zeroed stats when Redis info throws', async () => {
+      mockDatabaseModule.redis.info.mockRejectedValue(new Error('Redis error'));
+
+      const result = await adminService.getCacheStats();
+
+      expect(result.keyCount).toBe(0);
+      expect(result.hitRate).toEqual({ hits: 0, misses: 0 });
+      expect(result.memory).toEqual({ used: '0B', peak: '0B' });
+    });
+  });
+
+  describe('getQueueStatus', () => {
+    it('should return an empty array', async () => {
+      const result = await adminService.getQueueStatus();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getDatabaseStats', () => {
+    beforeEach(() => {
+      mockPrismaInstance.user.count = vi.fn().mockResolvedValue(10);
+      mockPrismaInstance.userProfile = {
+        ...mockPrismaInstance.userProfile,
+        count: vi.fn().mockResolvedValue(8),
+      };
+      mockPrismaInstance.cV.count = vi.fn().mockResolvedValue(5);
+      mockPrismaInstance.application.count = vi.fn().mockResolvedValue(3);
+      mockPrismaInstance.job.count = vi.fn().mockResolvedValue(100);
+      mockPrismaInstance.savedJob = {
+        ...mockPrismaInstance.savedJob,
+        count: vi.fn().mockResolvedValue(12),
+      };
+      mockPrismaInstance.interviewSession = {
+        ...mockPrismaInstance.interviewSession,
+        count: vi.fn().mockResolvedValue(4),
+      };
+      mockPrismaInstance.course = {
+        ...mockPrismaInstance.course,
+        count: vi.fn().mockResolvedValue(7),
+      };
+    });
+
+    it('should return postgres counts for all tracked models', async () => {
+      (mongoose.connection.db as any).listCollections = vi.fn().mockReturnValue({
+        toArray: vi.fn().mockResolvedValue([]),
+      });
+
+      const result = await adminService.getDatabaseStats();
+
+      expect(result.postgres.users).toBe(10);
+      expect(result.postgres.profiles).toBe(8);
+      expect(result.postgres.cvs).toBe(5);
+      expect(result.postgres.applications).toBe(3);
+      expect(result.postgres.jobs).toBe(100);
+      expect(result.postgres.savedJobs).toBe(12);
+      expect(result.postgres.interviewSessions).toBe(4);
+      expect(result.postgres.courses).toBe(7);
+    });
+
+    it('should enumerate MongoDB collection names and document counts', async () => {
+      const col = {
+        countDocuments: vi.fn().mockResolvedValue(25),
+        find: vi.fn().mockReturnValue({
+          sort: vi.fn().mockReturnThis(),
+          skip: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
+          toArray: vi.fn().mockResolvedValue([]),
+        }),
+      };
+      (mongoose.connection.db as any).listCollections = vi.fn().mockReturnValue({
+        toArray: vi.fn().mockResolvedValue([{ name: 'jobs' }, { name: 'cvs' }]),
+      });
+      (mongoose.connection.db as any).collection.mockReturnValue(col);
+
+      const result = await adminService.getDatabaseStats();
+
+      expect(result.mongodb).toHaveLength(2);
+      expect(result.mongodb[0]!.name).toBe('jobs');
+      expect(result.mongodb[0]!.count).toBe(25);
+    });
+
+    it('should return empty mongodb array when listCollections throws', async () => {
+      (mongoose.connection.db as any).listCollections = vi.fn().mockReturnValue({
+        toArray: vi.fn().mockRejectedValue(new Error('Mongo error')),
+      });
+
+      const result = await adminService.getDatabaseStats();
+
+      expect(result.mongodb).toEqual([]);
+    });
+  });
+
+  describe('getApiMetrics', () => {
+    it('should return an empty array when no metric keys exist in Redis', async () => {
+      mockDatabaseModule.redis.scan.mockResolvedValue(['0', []]);
+
+      const result = await adminService.getApiMetrics();
+
+      expect(result).toEqual([]);
+    });
+
+    it('should compute avg, p50, p95, p99, min, max, and errorRate from samples', async () => {
+      const samples = [
+        { ms: 100, status: 200, ts: Date.now() },
+        { ms: 200, status: 200, ts: Date.now() },
+        { ms: 500, status: 500, ts: Date.now() },
+      ];
+      mockDatabaseModule.redis.scan
+        .mockResolvedValueOnce(['0', ['metrics:api:GET|/api/v1/test']]);
+      mockDatabaseModule.redis.lrange.mockResolvedValue(samples.map((s) => JSON.stringify(s)));
+
+      const result = await adminService.getApiMetrics();
+
+      expect(result).toHaveLength(1);
+      const metric = result[0]!;
+      expect(metric.route).toBe('/api/v1/test');
+      expect(metric.method).toBe('GET');
+      expect(metric.count).toBe(3);
+      expect(metric.avg).toBe(267);
+      expect(metric.min).toBe(100);
+      expect(metric.max).toBe(500);
+      expect(metric.errorRate).toBe(33);
+    });
+
+    it('should exclude OPTIONS keys from the results', async () => {
+      mockDatabaseModule.redis.scan.mockResolvedValue([
+        '0',
+        ['metrics:api:GET|/api/v1/test', 'metrics:api:|OPTIONS|/api/v1/test'],
+      ]);
+      mockDatabaseModule.redis.lrange.mockResolvedValue([
+        JSON.stringify({ ms: 50, status: 200, ts: Date.now() }),
+      ]);
+
+      const result = await adminService.getApiMetrics();
+
+      expect(result.every((r) => !r.method.includes('OPTIONS'))).toBe(true);
+    });
+
+    it('should return an empty array when Redis scan throws', async () => {
+      mockDatabaseModule.redis.scan.mockRejectedValue(new Error('Redis error'));
+
+      const result = await adminService.getApiMetrics();
+
+      expect(result).toEqual([]);
+    });
+
+    it('should paginate through Redis scan until cursor returns to "0"', async () => {
+      mockDatabaseModule.redis.scan
+        .mockResolvedValueOnce(['42', ['metrics:api:GET|/api/v1/first']])
+        .mockResolvedValueOnce(['0', ['metrics:api:GET|/api/v1/second']]);
+      mockDatabaseModule.redis.lrange.mockResolvedValue([
+        JSON.stringify({ ms: 10, status: 200, ts: Date.now() }),
+      ]);
+
+      const result = await adminService.getApiMetrics();
+
+      expect(result).toHaveLength(2);
+    });
+  });
+
+  describe('recordWebVitals', () => {
+    it('should lpush each vital, then ltrim and expire the key', async () => {
+      const vitals = [
+        { name: 'LCP', value: 1200, page: '/home' },
+        { name: 'CLS', value: 0.05, page: '/home' },
+      ];
+
+      await adminService.recordWebVitals(vitals);
+
+      expect(mockDatabaseModule.redis.lpush).toHaveBeenCalledTimes(2);
+      expect(mockDatabaseModule.redis.ltrim).toHaveBeenCalledWith('metrics:vitals', 0, 499);
+      expect(mockDatabaseModule.redis.expire).toHaveBeenCalledWith('metrics:vitals', 86400 * 7);
+    });
+
+    it('should serialize each vital with name, value, page, and ts fields', async () => {
+      const vitals = [{ name: 'FID', value: 50, page: '/about' }];
+
+      await adminService.recordWebVitals(vitals);
+
+      const raw = (mockDatabaseModule.redis.lpush as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      const parsed = JSON.parse(raw);
+      expect(parsed.name).toBe('FID');
+      expect(parsed.value).toBe(50);
+      expect(parsed.page).toBe('/about');
+      expect(typeof parsed.ts).toBe('number');
+    });
+  });
+
+  describe('getWebVitals', () => {
+    it('should return grouped metric stats and total sample count', async () => {
+      const samples = [
+        { name: 'LCP', value: 1000, page: '/home', ts: Date.now() },
+        { name: 'LCP', value: 2000, page: '/about', ts: Date.now() },
+        { name: 'CLS', value: 0.1, page: '/home', ts: Date.now() },
+      ];
+      mockDatabaseModule.redis.lrange.mockResolvedValue(samples.map((s) => JSON.stringify(s)));
+
+      const result = await adminService.getWebVitals();
+
+      expect(result.sampleCount).toBe(3);
+      const lcp = result.metrics.find((m) => m.name === 'LCP');
+      expect(lcp).toBeDefined();
+      expect(lcp!.count).toBe(2);
+      expect(lcp!.avg).toBe(1500);
+    });
+
+    it('should return empty metrics and zero sample count when lrange throws', async () => {
+      mockDatabaseModule.redis.lrange.mockRejectedValue(new Error('Redis error'));
+
+      const result = await adminService.getWebVitals();
+
+      expect(result.metrics).toEqual([]);
+      expect(result.sampleCount).toBe(0);
+    });
+
+    it('should return empty metrics when no vitals have been recorded', async () => {
+      mockDatabaseModule.redis.lrange.mockResolvedValue([]);
+
+      const result = await adminService.getWebVitals();
+
+      expect(result.metrics).toEqual([]);
+      expect(result.sampleCount).toBe(0);
+    });
   });
 });

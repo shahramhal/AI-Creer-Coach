@@ -70,9 +70,9 @@ def test_job_matching():
         "top_k": 10
     }
     
-    print("=" * 70)
+    
     print("TESTING JOB MATCHING ENDPOINT")
-    print("=" * 70)
+    
     print(f"\nSending request to: {ML_SERVICE_URL}/api/ml/match-jobs")
     print(f"CV Text: {cv_text[:100]}...")
     print(f"Number of jobs: {len(jobs)}")
@@ -91,12 +91,12 @@ def test_job_matching():
         
         # Display results
         print("\n SUCCESS!")
-        print("=" * 70)
+        
         print(f"Total jobs analyzed: {result['total_analyzed']}")
         print(f"Matched jobs returned: {len(result['matched_jobs'])}")
         print("\n" + "=" * 70)
         print("MATCHED JOBS (Ranked by Score):")
-        print("=" * 70)
+        
         
         for i, job in enumerate(result['matched_jobs'], 1):
             print(f"\n{i}. {job['title']} at {job['company']}")
@@ -115,7 +115,7 @@ def test_job_matching():
         
         print("\n" + "=" * 70)
         print("TEST COMPLETED SUCCESSFULLY")
-        print("=" * 70)
+        
         
         # Verify expected behavior
         print("\n📊 VERIFICATION:")

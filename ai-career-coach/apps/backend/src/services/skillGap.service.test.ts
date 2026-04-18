@@ -512,7 +512,7 @@ describe('SkillGapService', () => {
 
       await service.analyzeSkillGap('u-1', 'cv text', {}, 'engineer', 'We use Python and Docker');
 
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      const body = JSON.parse(mockFetch.mock.calls[0]![1].body);
       expect(body.target_job_description).toBe('We use Python and Docker');
     });
   });

@@ -126,7 +126,7 @@ describe('apiMetricsMiddleware', () => {
     await request(app).get('/api/users/42');
     await flushPromises();
 
-    const lpushKey = mockRedis.lpush.mock.calls[0][0] as string;
+    const lpushKey = mockRedis.lpush.mock.calls[0]![0] as string;
     expect(lpushKey).toContain('/api/users/:id');
     expect(lpushKey).not.toContain('/api/users/42');
   });
@@ -138,7 +138,7 @@ describe('apiMetricsMiddleware', () => {
     await request(app).get(`/api/items/${uuid}`);
     await flushPromises();
 
-    const lpushKey = mockRedis.lpush.mock.calls[0][0] as string;
+    const lpushKey = mockRedis.lpush.mock.calls[0]![0] as string;
     expect(lpushKey).toContain(':id');
     expect(lpushKey).not.toContain(uuid);
   });
@@ -149,7 +149,7 @@ describe('apiMetricsMiddleware', () => {
     await request(app).get('/api/items/12345');
     await flushPromises();
 
-    const lpushKey = mockRedis.lpush.mock.calls[0][0] as string;
+    const lpushKey = mockRedis.lpush.mock.calls[0]![0] as string;
     expect(lpushKey).toContain(':id');
     expect(lpushKey).not.toContain('12345');
   });
@@ -162,7 +162,7 @@ describe('apiMetricsMiddleware', () => {
     await request(app).get('/api/test');
     await flushPromises();
 
-    const payload = JSON.parse(mockRedis.lpush.mock.calls[0][1] as string);
+    const payload = JSON.parse(mockRedis.lpush.mock.calls[0]![1] as string);
     expect(typeof payload.ms).toBe('number');
     expect(payload.ms).toBeGreaterThanOrEqual(0);
     expect(payload.status).toBe(201);
@@ -188,7 +188,7 @@ describe('apiMetricsMiddleware', () => {
     await request(app).post('/api/v1/test');
     await flushPromises();
 
-    const lpushKey = mockRedis.lpush.mock.calls[0][0] as string;
+    const lpushKey = mockRedis.lpush.mock.calls[0]![0] as string;
     expect(lpushKey).toMatch(/^metrics:api:POST\|/);
   });
 

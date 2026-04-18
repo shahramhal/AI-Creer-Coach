@@ -743,7 +743,7 @@ describe('AdminService', () => {
 
       await adminService.listJobs({ page: 1, limit: 10, source: 'adzuna' });
 
-      const findArg = (col.find as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const findArg = (col.find as ReturnType<typeof vi.fn>).mock.calls[0]![0];
       expect(findArg.source).toBe('adzuna');
     });
 
@@ -753,7 +753,7 @@ describe('AdminService', () => {
 
       await adminService.listJobs({ page: 1, limit: 10, country: 'gb' });
 
-      const findArg = (col.find as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const findArg = (col.find as ReturnType<typeof vi.fn>).mock.calls[0]![0];
       expect(findArg.country).toEqual({ $regex: 'gb', $options: 'i' });
     });
 
@@ -763,7 +763,7 @@ describe('AdminService', () => {
 
       await adminService.listJobs({ page: 1, limit: 10 });
 
-      const chain = (col.find as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const chain = (col.find as ReturnType<typeof vi.fn>).mock.results[0]!.value;
       expect(chain.sort).toHaveBeenCalledWith({ scraped_at: -1 });
     });
 
@@ -773,7 +773,7 @@ describe('AdminService', () => {
 
       await adminService.listJobs({ page: 1, limit: 10, sortBy: 'title', sortOrder: 'asc' });
 
-      const chain = (col.find as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const chain = (col.find as ReturnType<typeof vi.fn>).mock.results[0]!.value;
       expect(chain.sort).toHaveBeenCalledWith({ title: 1 });
     });
 
@@ -885,7 +885,7 @@ describe('AdminService', () => {
 
       await adminService.triggerJobFetch('us', 'developer', 'New York');
 
-      const body = JSON.parse((mockFetch.mock.calls[0][1] as any).body);
+      const body = JSON.parse((mockFetch.mock.calls[0]![1] as any).body);
       expect(body.location).toBe('New York');
 
       vi.unstubAllGlobals();
@@ -961,7 +961,7 @@ describe('AdminService', () => {
 
       await adminService.deleteJob('not-an-object-id');
 
-      const filterArg = (col.deleteOne as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const filterArg = (col.deleteOne as ReturnType<typeof vi.fn>).mock.calls[0]![0];
       expect(filterArg._id).toBe('not-an-object-id');
 
       (mongoose.Types as any).ObjectId = OriginalObjectId;
@@ -1220,7 +1220,7 @@ describe('AdminService', () => {
 
       await adminService.recordWebVitals(vitals);
 
-      const raw = (mockDatabaseModule.redis.lpush as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      const raw = (mockDatabaseModule.redis.lpush as ReturnType<typeof vi.fn>).mock.calls[0]![1];
       const parsed = JSON.parse(raw);
       expect(parsed.name).toBe('FID');
       expect(parsed.value).toBe(50);

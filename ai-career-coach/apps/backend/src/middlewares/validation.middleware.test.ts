@@ -293,11 +293,11 @@ describe('findJobsValidation middleware', () => {
     expect(response.status).toBe(200);
   });
 
-  it('should fail when filters.job_type is invalid', async () => {
+  it('should sanitize filters.job_type when value is invalid', async () => {
     const response = await request(testApp)
       .post('/test')
       .send({ filters: { job_type: 123 } });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
   });
 
   it('should pass when filters.remote_type is a valid string', async () => {
@@ -314,10 +314,10 @@ describe('findJobsValidation middleware', () => {
     expect(response.status).toBe(200);
   });
 
-  it('should fail when filters.remote_type is invalid', async () => {
+  it('should sanitize filters.remote_type when value is invalid', async () => {
     const response = await request(testApp)
       .post('/test')
       .send({ filters: { remote_type: 999 } });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
   });
 });

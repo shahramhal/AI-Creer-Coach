@@ -156,17 +156,17 @@ export default function JobMatchesPage() {
         if (preferences.experienceLevel) {
           defaultFilters.experience_level = preferences.experienceLevel;
         }
-        const validArrangements = [...new Set(
+        const validArrangements = Array.from(new Set(
           (Array.isArray(preferences.workArrangements) ? preferences.workArrangements : [])
             .filter((v) => (WORK_ARRANGEMENT_OPTIONS as readonly string[]).includes(v))
-        )];
+        ));
         if (validArrangements.length > 0) {
           defaultFilters.remote_type = validArrangements;
         }
-        const validJobTypes = [...new Set(
+        const validJobTypes = Array.from(new Set(
           (Array.isArray(preferences.preferredJobTypes) ? preferences.preferredJobTypes : [])
             .filter((v) => (JOB_TYPE_OPTIONS as readonly string[]).includes(v))
-        )];
+        ));
         if (validJobTypes.length > 0) {
           defaultFilters.job_type = validJobTypes;
         }

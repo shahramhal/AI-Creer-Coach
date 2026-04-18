@@ -287,7 +287,7 @@ async function fetchTopPayingRoles(
     }
 
     const histogram = await fetchAdzunaHistogram(country, roleVariant, countryLoc0);
-    const median = computeMedianFromHistogram(histogram);
+    const median = computeMedianFromHistogram(histogram ?? {});
     if (median > 0) {
       results.push({ role: roleVariant, avgSalary: median });
     }
@@ -302,7 +302,7 @@ async function fetchAdzunaHistogram(
   jobTitle: string,
   location0?: string,
   location1?: string
-): Promise<Record<string, number>> {
+): Promise<Record<string, number> | null> {
   const params = new URLSearchParams({
     app_id: ADZUNA_APP_ID,
     app_key: ADZUNA_APP_KEY,
@@ -322,13 +322,13 @@ async function fetchAdzunaHistogram(
     const response = await fetch(url);
     if (!response.ok) {
       console.error(`[Salary] Histogram API error: ${response.status} for ${location0}/${location1}`);
-      return {};
+      return null;
     }
     const data = await response.json();
     return data.histogram || {};
   } catch (error) {
     console.error('[Salary] Histogram fetch error:', error);
-    return {};
+    return null;
   }
 }
 
@@ -395,13 +395,14 @@ async function fetchRegionalHistogramsThrottled(
     }
 
     const histogram = await fetchAdzunaHistogram(country, jobTitle, location0, region.location1);
-    results.push(histogram);
+    results.push(histogram ?? {});
   }
 
   return results;
 }
 
-function computeMedianFromHistogram(histogram: Record<string, number>): number {
+function computeMedianFromHistogram(histogram: Record<string, number> | null): number {
+  if (!histogram) return 0;
   const buckets = Object.entries(histogram)
     .map(([salary, count]) => ({ salary: parseInt(salary), count: Number(count) }))
     .sort((a, b) => a.salary - b.salary);
@@ -755,7 +756,7 @@ export class SalaryService {
     //  Phase 1: Fetch critical data (national + user location + history) 
     // Also attempt ML prediction in parallel for UK/US
     const hasLocationQuery = !!userLocation1;
-    const [nationalHistogram, locationHistogram, historyData, mlResult, skillRelevanceResult] = await Promise.all([
+    const [nationalHistogramRaw, locationHistogramRaw, historyData, mlResult, skillRelevanceResult] = await Promise.all([
       fetchAdzunaHistogram(country, jobTitle, countryLoc0),
       hasLocationQuery
         ? fetchAdzunaHistogram(country, jobTitle, countryLoc0, userLocation1)
@@ -766,6 +767,10 @@ export class SalaryService {
         : Promise.resolve(null),
       fetchSkillRelevance(jobTitle, cvSkills.slice(0, 50)),
     ]);
+
+    const adzunaUnavailable = nationalHistogramRaw === null;
+    const nationalHistogram = nationalHistogramRaw ?? {};
+    const locationHistogram = locationHistogramRaw ?? {};
 
     // Build skill relevance map for weighting
     const skillRelevanceMap = new Map<string, number>();
@@ -795,6 +800,13 @@ export class SalaryService {
     const effectiveHistogram = (hasLocationQuery && locationMedian > 0) ? locationHistogram : nationalHistogram;
 
     if (effectiveBase === 0 && !mlPrediction) {
+      if (adzunaUnavailable) {
+        throw new AppError(
+          'Salary data is temporarily unavailable. The external salary API is rate-limited. Please try again in a moment.',
+          503,
+          ErrorCodes.INTERNAL_ERROR
+        );
+      }
       throw new AppError(
         `No salary data found for "${jobTitle}" in ${country.toUpperCase()}. Try a different job title.`,
         404,

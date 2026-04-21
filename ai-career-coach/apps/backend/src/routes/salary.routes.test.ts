@@ -649,6 +649,97 @@ describe('Salary Routes - Experience adjustment is centered on market average', 
   });
 });
 
+describe('Salary Routes - History fallback for Frontend Developer', () => {
+  let testApp: express.Application;
+  let validAccessToken: string;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    testApp = buildTestApp();
+    validAccessToken = generateTestAccessToken(authenticatedUserId, authenticatedUserEmail);
+    vi.mocked(mockCache.get).mockResolvedValue(null);
+    vi.mocked(mockCache.set).mockResolvedValue(true as any);
+    vi.mocked(mockCache.del).mockResolvedValue(true as any);
+    vi.mocked(mockCache.delByPattern).mockResolvedValue(0 as any);
+  });
+
+  it('should populate marketTrend via fallback when primary history is empty for Frontend Developer', async () => {
+    setupAuthenticatedUser();
+
+    const mongoose = await import('mongoose');
+    (mongoose.default.connection as any).readyState = 0;
+
+    const histogram = createMockHistogram(55000);
+
+    mockFetch.mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes('localhost:8000')) {
+        return Promise.resolve({ ok: false, status: 503 });
+      }
+      if (urlStr.includes('/history')) {
+        const isDirectFrontend =
+          urlStr.includes('what=Frontend') || urlStr.includes('what=frontend');
+        if (isDirectFrontend) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ month: {} }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ month: { '2025-01': 55000, '2025-06': 57000 } }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ histogram }),
+      });
+    });
+
+    const response = await request(testApp)
+      .get('/api/salary/insights')
+      .set('Authorization', `Bearer ${validAccessToken}`)
+      .query({ jobTitle: 'Frontend Developer', country: 'gb' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.marketTrend.length).toBeGreaterThan(0);
+  });
+
+  it('should still return 200 with empty marketTrend when no fallback term exists for unknown title', async () => {
+    setupAuthenticatedUser();
+
+    const mongoose = await import('mongoose');
+    (mongoose.default.connection as any).readyState = 0;
+
+    const histogram = createMockHistogram(50000);
+
+    mockFetch.mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes('localhost:8000')) {
+        return Promise.resolve({ ok: false, status: 503 });
+      }
+      if (urlStr.includes('/history')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ month: {} }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ histogram }),
+      });
+    });
+
+    const response = await request(testApp)
+      .get('/api/salary/insights')
+      .set('Authorization', `Bearer ${validAccessToken}`)
+      .query({ jobTitle: 'Rare Specialist Title', country: 'gb' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.marketTrend).toHaveLength(0);
+  });
+});
+
 describe('Salary Routes - PATCH /api/salary/preferences', () => {
   let testApp: express.Application;
   let validAccessToken: string;

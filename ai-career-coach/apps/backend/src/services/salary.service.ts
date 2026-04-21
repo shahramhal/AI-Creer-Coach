@@ -161,6 +161,21 @@ const ROLE_VARIANTS: Record<string, string[]> = {
   'Product Manager': ['Senior Product Manager', 'Director of Product', 'VP of Product', 'Chief Product Officer', 'Technical Product Manager', 'Group Product Manager', 'Product Lead', 'Head of Product'],
 };
 
+const HISTORY_FALLBACK_TERMS: Record<string, string> = {
+  'frontend developer': 'web developer',
+  'front-end developer': 'web developer',
+  'frontend engineer': 'web developer',
+  'ui developer': 'web developer',
+  'ux developer': 'web developer',
+  'ui engineer': 'web developer',
+  'ux engineer': 'web developer',
+  'backend developer': 'software developer',
+  'back-end developer': 'software developer',
+  'backend engineer': 'software developer',
+  'ml engineer': 'data scientist',
+  'machine learning engineer': 'data scientist',
+};
+
 const ROLE_RELATED_TERMS: Record<string, string[]> = {
   frontend: ['frontend', 'front-end', 'front end', 'ui', 'ux', 'react', 'angular', 'vue', 'css', 'html', 'web developer', 'web engineer'],
   backend: ['backend', 'back-end', 'back end', 'server', 'api', 'node', 'java', 'python', 'django', 'express', 'spring', 'microservice'],
@@ -756,7 +771,7 @@ export class SalaryService {
     //  Phase 1: Fetch critical data (national + user location + history) 
     // Also attempt ML prediction in parallel for UK/US
     const hasLocationQuery = !!userLocation1;
-    const [nationalHistogramRaw, locationHistogramRaw, historyData, mlResult, skillRelevanceResult] = await Promise.all([
+    const [nationalHistogramRaw, locationHistogramRaw, historyDataRaw, mlResult, skillRelevanceResult] = await Promise.all([
       fetchAdzunaHistogram(country, jobTitle, countryLoc0),
       hasLocationQuery
         ? fetchAdzunaHistogram(country, jobTitle, countryLoc0, userLocation1)
@@ -771,6 +786,15 @@ export class SalaryService {
     const adzunaUnavailable = nationalHistogramRaw === null;
     const nationalHistogram = nationalHistogramRaw ?? {};
     const locationHistogram = locationHistogramRaw ?? {};
+
+    let historyData = historyDataRaw;
+    if (Object.keys(historyDataRaw).length === 0) {
+      const fallbackTerm = HISTORY_FALLBACK_TERMS[jobTitle.toLowerCase()];
+      if (fallbackTerm) {
+        console.log(`[Salary] History empty for "${jobTitle}", retrying with "${fallbackTerm}"`);
+        historyData = await fetchAdzunaHistory(country, fallbackTerm, countryLoc0);
+      }
+    }
 
     // Build skill relevance map for weighting
     const skillRelevanceMap = new Map<string, number>();

@@ -1,6 +1,6 @@
 # Backend API
 
-Express.js REST API that serves as the central orchestrator for the AI Career Coach platform. Handles authentication, user management, CV lifecycle, job matching coordination, and salary insights.
+Express.js REST API that serves as the central orchestrator for the AI Career Coach platform. Handles authentication, user management, CV lifecycle, job matching coordination, salary insights, application tracking, skill gap analysis, and admin management.
 
 ## Tech Stack
 
@@ -13,7 +13,10 @@ Express.js REST API that serves as the central orchestrator for the AI Career Co
 - **Queue**: Bull 4.16
 - **Auth**: JWT (jsonwebtoken) + bcrypt
 - **Uploads**: Multer 2.0
-- **Email**: Nodemailer 7.0
+- **Email**: Nodemailer 7.0, Resend 6.12
+- **Logging**: Pino 10 + pino-http
+- **Security**: Helmet 8, compression, express-rate-limit
+- **API Docs**: swagger-jsdoc + swagger-ui-express (at `/api/docs`)
 
 ## Architecture
 
@@ -27,20 +30,30 @@ src/
     auth.controller.ts       # Registration, login, token refresh, password reset
     profile.controller.ts    # Profile CRUD, avatar upload/delete
     matching.controller.ts   # Job matching orchestration, diagnostics
+    application.controller.ts # Application tracker CRUD + ATS check
+    admin.controller.ts      # User management, system health, job management
+    dashboard.controller.ts  # Recent activity feed
+    skillGap.controller.ts   # Skill gap analysis, learning paths, course progress
   services/
     auth.service.ts          # Business logic for auth flows
     profile.service.ts       # Profile upsert, avatar management
+    admin.service.ts         # Admin operations and audit logging
   middlewares/
     auth.middleware.ts        # JWT verification, optional auth, email verification guard
+    admin.middleware.ts       # Admin role guard
     upload.middleware.ts      # Multer config for avatars (disk) and CVs (memory)
-    validation.middleware.ts  # express-validator rules for auth endpoints
+    validation.middleware.ts  # express-validator rules for endpoints
   routes/
-    auth.routes.ts           # /api/auth/*
-    profile.routes.ts        # /api/profile/*
-    ml.routes.ts             # /api/ml/* (CV parse, analyze, list, download, delete)
-    matching.routes.ts       # /api/matching/*
-    jobs.routes.ts           # /api/jobs/*
-    salary.routes.ts         # /api/salary/*
+    auth.routes.ts           # /api/v1/auth/*
+    profile.routes.ts        # /api/v1/profile/*
+    ml.routes.ts             # /api/v1/ml/* (CV parse, analyze, list, download, delete)
+    matching.routes.ts       # /api/v1/matching/*
+    jobs.routes.ts           # /api/v1/jobs/*
+    salary.routes.ts         # /api/v1/salary/*
+    applications.routes.ts   # /api/v1/applications/*
+    skillGap.routes.ts       # /api/v1/skill-gap/*
+    dashboard.routes.ts      # /api/v1/dashboard/*
+    admin.routes.ts          # /api/v1/admin/* (admin only)
   models/
     ParsedCV.ts              # Mongoose schema for parsed_cvs collection
     user.model.ts            # User-related type definitions
@@ -48,28 +61,30 @@ src/
     jwt.util.ts              # Token generation/verification helpers
     email.util.ts            # SMTP transport, HTML email templates
 prisma/
-  schema.prisma              # PostgreSQL schema (12 models)
+  schema.prisma              # PostgreSQL schema (14 models)
 ```
 
 ## Database Schema
 
 The backend uses a polyglot persistence approach:
 
-**PostgreSQL** (via Prisma) stores relational data:
-- `users` -- account credentials, email verification status
-- `user_profiles` -- phone, location, social links, bio, avatar
-- `cvs` -- file metadata, reference to MongoDB doc, analysis results (JSONB)
-- `jobs` -- scraped job listings with salary, type, experience level
-- `saved_jobs` -- user bookmarks with match scores
-- `applications` -- application tracker with status workflow
-- `interview_sessions` / `interview_answers` -- mock interview data with scoring
-- `skills` -- master skill catalog by category
-- `learning_paths` -- personalized skill development plans
-- `courses` / `user_courses` -- course catalog and progress tracking
+**PostgreSQL** (via Prisma) stores relational data - 14 models:
+- `users` - account credentials, email verification status, role (USER/ADMIN)
+- `user_profiles` - phone, location, social links, bio, avatar
+- `cvs` - file metadata, reference to MongoDB doc, analysis results (JSONB)
+- `jobs` - scraped job listings with salary, type, experience level
+- `saved_jobs` - user bookmarks with match scores
+- `applications` - application tracker with status workflow
+- `interview_sessions` / `interview_answers` - mock interview data with scoring
+- `skills` - master skill catalog by category
+- `learning_paths` - personalized skill development plans
+- `courses` / `user_courses` - course catalog and progress tracking
+- `user_activity` - activity log for dashboard feed
+- `admin_audit_logs` - audit trail for admin actions
 
 **MongoDB** stores unstructured/large documents:
-- `parsed_cvs` -- full parsed CV content (skills, experience, education, raw text)
-- `jobs` -- job listings used for ML matching
+- `parsed_cvs` - full parsed CV content (skills, experience, education, raw text)
+- `jobs` - job listings used for ML matching
 
 **Redis** handles three responsibilities:
 - **DB 0**: Application cache (CV lists, match results, salary data, job lists)
@@ -80,7 +95,11 @@ The backend uses a polyglot persistence approach:
 
 All authenticated endpoints require `Authorization: Bearer <token>` header.
 
-### Authentication `/api/auth`
+Base path: `/api/v1`
+
+Interactive docs available at `http://localhost:4000/api/docs` (Swagger UI).
+
+### Authentication `/api/v1/auth`
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -95,7 +114,7 @@ All authenticated endpoints require `Authorization: Bearer <token>` header.
 
 Password requirements: minimum 8 characters, at least one uppercase, one lowercase, one digit.
 
-### Profile `/api/profile`
+### Profile `/api/v1/profile`
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -104,7 +123,7 @@ Password requirements: minimum 8 characters, at least one uppercase, one lowerca
 | POST | `/avatar` | Yes | Upload avatar (JPEG/PNG, max 5MB, multipart) |
 | DELETE | `/avatar` | Yes | Remove avatar |
 
-### CV Management `/api/ml`
+### CV Management `/api/v1/ml`
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -117,57 +136,81 @@ Password requirements: minimum 8 characters, at least one uppercase, one lowerca
 | PATCH | `/cvs/:cvId/primary` | Yes | Set as primary CV |
 | GET | `/health` | Yes | ML service health check |
 
-### Job Matching `/api/matching`
+### Job Matching `/api/v1/matching`
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/find-jobs` | Yes | Get ranked job recommendations. Body: `{cv_id?, filters?, top_k?, job_limit?}` |
 | GET | `/diagnostics` | Yes | System health checks (MongoDB, CV, jobs count, ML service) |
 
-The matching flow:
-1. Fetches user's latest CV from MongoDB (or specific `cv_id`)
-2. Pulls up to 2000 jobs from MongoDB
-3. Checks Redis cache for previous results
-4. If cache miss, sends CV text + jobs to ML service (`POST /api/ml/match-jobs`, 120s timeout)
-5. Caches results for 1 hour
-6. Returns matched jobs with scores and skill breakdowns
-
-### Job Search `/api/jobs`
+### Job Search `/api/v1/jobs`
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/search` | Yes | Proxy to job-api-service. Query: `keywords` (required), `location` (required) |
 | GET | `/stats` | Yes | Job database statistics |
 
-### Salary Insights `/api/salary`
+### Salary Insights `/api/v1/salary`
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/insights` | Yes | Query: `jobTitle` (required), `location?`, `country?` (default: gb) |
 | PATCH | `/preferences` | Yes | Save job title/location preferences |
 
-Salary calculation pulls the market median from the Adzuna API (histogram + history endpoints) then applies adjustments *relative to the market average*:
+### Applications `/api/v1/applications`
 
-```
-predictedSalary = marketMedian
-    + (marketMedian × experienceAdjustment)    // centered log curve, -27% to +20%
-    + (marketMedian × educationMultiplier)     // 0/8/15%, neutral default
-    + locationDelta                             // regional vs national median difference
-    + skillsPremium(skills, marketMedian)       // % of base, top 5 skills, capped at 20%
-```
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/` | Yes | Create application. Body: `{jobId, company, role, ...}` |
+| GET | `/` | Yes | List user applications |
+| GET | `/stats` | Yes | Application statistics by status |
+| PATCH | `/:id/status` | Yes | Update application status |
+| DELETE | `/:id` | Yes | Delete application |
+| POST | `/ats-check` | Yes | Run ATS check on CV against job description |
+| POST | `/jobs/:jobId/ats-preview` | Yes | Preview ATS match for a specific job |
+| POST | `/:applicationId/ats-score` | Yes | Score existing application against CV |
 
-The Adzuna median already represents the average listing — multipliers adjust relative to that baseline:
-- **Experience**: centered Mincer curve — average worker (~5yr) gets 0% adjustment; juniors get negative (down to -27%), seniors get positive (up to +20%)
-- **Education**: PhD +15%, Master +8%, Bachelor/missing/unrecognised = neutral (no penalty)
-- **Skills premium**: top 5 skills by value, percentage-based with diminishing returns, capped at 20% of base — scales correctly across currencies
-- **Location**: difference between location-specific and national Adzuna median
-- **Salary range**: histogram IQR spread (P75 - P25) centered on the predicted salary (falls back to ±15% if < 2 buckets)
-- **Confidence**: weighted combination of sample size (200+ = full score) and distribution tightness (coefficient of variation)
-- **Rate limiting**: regional histogram calls are throttled sequentially (200ms delay) to avoid Adzuna 429 errors
+### Skill Gap `/api/v1/skill-gap`
 
-Supported countries: `gb`, `us`, `de`, `fr`, `nl`, `au`, `ca`
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/analyze` | Yes | Analyze skill gaps for a target role |
+| GET | `/learning-paths` | Yes | Get user's learning paths |
+| GET | `/learning-paths/:learningPathId` | Yes | Get learning path with course details |
+| PATCH | `/learning-paths/:learningPathId/progress` | Yes | Update learning path progress |
+| PATCH | `/courses/:courseId/progress` | Yes | Update course completion progress |
+| GET | `/summary` | Yes | Overall skill progress summary |
 
-Results are cached for 2 hours.
+### Dashboard `/api/v1/dashboard`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/recent-activity` | Yes | Recent user activity feed |
+
+### Admin `/api/v1/admin` (Admin role required)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/dashboard/stats` | Platform-wide statistics |
+| GET | `/dashboard/user-growth` | User growth trend data |
+| GET | `/users` | List all users (paginated, filterable) |
+| GET | `/users/:userId` | Get detailed user profile |
+| PATCH | `/users/:userId/status` | Enable/disable user account |
+| POST | `/users/:userId/promote` | Promote user to ADMIN role |
+| POST | `/users/:userId/demote` | Demote admin to USER role |
+| POST | `/users/:userId/force-reset-password` | Force password reset |
+| DELETE | `/users/:userId` | Delete user account |
+| GET | `/jobs` | List all jobs in system |
+| GET | `/jobs/stats` | Job statistics by source |
+| POST | `/jobs/fetch` | Manually trigger job aggregation |
+| POST | `/jobs/cleanup` | Remove stale job listings |
+| DELETE | `/jobs/:jobId` | Delete a job listing |
+| GET | `/system/health` | Service health status |
+| GET | `/system/cache` | Redis cache statistics |
+| GET | `/system/queues` | Bull queue status |
+| GET | `/system/database` | Database statistics |
+| GET | `/system/performance` | API performance metrics |
+| POST | `/system/vitals` | Report web vitals from frontend |
 
 ## Caching Strategy
 
@@ -232,6 +275,9 @@ npm run prisma:generate
 # Run database migrations
 npm run prisma:migrate
 
+# Seed admin user (optional)
+npm run seed:admin
+
 # Start development server (hot reload via tsx)
 npm run dev
 ```
@@ -243,6 +289,8 @@ The server starts on `http://localhost:4000`.
 ```bash
 npm run build             # Compile TypeScript to dist/
 npm run start             # Run compiled output
+npm run test              # Run Vitest test suite
+npm run test:coverage     # Run tests with coverage report
 npm run prisma:studio     # Open Prisma visual database browser
 npm run prisma:deploy     # Apply migrations in production
 ```

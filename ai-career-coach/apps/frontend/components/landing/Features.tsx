@@ -66,7 +66,7 @@ export function Features() {
             <span className="text-muted-foreground">land your next role.</span>
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto text-base leading-relaxed">
-            Five integrated tools working together to give you an unfair advantage in your job search.
+            Five AI-powered tools working together to give you an unfair advantage in your job search.
           </p>
         </AnimatedSection>
 

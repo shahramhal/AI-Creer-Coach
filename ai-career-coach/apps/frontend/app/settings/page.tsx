@@ -6,12 +6,10 @@ import { useAuth } from '@/context/authContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CareerPreferencesTab } from '@/components/settings/CareerPreferencesTab';
-import { NotificationsTab } from '@/components/settings/NotificationsTab';
-import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 import { AccountTab } from '@/components/settings/AccountTab';
-import { Settings, Bell, Link2, User } from 'lucide-react';
+import { Settings, User } from 'lucide-react';
 
-const VALID_TABS = ['career-preferences', 'notifications', 'integrations', 'account'] as const;
+const VALID_TABS = ['career-preferences', 'account'] as const;
 
 function SettingsContent() {
   const router = useRouter();
@@ -55,18 +53,10 @@ function SettingsContent() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(val) => router.replace(`/settings?tab=${val}`)}>
-          <TabsList className="grid w-full grid-cols-4 sm:inline-flex sm:w-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
             <TabsTrigger value="career-preferences" className="gap-2">
               <Settings className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">Career Preferences</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">Notifications</span>
-            </TabsTrigger>
-            <TabsTrigger value="integrations" className="gap-2">
-              <Link2 className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">Integrations</span>
             </TabsTrigger>
             <TabsTrigger value="account" className="gap-2">
               <User className="h-4 w-4 shrink-0" />
@@ -76,14 +66,6 @@ function SettingsContent() {
 
           <TabsContent value="career-preferences">
             <CareerPreferencesTab />
-          </TabsContent>
-
-          <TabsContent value="notifications">
-            <NotificationsTab />
-          </TabsContent>
-
-          <TabsContent value="integrations">
-            <IntegrationsTab />
           </TabsContent>
 
           <TabsContent value="account">

@@ -54,18 +54,6 @@ describe('TopNav - search button', () => {
   });
 });
 
-describe('TopNav - notifications', () => {
-  it('should render the notifications button', () => {
-    render(<TopNav />);
-    expect(screen.getByRole('button', { name: /notifications/i })).toBeInTheDocument();
-  });
-
-  it('should display a notification count badge', () => {
-    render(<TopNav />);
-    expect(screen.getByText('3')).toBeInTheDocument();
-  });
-});
-
 describe('TopNav - user display', () => {
   it('should display the user initials when no avatar URL is provided', () => {
     render(<TopNav />);
@@ -97,7 +85,7 @@ describe('TopNav - dropdown menu', () => {
   it('should render the user menu trigger button', () => {
     render(<TopNav />);
     const allButtons = screen.getAllByRole('button');
-    // The user dropdown trigger is the last button in the header (after menu + search + notifications)
+    // The user dropdown trigger is the last button in the header (after menu + search)
     expect(allButtons.length).toBeGreaterThanOrEqual(3);
   });
 

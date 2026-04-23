@@ -28,9 +28,9 @@ describe('StatsBar', () => {
     expect(screen.getByText('Core AI Tools')).toBeInTheDocument();
   });
 
-  it('should render the "Integrated Services" stat label', () => {
+  it('should render the "Job Sources" stat label', () => {
     render(<StatsBar />);
-    expect(screen.getByText('Integrated Services')).toBeInTheDocument();
+    expect(screen.getByText('Job Sources')).toBeInTheDocument();
   });
 
   it('should render the "Setup Time" stat label', () => {
@@ -50,7 +50,7 @@ describe('StatsBar', () => {
 
   it('should render four stat items in total', () => {
     render(<StatsBar />);
-    const statLabels = ['Core AI Tools', 'Integrated Services', 'Setup Time', 'Free to Start'];
+    const statLabels = ['Core AI Tools', 'Job Sources', 'Setup Time', 'Free to Start'];
     statLabels.forEach((label) => {
       expect(screen.getByText(label)).toBeInTheDocument();
     });

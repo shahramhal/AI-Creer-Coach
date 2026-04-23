@@ -10,7 +10,7 @@ import { AnimatedSection, AnimatedElement, AnimatedCounter } from './AnimatedWra
 
 const platformStats = [
   { value: 6, suffix: '+', label: 'Core AI Tools', icon: FileText },
-  { value: 3, suffix: '', label: 'Integrated Services', icon: Briefcase },
+  { value: 3, suffix: '', label: 'Job Sources', icon: Briefcase },
   { value: 10, suffix: 'min', label: 'Setup Time', icon: Target },
   { value: 100, suffix: '%', label: 'Free to Start', icon: TrendingUp },
 ];

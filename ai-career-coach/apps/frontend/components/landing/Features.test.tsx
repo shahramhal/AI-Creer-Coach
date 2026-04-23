@@ -34,7 +34,7 @@ describe('Features', () => {
 
   it('should render the descriptor paragraph', () => {
     render(<Features />);
-    expect(screen.getByText(/Five integrated tools/i)).toBeInTheDocument();
+    expect(screen.getByText(/Five AI-powered tools/i)).toBeInTheDocument();
   });
 
   it('should render all five feature card headings', () => {

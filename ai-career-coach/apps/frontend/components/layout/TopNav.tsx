@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Bell, Menu, User, Settings, LogOut, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Search, Menu, User, Settings, LogOut, ChevronDown, Sun, Moon } from 'lucide-react';
 import { API_BASE_URL } from '../../library/config';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { useAuth } from '../../context/authContext';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -97,13 +96,6 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         </button>
 
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
-          <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-            <Bell className="h-5 w-5 text-muted-foreground" />
-            <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs">
-              3
-            </Badge>
-          </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

@@ -165,16 +165,41 @@ Return ONLY the JSON object, no additional text."""
         # Parse JSON
         try:
             parsed_data = json.loads(response_text)
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             # Try to find JSON object in response
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
-                parsed_data = json.loads(json_match.group(0))
+                try:
+                    parsed_data = json.loads(json_match.group(0))
+                except json.JSONDecodeError:
+                    parsed_data = self._retry_with_repair(cv_text)
             else:
-                raise ValueError(f"Failed to parse JSON from LLM response: {e}")
-        
+                parsed_data = self._retry_with_repair(cv_text)
+
+
         return parsed_data
-    
+
+    def _retry_with_repair(self, cv_text: str) -> Dict:
+        """Retry parsing with a shorter, stricter prompt to avoid JSON truncation."""
+        prompt = (
+            "Extract the following fields from this CV as valid JSON only. "
+            "Use null for any missing field. No explanations, no markdown.\n\n"
+            f"CV:\n{cv_text[:6000]}\n\n"
+            'Return exactly: {"contact_info":{"name":null,"email":null,"phone":null,'
+            '"linkedin":null,"location":null},"summary":null,"skills":[],'
+            '"experience":[],"education":[],"projects":[],"certifications":[]}'
+        )
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=4096,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        text = response.content[0].text.strip()
+        text = re.sub(r'^```(?:json)?\s*', '', text)
+        text = re.sub(r'\s*```$', '', text).strip()
+        return json.loads(text)
+
     def _calculate_confidence(self, parsed_data: Dict) -> Dict:
         """
         Calculate confidence scores for parsed data
@@ -233,7 +258,6 @@ Return ONLY the JSON object, no additional text."""
                 edu_qualities.append(quality)
             scores['education'] = sum(edu_qualities) / len(edu_qualities)
         
-        # Skills scoring (15% weight)
         skills = parsed_data.get('skills', [])
         if skills:
             skill_count = len(skills)
@@ -254,7 +278,7 @@ Return ONLY the JSON object, no additional text."""
                 quality_checks = [
                     bool(proj.get('name')),
                     bool(proj.get('description')),
-                    len(proj.get('technologies', [])) > 0
+                    len(proj.get('technologies') or []) > 0
                 ]
                 quality = sum(quality_checks) / len(quality_checks)
                 proj_qualities.append(quality)
@@ -265,6 +289,9 @@ Return ONLY the JSON object, no additional text."""
         if certifications:
             cert_qualities = []
             for cert in certifications:
+                if isinstance(cert, str):
+                    cert_qualities.append(1.0 if cert else 0.0)
+                    continue
                 quality_checks = [
                     bool(cert.get('name')),
                     bool(cert.get('issuer')),

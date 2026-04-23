@@ -1,6 +1,5 @@
 """
 Unified CV Parser - Combines PDF/DOCX extraction with LLM parsing
-Production-ready for Django integration
 """
 
 import io
@@ -37,9 +36,9 @@ class CVParser:
             Structured CV data
         """
         # Step 1: Extract text
-        if filename.endswith('.pdf'):
+        if filename.lower().endswith('.pdf'):
             text = self._extract_text_from_pdf(file_content)
-        elif filename.endswith('.docx'):
+        elif filename.lower().endswith('.docx'):
             text = self._extract_text_from_docx(file_content)
         else:
             raise ValueError(f"Unsupported file format: {filename}")

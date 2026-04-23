@@ -96,16 +96,13 @@ export function JobMatchCard({ job, alreadyApplied = false }: JobMatchCardProps)
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600 dark:text-green-400";
-    if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
+    if (score >= 80) return "text-metric-excellent";
+    if (score >= 60) return "text-metric-good";
+    if (score >= 30) return "text-metric-average";
+    return "text-metric-poor";
   };
 
-  const getProgressColor = (score: number) => {
-    if (score >= 70) return "[&>div]:bg-green-500";
-    if (score >= 40) return "[&>div]:bg-yellow-500";
-    return "[&>div]:bg-red-400";
-  };
+  const getProgressColor = (_score: number) => "";
 
   const breakdown = job.match_breakdown;
 

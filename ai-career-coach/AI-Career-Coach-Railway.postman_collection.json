@@ -1,0 +1,885 @@
+{
+  "info": {
+    "name": "AI Career Coach API - Railway",
+    "description": "Production collection for AI Career Coach (Railway deployment). Run POST /auth/login first - the test script automatically saves the accessToken to both collection and environment variables. Make sure the 'AI Career Coach - Railway' environment is selected.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://backend-production-fac8.up.railway.app/api/v1", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "userId", "value": "", "type": "string" },
+    { "key": "cvId", "value": "", "type": "string" },
+    { "key": "jobId", "value": "", "type": "string" },
+    { "key": "applicationId", "value": "", "type": "string" },
+    { "key": "learningPathId", "value": "", "type": "string" },
+    { "key": "courseId", "value": "", "type": "string" },
+    { "key": "targetUserId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data) {",
+                  "  if (res.data.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "    pm.environment.set('accessToken', res.data.accessToken);",
+                  "  }",
+                  "  if (res.data.user && res.data.user.id) {",
+                  "    pm.collectionVariables.set('userId', res.data.user.id);",
+                  "    pm.environment.set('userId', res.data.user.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"testuser@example.com\",\n  \"password\": \"Password123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data) {",
+                  "  if (res.data.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "    pm.environment.set('accessToken', res.data.accessToken);",
+                  "  }",
+                  "  if (res.data.user && res.data.user.id) {",
+                  "    pm.collectionVariables.set('userId', res.data.user.id);",
+                  "    pm.environment.set('userId', res.data.user.id);",
+                  "  }",
+                  "  pm.test('Login successful', () => pm.response.to.have.status(200));",
+                  "  pm.test('accessToken saved', () => pm.environment.get('accessToken') !== '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"Password123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  pm.environment.set('accessToken', res.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] },
+            "description": "Uses the httpOnly refresh cookie set by Login. Make sure cookies are enabled."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth", "logout"] }
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-email?token=EMAIL_VERIFY_TOKEN_HERE",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify-email"],
+              "query": [{ "key": "token", "value": "EMAIL_VERIFY_TOKEN_HERE" }]
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["auth", "forgot-password"] }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"RESET_TOKEN_FROM_EMAIL\",\n  \"password\": \"NewPassword123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["auth", "reset-password"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"jobTitle\": \"Software Engineer\",\n  \"bio\": \"Backend developer with 3 years experience\",\n  \"location\": \"London, UK\",\n  \"linkedinUrl\": \"https://linkedin.com/in/johndoe\",\n  \"githubUrl\": \"https://github.com/johndoe\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/profile", "host": ["{{baseUrl}}"], "path": ["profile"] }
+          }
+        },
+        {
+          "name": "Get Career Preferences",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/profile/preferences", "host": ["{{baseUrl}}"], "path": ["profile", "preferences"] }
+          }
+        },
+        {
+          "name": "Update Career Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetRole\": \"Senior Software Engineer\",\n  \"experienceLevel\": \"mid\",\n  \"location\": \"London\",\n  \"workArrangements\": [\"remote\", \"hybrid\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/profile/preferences", "host": ["{{baseUrl}}"], "path": ["profile", "preferences"] }
+          }
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "avatar", "type": "file", "src": "" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/profile/avatar", "host": ["{{baseUrl}}"], "path": ["profile", "avatar"] }
+          }
+        },
+        {
+          "name": "Delete Avatar",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/profile/avatar", "host": ["{{baseUrl}}"], "path": ["profile", "avatar"] }
+          }
+        },
+        {
+          "name": "Get Public Profile",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/profile/{{userId}}", "host": ["{{baseUrl}}"], "path": ["profile", "{{userId}}"] }
+          }
+        },
+        {
+          "name": "Export User Data (GDPR)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/profile/export", "host": ["{{baseUrl}}"], "path": ["profile", "export"] }
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/profile/account", "host": ["{{baseUrl}}"], "path": ["profile", "account"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "CV / ML",
+      "item": [
+        {
+          "name": "Parse CV",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('cvId', res.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "PDF or DOCX file, max 10MB" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/ml/parse-cv", "host": ["{{baseUrl}}"], "path": ["ml", "parse-cv"] }
+          }
+        },
+        {
+          "name": "List CVs",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/ml/cvs", "host": ["{{baseUrl}}"], "path": ["ml", "cvs"] }
+          }
+        },
+        {
+          "name": "Get CV",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/ml/cvs/{{cvId}}", "host": ["{{baseUrl}}"], "path": ["ml", "cvs", "{{cvId}}"] }
+          }
+        },
+        {
+          "name": "Set CV as Primary",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/ml/cvs/{{cvId}}/primary", "host": ["{{baseUrl}}"], "path": ["ml", "cvs", "{{cvId}}", "primary"] }
+          }
+        },
+        {
+          "name": "Analyze CV (ATS + Keywords)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/ml/cvs/{{cvId}}/analyze", "host": ["{{baseUrl}}"], "path": ["ml", "cvs", "{{cvId}}", "analyze"] }
+          }
+        },
+        {
+          "name": "Download CV",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/ml/cvs/{{cvId}}/download", "host": ["{{baseUrl}}"], "path": ["ml", "cvs", "{{cvId}}", "download"] }
+          }
+        },
+        {
+          "name": "Delete CV",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/ml/cvs/{{cvId}}", "host": ["{{baseUrl}}"], "path": ["ml", "cvs", "{{cvId}}"] }
+          }
+        },
+        {
+          "name": "ML Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/ml/health", "host": ["{{baseUrl}}"], "path": ["ml", "health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Search Jobs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.jobs && res.data.jobs.length > 0) {",
+                  "  pm.collectionVariables.set('jobId', res.data.jobs[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/jobs/search?keywords=software+engineer&location=London",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "search"],
+              "query": [
+                { "key": "keywords", "value": "software engineer" },
+                { "key": "location", "value": "London" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Job Stats",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/jobs/stats", "host": ["{{baseUrl}}"], "path": ["jobs", "stats"] }
+          }
+        },
+        {
+          "name": "Get Countries",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/jobs/countries", "host": ["{{baseUrl}}"], "path": ["jobs", "countries"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Matching",
+      "item": [
+        {
+          "name": "Find Matching Jobs",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cv_id\": \"{{cvId}}\",\n  \"top_k\": 20,\n  \"filters\": {}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/matching/find-jobs", "host": ["{{baseUrl}}"], "path": ["matching", "find-jobs"] }
+          }
+        },
+        {
+          "name": "Matching Diagnostics",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/matching/diagnostics", "host": ["{{baseUrl}}"], "path": ["matching", "diagnostics"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "item": [
+        {
+          "name": "Create Application",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('applicationId', res.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"Acme Corp\",\n  \"jobTitle\": \"Software Engineer\",\n  \"jobId\": \"{{jobId}}\",\n  \"cvId\": \"{{cvId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] }
+          }
+        },
+        {
+          "name": "List Applications",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] }
+          }
+        },
+        {
+          "name": "Application Stats",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/applications/stats", "host": ["{{baseUrl}}"], "path": ["applications", "stats"] }
+          }
+        },
+        {
+          "name": "Update Application Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"interview\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/applications/{{applicationId}}/status", "host": ["{{baseUrl}}"], "path": ["applications", "{{applicationId}}", "status"] }
+          }
+        },
+        {
+          "name": "ATS Check (paste JD)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jobDescription\": \"We are looking for a Senior Software Engineer with 5+ years experience in Node.js, TypeScript, PostgreSQL and cloud platforms such as AWS or GCP. Must have experience with microservices and REST APIs.\",\n  \"cvId\": \"{{cvId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/applications/ats-check", "host": ["{{baseUrl}}"], "path": ["applications", "ats-check"] }
+          }
+        },
+        {
+          "name": "ATS Preview for Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cvId\": \"{{cvId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/applications/jobs/{{jobId}}/ats-preview", "host": ["{{baseUrl}}"], "path": ["applications", "jobs", "{{jobId}}", "ats-preview"] }
+          }
+        },
+        {
+          "name": "Calculate ATS Score for Application",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cvId\": \"{{cvId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/applications/{{applicationId}}/ats-score", "host": ["{{baseUrl}}"], "path": ["applications", "{{applicationId}}", "ats-score"] }
+          }
+        },
+        {
+          "name": "Delete Application",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/applications/{{applicationId}}", "host": ["{{baseUrl}}"], "path": ["applications", "{{applicationId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Salary",
+      "item": [
+        {
+          "name": "Get Salary Insights",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/salary/insights?role=Software+Engineer&location=London&country=GB",
+              "host": ["{{baseUrl}}"],
+              "path": ["salary", "insights"],
+              "query": [
+                { "key": "role", "value": "Software Engineer" },
+                { "key": "location", "value": "London" },
+                { "key": "country", "value": "GB" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Salary Preferences",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetRole\": \"Software Engineer\",\n  \"location\": \"London\",\n  \"country\": \"GB\",\n  \"experienceLevel\": \"mid\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/salary/preferences", "host": ["{{baseUrl}}"], "path": ["salary", "preferences"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Skill Gap",
+      "item": [
+        {
+          "name": "Analyze Skill Gap",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) {",
+                  "  pm.collectionVariables.set('learningPathId', res.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetRole\": \"Senior Software Engineer\",\n  \"cvId\": \"{{cvId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/skill-gap/analyze", "host": ["{{baseUrl}}"], "path": ["skill-gap", "analyze"] }
+          }
+        },
+        {
+          "name": "List Learning Paths",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/skill-gap/learning-paths", "host": ["{{baseUrl}}"], "path": ["skill-gap", "learning-paths"] }
+          }
+        },
+        {
+          "name": "Get Learning Path",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/skill-gap/learning-paths/{{learningPathId}}", "host": ["{{baseUrl}}"], "path": ["skill-gap", "learning-paths", "{{learningPathId}}"] }
+          }
+        },
+        {
+          "name": "Update Learning Path Progress",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"progressPercentage\": 50,\n  \"status\": \"in_progress\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/skill-gap/learning-paths/{{learningPathId}}/progress", "host": ["{{baseUrl}}"], "path": ["skill-gap", "learning-paths", "{{learningPathId}}", "progress"] }
+          }
+        },
+        {
+          "name": "Update Course Progress",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"progress\": 75,\n  \"status\": \"in_progress\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/skill-gap/courses/{{courseId}}/progress", "host": ["{{baseUrl}}"], "path": ["skill-gap", "courses", "{{courseId}}", "progress"] }
+          }
+        },
+        {
+          "name": "Progress Summary",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/skill-gap/summary", "host": ["{{baseUrl}}"], "path": ["skill-gap", "summary"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Recent Activity",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/recent-activity?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "recent-activity"],
+              "query": [{ "key": "limit", "value": "10" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "All endpoints require ADMIN role. Make sure you are logged in as an admin user.",
+      "item": [
+        {
+          "name": "Dashboard",
+          "item": [
+            {
+              "name": "Platform Stats",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/dashboard/stats", "host": ["{{baseUrl}}"], "path": ["admin", "dashboard", "stats"] }
+              }
+            },
+            {
+              "name": "User Growth",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/dashboard/user-growth", "host": ["{{baseUrl}}"], "path": ["admin", "dashboard", "user-growth"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Users",
+          "item": [
+            {
+              "name": "List Users",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/admin/users?page=1&limit=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "users"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" },
+                    { "key": "search", "value": "", "disabled": true },
+                    { "key": "role", "value": "USER", "disabled": true }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get User Detail",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/users/{{targetUserId}}", "host": ["{{baseUrl}}"], "path": ["admin", "users", "{{targetUserId}}"] }
+              }
+            },
+            {
+              "name": "Enable/Disable User",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"isDisabled\": true\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": { "raw": "{{baseUrl}}/admin/users/{{targetUserId}}/status", "host": ["{{baseUrl}}"], "path": ["admin", "users", "{{targetUserId}}", "status"] }
+              }
+            },
+            {
+              "name": "Promote to Admin",
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{baseUrl}}/admin/users/{{targetUserId}}/promote", "host": ["{{baseUrl}}"], "path": ["admin", "users", "{{targetUserId}}", "promote"] }
+              }
+            },
+            {
+              "name": "Demote from Admin",
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{baseUrl}}/admin/users/{{targetUserId}}/demote", "host": ["{{baseUrl}}"], "path": ["admin", "users", "{{targetUserId}}", "demote"] }
+              }
+            },
+            {
+              "name": "Force Password Reset",
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{baseUrl}}/admin/users/{{targetUserId}}/force-reset-password", "host": ["{{baseUrl}}"], "path": ["admin", "users", "{{targetUserId}}", "force-reset-password"] }
+              }
+            },
+            {
+              "name": "Delete User",
+              "request": {
+                "method": "DELETE",
+                "url": { "raw": "{{baseUrl}}/admin/users/{{targetUserId}}", "host": ["{{baseUrl}}"], "path": ["admin", "users", "{{targetUserId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jobs",
+          "item": [
+            {
+              "name": "List Jobs",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/admin/jobs?page=1&limit=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "jobs"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" },
+                    { "key": "search", "value": "", "disabled": true }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Job Stats",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/jobs/stats", "host": ["{{baseUrl}}"], "path": ["admin", "jobs", "stats"] }
+              }
+            },
+            {
+              "name": "Trigger Job Fetch",
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{baseUrl}}/admin/jobs/fetch", "host": ["{{baseUrl}}"], "path": ["admin", "jobs", "fetch"] }
+              }
+            },
+            {
+              "name": "Trigger Job Cleanup",
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{baseUrl}}/admin/jobs/cleanup", "host": ["{{baseUrl}}"], "path": ["admin", "jobs", "cleanup"] }
+              }
+            },
+            {
+              "name": "Delete Job",
+              "request": {
+                "method": "DELETE",
+                "url": { "raw": "{{baseUrl}}/admin/jobs/{{jobId}}", "host": ["{{baseUrl}}"], "path": ["admin", "jobs", "{{jobId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "System",
+          "item": [
+            {
+              "name": "Health Check",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/system/health", "host": ["{{baseUrl}}"], "path": ["admin", "system", "health"] }
+              }
+            },
+            {
+              "name": "Cache Stats",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/system/cache", "host": ["{{baseUrl}}"], "path": ["admin", "system", "cache"] }
+              }
+            },
+            {
+              "name": "Queue Status",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/system/queues", "host": ["{{baseUrl}}"], "path": ["admin", "system", "queues"] }
+              }
+            },
+            {
+              "name": "Database Stats",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/system/database", "host": ["{{baseUrl}}"], "path": ["admin", "system", "database"] }
+              }
+            },
+            {
+              "name": "Performance Metrics",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/system/performance", "host": ["{{baseUrl}}"], "path": ["admin", "system", "performance"] }
+              }
+            },
+            {
+              "name": "Get Web Vitals",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/admin/system/vitals", "host": ["{{baseUrl}}"], "path": ["admin", "system", "vitals"] }
+              }
+            },
+            {
+              "name": "Report Web Vitals",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"LCP\",\n  \"value\": 1200,\n  \"rating\": \"good\",\n  \"delta\": 1200\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": { "raw": "{{baseUrl}}/admin/system/vitals", "host": ["{{baseUrl}}"], "path": ["admin", "system", "vitals"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Audit Logs",
+          "item": [
+            {
+              "name": "List Audit Logs",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/admin/audit-logs?page=1&limit=50",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "audit-logs"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "action", "value": "", "disabled": true },
+                    { "key": "adminId", "value": "", "disabled": true }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

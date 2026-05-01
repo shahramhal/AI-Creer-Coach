@@ -1,0 +1,374 @@
+{
+  "info": {
+    "name": "AI Career Coach - Performance Test",
+    "description": "Dedicated load test collection. Only safe, fast, read-heavy endpoints. No destructive operations, no file uploads, no external API calls. Set PERF_EMAIL and PERF_PASSWORD in the environment before running - use a pre-existing account (admin recommended so admin endpoints are tested too).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const token = pm.environment.get('accessToken');",
+          "const tokenExpiry = pm.environment.get('tokenExpiry');",
+          "const now = Date.now();",
+          "",
+          "const needsLogin = !token || (tokenExpiry && now >= parseInt(tokenExpiry));",
+          "",
+          "if (needsLogin) {",
+          "  const baseUrl = pm.environment.get('baseUrl') || pm.collectionVariables.get('baseUrl');",
+          "  const email = pm.environment.get('PERF_EMAIL');",
+          "  const password = pm.environment.get('PERF_PASSWORD');",
+          "",
+          "  if (!email || !password) {",
+          "    console.error('PERF_EMAIL and PERF_PASSWORD must be set in the environment');",
+          "    return;",
+          "  }",
+          "",
+          "  pm.sendRequest({",
+          "    url: baseUrl + '/auth/login',",
+          "    method: 'POST',",
+          "    header: { 'Content-Type': 'application/json' },",
+          "    body: {",
+          "      mode: 'raw',",
+          "      raw: JSON.stringify({ email: email, password: password })",
+          "    }",
+          "  }, function(err, res) {",
+          "    if (!err && res.code === 200) {",
+          "      const body = res.json();",
+          "      if (body.success && body.data && body.data.accessToken) {",
+          "        pm.environment.set('accessToken', body.data.accessToken);",
+          "        pm.environment.set('tokenExpiry', String(Date.now() + 50 * 60 * 1000));",
+          "        if (body.data.user) {",
+          "          pm.environment.set('userId', body.data.user.id);",
+          "        }",
+          "      }",
+          "    }",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://backend-production-fac8.up.railway.app/api/v1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get Career Preferences",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/profile/preferences", "host": ["{{baseUrl}}"], "path": ["profile", "preferences"] }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Perf\",\n  \"lastName\": \"Test\",\n  \"jobTitle\": \"Software Engineer\",\n  \"bio\": \"Load test bio\",\n  \"location\": \"London, UK\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/profile", "host": ["{{baseUrl}}"], "path": ["profile"] }
+          }
+        },
+        {
+          "name": "Update Career Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetRole\": \"Senior Software Engineer\",\n  \"experienceLevel\": \"mid\",\n  \"location\": \"London\",\n  \"workArrangements\": [\"remote\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/profile/preferences", "host": ["{{baseUrl}}"], "path": ["profile", "preferences"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "CV",
+      "item": [
+        {
+          "name": "List CVs",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/ml/cvs", "host": ["{{baseUrl}}"], "path": ["ml", "cvs"] }
+          }
+        },
+        {
+          "name": "ML Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/ml/health", "host": ["{{baseUrl}}"], "path": ["ml", "health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Get Countries",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/jobs/countries", "host": ["{{baseUrl}}"], "path": ["jobs", "countries"] }
+          }
+        },
+        {
+          "name": "Search Jobs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/jobs/search?keywords=software+engineer&location=London",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "search"],
+              "query": [
+                { "key": "keywords", "value": "software engineer" },
+                { "key": "location", "value": "London" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Job Stats",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/jobs/stats", "host": ["{{baseUrl}}"], "path": ["jobs", "stats"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Matching",
+      "item": [
+        {
+          "name": "Matching Diagnostics",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/matching/diagnostics", "host": ["{{baseUrl}}"], "path": ["matching", "diagnostics"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "item": [
+        {
+          "name": "List Applications",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] }
+          }
+        },
+        {
+          "name": "Application Stats",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/applications/stats", "host": ["{{baseUrl}}"], "path": ["applications", "stats"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Salary",
+      "item": [
+        {
+          "name": "Get Salary Insights",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/salary/insights?role=Software+Engineer&location=London&country=GB",
+              "host": ["{{baseUrl}}"],
+              "path": ["salary", "insights"],
+              "query": [
+                { "key": "role", "value": "Software Engineer" },
+                { "key": "location", "value": "London" },
+                { "key": "country", "value": "GB" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Salary Preferences",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetRole\": \"Software Engineer\",\n  \"location\": \"London\",\n  \"country\": \"GB\",\n  \"experienceLevel\": \"mid\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/salary/preferences", "host": ["{{baseUrl}}"], "path": ["salary", "preferences"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Skill Gap",
+      "item": [
+        {
+          "name": "List Learning Paths",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/skill-gap/learning-paths", "host": ["{{baseUrl}}"], "path": ["skill-gap", "learning-paths"] }
+          }
+        },
+        {
+          "name": "Progress Summary",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/skill-gap/summary", "host": ["{{baseUrl}}"], "path": ["skill-gap", "summary"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Recent Activity",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/recent-activity?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "recent-activity"],
+              "query": [{ "key": "limit", "value": "10" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Platform Stats",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/dashboard/stats", "host": ["{{baseUrl}}"], "path": ["admin", "dashboard", "stats"] }
+          }
+        },
+        {
+          "name": "User Growth",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/dashboard/user-growth", "host": ["{{baseUrl}}"], "path": ["admin", "dashboard", "user-growth"] }
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/users?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/system/health", "host": ["{{baseUrl}}"], "path": ["admin", "system", "health"] }
+          }
+        },
+        {
+          "name": "Cache Stats",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/system/cache", "host": ["{{baseUrl}}"], "path": ["admin", "system", "cache"] }
+          }
+        },
+        {
+          "name": "Queue Status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/system/queues", "host": ["{{baseUrl}}"], "path": ["admin", "system", "queues"] }
+          }
+        },
+        {
+          "name": "Database Stats",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/system/database", "host": ["{{baseUrl}}"], "path": ["admin", "system", "database"] }
+          }
+        },
+        {
+          "name": "Performance Metrics",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/admin/system/performance", "host": ["{{baseUrl}}"], "path": ["admin", "system", "performance"] }
+          }
+        },
+        {
+          "name": "List Jobs (Admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/jobs?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "jobs"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/audit-logs?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "audit-logs"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

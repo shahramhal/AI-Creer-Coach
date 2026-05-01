@@ -9,7 +9,7 @@ interface Props {
 }
 
 const statCards = [
-  { key: 'totalUsers', label: 'Total Users', icon: Users, color: 'text-blue-500' },
+  { key: 'totalUsers', label: 'Total Users', icon: Users, color: 'text- red-500' },
   { key: 'totalCVs', label: 'Total CVs', icon: FileText, color: 'text-green-500' },
   { key: 'totalJobs', label: 'Total Jobs', icon: Briefcase, color: 'text-purple-500' },
   { key: 'totalApplications', label: 'Applications', icon: ClipboardList, color: 'text-orange-500' },
